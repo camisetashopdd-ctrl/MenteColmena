@@ -1,0 +1,1528 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TikiTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EDF0EA; --surface:#F8FAF6; --surface-2:#E2E7DF; --ink:#151A16; --muted:#586359; --line:#D0D8CF;
+  --honey:#B98700; --honey-fill:#F2B705; --honey-ink:#1A1400; --kit:#16140F;
+  --win:#1E8A55; --loss:#C63A2F; --candle:#3A443D; --grid:rgba(21,26,22,.07); --dd:rgba(198,58,47,.10);
+  --ema20:#C99400; --ema50:#D2761C; --ema200:#6B766E;
+  --display:"Saira Condensed","Arial Narrow",ui-sans-serif,system-ui,sans-serif;
+  --sans:"Barlow",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0D1410; --surface:#131C16; --surface-2:#1B261E; --ink:#E6ECE6; --muted:#8FA096; --line:#26332A;
+    --honey:#F2B705; --win:#3FC07F; --loss:#EE6B5E; --candle:#B8C4BB; --grid:rgba(230,236,230,.06); --dd:rgba(238,107,94,.13);
+    --ema20:#F2C94C; --ema50:#F0A04E; --ema200:#8C9990;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0D1410; --surface:#131C16; --surface-2:#1B261E; --ink:#E6ECE6; --muted:#8FA096; --line:#26332A;
+  --honey:#F2B705; --win:#3FC07F; --loss:#EE6B5E; --candle:#B8C4BB; --grid:rgba(230,236,230,.06); --dd:rgba(238,107,94,.13);
+  --ema20:#F2C94C; --ema50:#F0A04E; --ema200:#8C9990;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px;padding-block:16px 56px;display:flex;flex-direction:column;gap:18px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance;font-family:var(--display);letter-spacing:.01em}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--honey);outline-offset:2px}
+code{font-family:var(--mono);font-size:.9em}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pos{color:var(--win)} .neg{color:var(--loss)}
+
+/* ---------- scoreboard ---------- */
+.board{background:var(--kit);color:#F4F1E6;border-radius:10px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px 22px;padding:12px 18px;box-shadow:0 1px 0 rgba(0,0,0,.2)}
+.board .crest{width:52px;height:58px;flex:none}
+.board .teams{display:flex;align-items:center;gap:14px;flex-wrap:wrap;min-width:0}
+.team{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.04em;text-transform:uppercase;line-height:1}
+.team.us{color:#F2B705}
+.team.them{color:#C9CEC6}
+.score{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;font-variant-numeric:tabular-nums;background:#F4F1E6;color:#16140F;padding:2px 14px 0;border-radius:6px;min-width:112px;text-align:center}
+.board .meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:13px;color:#C9CEC6;text-align:right}
+.board .meta b{color:#F4F1E6;font-weight:600}
+.board .net{font-family:var(--mono);font-size:15px}
+.result{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.08em;text-transform:uppercase;padding:1px 8px;border-radius:4px;background:#C9CEC6;color:#16140F}
+.result.w{background:#6EDC9F}.result.l{background:#FF8A7D}
+.board .net.pos{color:#6EDC9F} .board .net.neg{color:#FF8A7D}
+@media (max-width:760px){.board{grid-template-columns:auto 1fr}.board .meta{grid-column:1/-1;align-items:flex-start;text-align:left}.team{font-size:20px}.score{font-size:34px;min-width:88px}}
+
+/* ---------- pitch + narration ---------- */
+.match{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:16px;align-items:stretch}
+@media (max-width:1000px){.match{grid-template-columns:minmax(0,1fr)}}
+.pitch-card{background:#1D5634;border-radius:10px;overflow:hidden;position:relative}
+.pitch-card svg{display:block;width:100%;height:auto}
+.pitch-cap{position:absolute;left:12px;right:12px;top:28px;display:flex;justify-content:space-between;gap:10px;align-items:flex-end;pointer-events:none}
+.pitch-cap .cap{background:rgba(10,20,14,.78);color:#EEF2EC;font-size:13px;padding:5px 10px;border-radius:6px;max-width:75%}
+.pitch-cap .cap b{color:#F2B705;font-weight:600}
+.banner{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.banner span{font-family:var(--display);font-weight:800;font-size:clamp(40px,9vw,96px);letter-spacing:.04em;color:#F2B705;text-shadow:0 3px 0 #16140F,0 0 30px rgba(0,0,0,.4);transform:scale(.6);opacity:0;transition:transform .35s cubic-bezier(.2,1.6,.4,1),opacity .2s}
+.banner span.loss{color:#FF8A7D}
+.banner.show span{transform:scale(1);opacity:1}
+.pl .ring{fill:none;stroke-width:4}
+.pl.pass .ring{stroke:#6EDC9F}
+.pl.lost .ring{stroke:#FF6B5B}
+.pl.idle .ring{stroke:rgba(255,255,255,.25)}
+.pl.bench{opacity:.45}
+.pl.bench .ring{stroke:#EEF2EC;stroke-dasharray:4 4}
+.pl text{font-family:var(--display);pointer-events:none}
+.pl{cursor:pointer}
+.ball{transition:transform .42s cubic-bezier(.45,.05,.3,1)}
+@media (prefers-reduced-motion: reduce){.ball{transition:none}.banner span{transition:none}}
+
+.narr{background:var(--surface);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0}
+.narr-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.narr-head h2{font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.narr-head .live{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.narr ol{list-style:none;margin:0;padding:10px 14px;display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:430px}
+.narr li{display:grid;grid-template-columns:40px minmax(0,1fr);gap:10px;align-items:start;font-size:14px;line-height:1.4}
+.narr li .no{font-family:var(--display);font-weight:800;font-size:15px;background:var(--honey-fill);color:var(--honey-ink);border-radius:4px;text-align:center;padding:1px 0}
+.narr li.goal .no{background:var(--win);color:#fff} .narr li.against .no{background:var(--loss);color:#fff}
+.narr li .no.min{background:var(--kit);color:#F4F1E6}
+.narr li b{font-weight:600}
+.narr li.big{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:.02em}
+.narr li.big.goal{color:var(--win)} .narr li.big.against{color:var(--loss)}
+.narr-foot{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);margin-top:auto}
+
+/* ---------- controls ---------- */
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:end}
+.ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.ctl select,.ctl input{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 9px;font-size:14px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500}
+.ctl input[type=number]{width:84px;font-family:var(--mono)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 13px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);text-transform:none;letter-spacing:0}
+.seg button[aria-pressed=true]{background:var(--kit);color:#F2B705}
+.v3{margin-bottom:26px;padding-bottom:22px;border-bottom:1px solid var(--line)}.v3 h3{margin-top:0}
+.v3cols{display:grid;grid-template-columns:1fr 1fr;gap:4px 28px}@media (max-width:900px){.v3cols{grid-template-columns:1fr}}
+table.nowrap td,table.nowrap th{white-space:nowrap}
+@media (max-width:480px){.seg{flex-wrap:wrap}.seg button{padding:7px 10px}}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 13px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--honey)}
+.btn.primary{background:var(--honey-fill);border-color:var(--honey-fill);color:var(--honey-ink)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.tactic-desc{font-size:13px;color:var(--muted);max-width:60ch}
+.msg{font-size:13px;color:var(--loss)}
+
+/* ---------- match stats ---------- */
+.statsrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.statsrow{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 16px 0}
+.panel-head h2{font-size:18px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.panel-head span{font-size:12px;color:var(--muted)}
+.bstats{padding:10px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.bs{display:grid;grid-template-columns:90px minmax(0,1fr) 90px;gap:10px;align-items:center}
+.bs .l,.bs .r{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px}
+.bs .r{text-align:right;color:var(--muted)}
+.bs .mid{display:flex;flex-direction:column;gap:3px;align-items:center}
+.bs .mid span{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.bs .bar{display:flex;width:100%;height:8px;border-radius:4px;overflow:hidden;background:var(--surface-2)}
+.bs .bar i{display:block;height:100%}
+.bs .bar i.us{background:var(--honey-fill)} .bs .bar i.them{background:var(--ema200);opacity:.6}
+.eq-box{position:relative;height:190px;margin:8px 12px 12px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+.kpis{display:flex;flex-wrap:wrap;gap:6px 18px;padding:4px 16px 0;font-size:13px;color:var(--muted)}
+.kpis b{color:var(--ink);font-family:var(--mono);font-weight:500}
+
+/* ---------- replay chart ---------- */
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:12px 16px 8px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--ink);background:#fff}
+.legend i.x{width:10px;height:10px;border:0;background:linear-gradient(45deg,transparent 40%,var(--loss) 40%,var(--loss) 60%,transparent 60%),linear-gradient(-45deg,transparent 40%,var(--loss) 40%,var(--loss) 60%,transparent 60%)}
+.legend i.tri{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--honey-fill)}
+.chart-box{position:relative;height:430px}
+@media (max-width:600px){.chart-box{height:340px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:6px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 16px 12px;display:flex;align-items:center;gap:10px}
+.scroller input{flex:1;accent-color:var(--honey-fill)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:12px 14px;cursor:pointer;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--honey-fill)}
+.tabpanel{padding:16px}
+.note{color:var(--muted);font-size:13.5px;max-width:80ch;margin:12px 0 0}
+.table-scroll{overflow:auto;max-height:460px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th.l,td.l{text-align:left}
+td.t{font-family:var(--sans)}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--honey-fill) 18%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:12px;font-weight:700;padding:1px 9px;border-radius:999px;letter-spacing:.02em}
+.pill.g{background:color-mix(in srgb,var(--win) 18%,transparent);color:var(--win)}
+.pill.r{background:color-mix(in srgb,var(--loss) 16%,transparent);color:var(--loss)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.pill.h{background:var(--honey-fill);color:var(--honey-ink)}
+
+/* lineup */
+.lineup{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:9px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.card.benched{opacity:.7}
+.card-top{display:flex;align-items:center;gap:10px}
+.shirt{width:38px;height:38px;border-radius:50%;background:var(--honey-fill);color:var(--honey-ink);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:18px;flex:none;border:3px solid var(--kit)}
+.card-top h3{font-size:19px;font-weight:700;line-height:1.1}
+.card-top p{margin:0;font-size:12.5px;color:var(--muted)}
+.card .sw{margin-left:auto}
+.fields{display:flex;flex-direction:column;gap:7px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13.5px}
+.field label{flex:1;min-width:0}
+.field input[type=number],.field select{width:92px;flex:none;border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12.5px}
+.field input[type=checkbox]{width:17px;height:17px;accent-color:var(--honey-fill);flex:none}
+.field.changed label{color:var(--honey);font-weight:600}
+.benchres{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.benchres b{font-family:var(--mono);font-weight:500}
+
+.study{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.study{grid-template-columns:minmax(0,1fr)}}
+.study h3,.v3 h3{font-size:20px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.study p,.study li,.v3 p,.v3 li{font-size:14.5px;max-width:70ch}
+.study ul,.v3 ul{padding-left:18px;margin:0;display:flex;flex-direction:column;gap:6px}
+.study table td,.v3 table td{font-family:var(--sans);white-space:normal;text-align:left;vertical-align:top}
+.study table th,.v3 table th{text-align:left}
+.honest{border-left:4px solid var(--honey-fill);background:var(--bg);padding:10px 14px;border-radius:0 8px 8px 0;font-size:14.5px}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:13px}
+pre.code{margin:0;max-height:560px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--honey)} pre.code .st{color:var(--win)} pre.code .nu{color:var(--ema50)}
+.cal td.res{font-family:var(--display);font-weight:700;font-size:16px}
+.coach{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:0}
+@media (max-width:900px){.coach{grid-template-columns:minmax(0,1fr)}}
+.coach-now{padding:12px 16px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+@media (max-width:900px){.coach-now{border-right:0;border-bottom:1px solid var(--line)}}
+.coach-now h2{font-size:18px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;display:flex;align-items:center;gap:10px}
+.coach-now h2 .shirt{width:34px;height:34px;font-size:14px;background:var(--kit);color:#F2B705;border-color:#F2B705}
+.dec{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin:0}
+.dec dt{color:var(--muted)} .dec dd{margin:0;font-weight:600}
+.shadow{display:flex;flex-direction:column;gap:6px}
+.shadow .sh{display:grid;grid-template-columns:100px minmax(0,1fr) 64px;gap:8px;align-items:center;font-size:13px}
+.shadow .sh .track{height:8px;background:var(--surface-2);border-radius:4px;position:relative;overflow:hidden}
+.shadow .sh .track i{position:absolute;top:0;bottom:0;border-radius:4px}
+.shadow .sh b{font-family:var(--mono);font-weight:500;text-align:right}
+.shadow .sh.on span{font-weight:700;color:var(--ink)}
+.shadow .sh span{color:var(--muted)}
+.coach-time{padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.tl-box{position:relative;height:118px}
+.tl-box canvas{position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
+.swatches{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.swatches i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.ctl .seg button:disabled{opacity:.45;cursor:not-allowed}
+.auto-note{font-size:12.5px;color:var(--honey);font-weight:600;text-transform:none;letter-spacing:0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="board" aria-label="Marcador">
+    <svg class="crest" viewBox="0 0 52 58" aria-hidden="true">
+      <polygon points="26,2 50,15 50,43 26,56 2,43 2,15" fill="#F2B705" stroke="#F4F1E6" stroke-width="2"/>
+      <polygon points="26,10 43,19.5 43,38.5 26,48 9,38.5 9,19.5" fill="#16140F"/>
+      <rect x="9" y="25" width="34" height="4" fill="#F2B705"/><rect x="9" y="33" width="34" height="4" fill="#F2B705"/>
+      <text x="26" y="23" text-anchor="middle" font-family="Saira Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="11" fill="#F2B705">TT</text>
+    </svg>
+    <div class="teams">
+      <span class="team us">TikiTrade</span>
+      <span class="score" id="score">0 : 0</span>
+      <span class="team them">Mercado</span>
+    </div>
+    <div class="meta">
+      <span><span class="result" id="b-res">–</span> <span id="b-goals">–</span></span>
+      <span id="b-rival">–</span>
+      <span id="b-coach">–</span>
+      <span class="net" id="b-net">–</span>
+    </div>
+  </header>
+
+  <section class="match">
+    <div class="pitch-card">
+      <svg id="pitch" viewBox="0 0 1000 640" role="img" aria-label="Campo con los siete jugadores de TikiTrade; el balón muestra hasta dónde llegó la jugada"></svg>
+      <div class="banner" id="banner"><span id="banner-text">¡GOL!</span></div>
+      <div class="pitch-cap"><span class="cap" id="pitch-cap"></span></div>
+    </div>
+    <aside class="narr">
+      <div class="narr-head"><h2>Narración</h2><span class="live" id="narr-live"></span></div>
+      <ol id="narr"></ol>
+      <div class="narr-foot">
+        <button class="btn primary" id="replay" type="button">▶ Repetir jugada</button>
+        <button class="btn" id="prev" type="button" aria-label="Jugada anterior">‹ Anterior</button>
+        <button class="btn" id="next" type="button" aria-label="Jugada siguiente">Siguiente ›</button>
+      </div>
+    </aside>
+  </section>
+
+  <section class="controls" aria-label="Partido">
+    <label class="ctl" for="rival">Partido<select id="rival"></select></label>
+    <div class="ctl"><span>Entrenador</span><div class="seg" id="coachmode" role="group" aria-label="Entrenador"><button type="button" data-m="auto">Automático</button><button type="button" data-m="manual">Manual</button></div></div>
+    <div class="ctl"><span>Táctica <span class="auto-note" id="auto1"></span></span><div class="seg" id="tactic" role="group" aria-label="Táctica"></div></div>
+    <label class="ctl" for="dir"><span>Lado <span class="auto-note" id="auto2"></span></span><select id="dir"><option value="both">Largos y cortos</option><option value="long">Solo largos</option><option value="short">Solo cortos</option></select></label>
+    <label class="ctl" for="seed">Semilla<input id="seed" type="number" min="1" step="1" value="7"></label>
+    <div class="ctl"><span>&nbsp;</span><div style="display:flex;gap:8px"><button class="btn" id="reseed" type="button">Otro partido</button><label class="btn primary" for="csv">Partido real (CSV)…</label><input id="csv" type="file" accept=".csv,.txt,text/csv" hidden></div></div>
+    <p class="tactic-desc" id="tactic-desc"></p>
+    <span class="msg" id="msg" hidden></span>
+  </section>
+
+  <section class="panel coach" aria-label="El Entrenador">
+    <div class="coach-now">
+      <h2><span class="shirt">DT</span>El Entrenador</h2>
+      <dl class="dec" id="dec"></dl>
+      <div class="shadow" id="shadow"></div>
+      <p class="note" style="margin:0" id="dec-note"></p>
+    </div>
+    <div class="coach-time">
+      <div class="panel-head" style="padding:0"><h2 style="font-size:16px">Sus decisiones durante el partido</h2><span id="tl-sub"></span></div>
+      <div class="tl-box"><canvas id="tl" aria-label="Línea de tiempo: rival detectado y táctica elegida en cada momento; haz clic para ir a ese momento"></canvas></div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+  </section>
+
+  <section class="statsrow">
+    <div class="panel">
+      <div class="panel-head"><h2>Estadísticas del partido</h2><span id="st-sub"></span></div>
+      <div class="bstats" id="bstats"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Marcador acumulado</h2><span>capital de la cuenta</span></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="eq-box"><canvas id="eq" aria-label="Curva de capital"></canvas></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="chart-head">
+      <h2 style="font-size:18px;text-transform:uppercase;letter-spacing:.06em">La repetición</h2>
+      <div class="legend">
+        <span><i style="border-color:var(--ema20)"></i>EMA 20</span>
+        <span><i style="border-color:var(--ema50)"></i>EMA 50</span>
+        <span><i style="border-color:var(--ema200)"></i>EMA 200</span>
+        <span><i class="tri"></i>Remate</span>
+        <span><i class="dot"></i>Gol</span>
+        <span><i class="x"></i>Encajado</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+        <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+        <button class="btn sm" id="zend" type="button">Final</button>
+      </div>
+    </div>
+    <div class="chart-box" id="chart-box">
+      <canvas id="chart" aria-label="Gráfico de precio con EMA, remates, goles y goles encajados"></canvas>
+      <div class="readout" id="readout"></div>
+    </div>
+    <div class="scroller"><input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico"><span id="scroll-lbl"></span></div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="plays" type="button">Jugadas</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="lineup" type="button">Alineación</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="pre" type="button">Pretemporada</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="cal" type="button">Calendario</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="study" type="button">El estudio</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+
+    <div class="tabpanel" data-panel="plays">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>Min</th><th class="l">Fecha</th><th class="l">Lado</th><th class="l">Táctica</th><th>Entrada</th><th>Stop</th><th>TP1</th><th>Salida</th><th class="l">Cómo acabó</th><th>R</th><th>Resultado</th></tr></thead>
+          <tbody id="plays"></tbody>
+        </table>
+      </div>
+      <p class="note">Cada jugada es una operación completa, de la entrada a la salida total. R = resultado dividido entre lo que se arriesgaba (1 R = el stop inicial). Haz clic en una fila para verla en el campo y en la repetición.</p>
+    </div>
+
+    <div class="tabpanel" data-panel="lineup" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <p class="note" style="margin:0">Cada jugador tiene su herramienta. Si lo mandas al banquillo, pasa el balón sin mirar. Debajo de cada tarjeta, la <b>prueba de banquillo</b>: cómo habría ido el partido sin él.</p>
+        <button class="btn sm" id="reset" type="button">Alineación por defecto</button>
+      </div>
+      <div class="lineup" id="lineup"></div>
+    </div>
+
+    <div class="tabpanel" data-panel="pre" hidden>
+      <p class="note" style="margin-top:0">La <b>pretemporada</b> prueba 64 alineaciones (stop × trailing × ADX mínimo) en el primer 60 % de los datos y se queda con la que más gana. La <b>liga</b> es el 40 % final, que la pretemporada no ha visto. Si la alineación elegida gana en pretemporada y pierde en liga, estaba sobreajustada. Es el error que tenían los bots de «100 % de acierto».</p>
+      <div id="pre-out"><button class="btn primary" id="pre-run" type="button">Jugar la pretemporada</button></div>
+    </div>
+
+    <div class="tabpanel" data-panel="cal" hidden>
+      <p class="note" style="margin-top:0">Cada táctica juega contra cada tipo de mercado. Cada casilla es la media de 8 partidos (semillas <span id="cal-seeds"></span>) de 26 semanas en velas de 1 h, con goles a favor – en contra (en R, como el marcador) y el beneficio medio. Victoria: +0,5 % o más; derrota: −0,5 % o menos; en medio, empate.</p>
+      <div id="cal-out"><button class="btn primary" id="cal-run" type="button">Jugar el calendario</button></div>
+    </div>
+
+    <div class="tabpanel" data-panel="study" hidden>
+      <div class="v3">
+          <h3>El último repaso (v3): más autónomo y más rentable</h3>
+          <p>Para no engañarnos, los 360 mercados se partieron en tres grupos que no se mezclan: <b>ajuste</b> (semillas 1–24), <b>validación</b> (25–48) y <b>examen</b> (49–72). El examen se jugó una sola vez, al final. Cada grupo son 120 partidos: 5 rivales × 24 semillas de 26 semanas.</p>
+          <div class="table-scroll" style="max-height:none">
+            <table class="num nowrap">
+              <thead><tr><th>Equipo</th><th>Ajuste</th><th>Validación</th><th>Examen</th><th>Lateral (examen)</th><th>Drawdown (examen)</th><th>En positivo (examen)</th></tr></thead>
+              <tbody>
+                <tr><td class="l">Tiki-Taka fija</td><td class="neg">−0,27 %</td><td class="pos">+0,43 %</td><td class="pos">+0,42 %</td><td class="neg">−2,70 %</td><td>4,4 %</td><td>58/120</td></tr>
+                <tr><td class="l">Contraataque fija</td><td class="neg">−0,61 %</td><td class="neg">−2,88 %</td><td class="neg">−2,30 %</td><td class="neg">−32,79 %</td><td>18,6 %</td><td>60/120</td></tr>
+                <tr><td class="l">Catenaccio fija</td><td class="neg">−0,06 %</td><td class="pos">+0,10 %</td><td class="pos">+0,42 %</td><td class="neg">−0,17 %</td><td>1,6 %</td><td>44/120</td></tr>
+                <tr><td class="l">Juego directo fija</td><td class="pos">+0,91 %</td><td class="neg">−0,91 %</td><td class="neg">−0,26 %</td><td class="neg">−18,66 %</td><td>12,6 %</td><td>61/120</td></tr>
+                <tr><td class="l">Entrenador v2</td><td class="pos">+1,48 %</td><td class="pos">+0,53 %</td><td class="pos">+0,89 %</td><td class="neg">−1,21 %</td><td>6,7 %</td><td>45/120</td></tr>
+                <tr><td class="l"><b>Entrenador v3</b></td><td class="pos"><b>+3,85 %</b></td><td class="pos"><b>+3,41 %</b></td><td class="pos"><b>+3,27 %</b></td><td class="neg">−1,02 %</td><td>7,0 %</td><td>57/120</td></tr>
+              </tbody>
+            </table>
+          </div>
+        <div class="v3cols">
+          <div>
+          <p>Qué cambió, y por qué:</p>
+          <ul>
+            <li><b>Sin TP parcial.</b> Es el cambio que más aporta: de +1,48 a +3,72 % en ajuste y de +0,53 a +3,00 % en validación. Un bot de tendencia vive de pocas jugadas grandes; cobrar la mitad a 1,5 R las recortaba.</li>
+            <li><b>Cuarta táctica, el Juego directo.</b> Sola pierde (−18,66 % en lateral), pero el Entrenador la alinea solo cuando va bien en la sombra: +0,25 en ajuste y +0,49 en validación.</li>
+            <li><b>El lado también se gana en la sombra.</b> Si con la táctica elegida los largos (o los cortos) van en negativo en los últimos 30 días, ese lado no juega. La media queda igual y baja el drawdown de 7,2 a 6,6 % en ajuste y de 7,3 a 6,6 % en validación.</li>
+          </ul>
+          </div>
+          <div>
+          <p>Se probaron y <b>se descartaron</b> otras ideas porque no aguantaron en validación:</p>
+          <ul>
+            <li>arriesgar más cuando el Entrenador tiene más confianza;</li>
+            <li>un freno que baja el riesgo tras un 5–8 % de drawdown (menos drawdown, pero también menos beneficio, en la misma proporción);</li>
+            <li>el breakeven a 1 R;</li>
+            <li>cambiar la ventana del Entrenador o los umbrales del ojeador.</li>
+          </ul>
+          <p>La rejilla de stop (1,5–3 ATR) × trailing (2,5–4 ATR) da entre +2 y +4 % en todas sus casillas. Es una meseta, no un pico: por eso se mantienen los valores de manual, 2 y 3 ATR.</p>
+          <p>El Entrenador gana en los mercados con tendencia y en los volátiles, casi no juega en lateral y sufre en la liga mixta. Con tendencias tan fuertes como las de Tendencia FC, comprar y mantener gana muchísimo más, pero pierde lo mismo en Real Bajista. El bot arriesga un 1 % por jugada y juega a los dos lados.</p>
+          </div>
+        </div>
+      </div>
+      <div class="study">
+        <div>
+          <h3>Qué hay en la sección «bot» de TradingView</h3>
+          <p>TradingView bloquea el acceso desde este entorno, así que el estudio parte de los 14 scripts de esa sección que ya desmontamos uno a uno en MenteColmena, más una búsqueda de lo que se publica con esa etiqueta. Casi todo cae en cinco familias:</p>
+          <ul>
+            <li><b>Clones del UT Bot</b> (trailing por ATR con señales de cruce): paquetes 01, 02, 03, 04, 05, 06 y 08.</li>
+            <li><b>Rejillas</b> que compran y venden en niveles fijos o por ATR: 07 y 09.</li>
+            <li><b>DCA</b> con órdenes de seguridad y calculadoras de liquidación: 12 y 13.</li>
+            <li><b>Bots de alertas por webhook</b> que envían JSON a un ejecutor externo: 10, 11 y 14.</li>
+            <li><b>Paneles de régimen y filtros</b> (ADX, squeeze, percentiles, EMA 200 de otro marco).</li>
+          </ul>
+          <h3 style="margin-top:18px">Fichajes y descartes</h3>
+          <ul>
+            <li><b>Fichado — tendencia EMA 50/200</b> (bots 08, 10): en el estudio de robustez, quitarlo es lo que más empeora el resultado.</li>
+            <li><b>Fichado — ADX ≥ 25</b> (08, 10): el umbral clásico de Wilder. Con 20 hay el doble de remates y peor resultado en mercado lateral.</li>
+            <li><b>Fichado — entrar en el retroceso</b> (RSI, bots 06 y 10): reduce las entradas persiguiendo el precio.</li>
+            <li><b>Fichado — stop y trailing por ATR</b> (la idea buena del UT Bot, 01–03). El TP parcial y el breakeven (01, 03) se probaron y en la v3 se quitaron: recortaban justo las jugadas que pagan el partido.</li>
+            <li><b>Fichado — ruptura de 48 velas</b> (el canal de Donchian de las tortugas) como cuarta táctica, el Juego directo. Sola pierde; en manos del Entrenador suma.</li>
+            <li><b>Fichado — percentil de volatilidad</b> (10) y <b>descanso tras racha</b> (el «circuit breaker» del 01).</li>
+            <li><b>Descartado — rejillas y DCA sin stop</b> (07, 12): mucho acierto y pérdidas sin límite.</li>
+            <li><b>Descartado — 176 umbrales por marco</b> (10, 11): sobreajuste.</li>
+            <li><b>Descartado — filtros que se contradicen</b> (14, 04) y <b>filtros redundantes</b> (la EMA de 1 min del 08).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Errores vistos y cómo los evita TikiTrade</h3>
+          <div class="table-scroll" style="max-height:none">
+            <table>
+              <thead><tr><th>Error</th><th>Dónde</th><th>TikiTrade</th></tr></thead>
+              <tbody>
+                <tr><td>La vela de entrada sin stop</td><td>01, 08</td><td>El stop se coloca junto con la entrada: protege desde la primera vela.</td></tr>
+                <tr><td>TP «cobrado» al cierre, no al nivel</td><td>12</td><td>Si se activa el TP1 parcial, es una orden límite al nivel.</td></tr>
+                <tr><td>Sin stop, pérdidas sin límite</td><td>07, 12</td><td>Riesgo fijo del 1 % por operación y stop siempre puesto.</td></tr>
+                <tr><td>Umbrales ajustados a cada marco</td><td>10, 11</td><td>Pocos parámetros, con valores de manual. Pretemporada y liga para ver si aguantan fuera de muestra.</td></tr>
+                <tr><td>Filtros que se contradicen</td><td>14</td><td>Cada jugador se prueba en el banquillo: si no aporta, se nota.</td></tr>
+                <tr><td>Salida que contradice la entrada</td><td>(nuestra primera versión)</td><td>Se descartó salir al perder la EMA 50: la entrada en retroceso está justo ahí.</td></tr>
+                <tr><td>Sin comisiones</td><td>08, 12…</td><td>0,05 % por lado y 0,02 % de deslizamiento en cada ejecución.</td></tr>
+                <tr><td><code>ta.*</code> dentro de <code>and/or</code> en v6</td><td>—</td><td>Se calculan fuera: en v6 se evalúan de forma perezosa.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3 style="margin-top:18px">Cómo se eligió la alineación</h3>
+          <p>Primera versión (con TP parcial, sin Entrenador). Se probaron 16 variantes en 120 mercados sintéticos: 5 tipos × 24 semillas de 26 semanas. Media del beneficio por partido:</p>
+          <div class="table-scroll" style="max-height:none">
+            <table class="num">
+              <thead><tr><th>Variante</th><th>Media</th><th>Lateral</th><th>Tendencia ↑</th></tr></thead>
+              <tbody>
+                <tr><td class="l">Alineación elegida</td><td>−0,52 %</td><td>−2,20 %</td><td class="pos">+0,41 %</td></tr>
+                <tr><td class="l">Sin La Roca (tendencia)</td><td class="neg">−5,06 %</td><td class="neg">−6,09 %</td><td class="neg">−4,88 %</td></tr>
+                <tr><td class="l">Sin El Motor (ADX)</td><td class="neg">−4,94 %</td><td class="neg">−19,78 %</td><td class="pos">+1,34 %</td></tr>
+                <tr><td class="l">Sin El Cerebro (pausa)</td><td class="neg">−2,13 %</td><td class="neg">−18,29 %</td><td class="pos">+4,29 %</td></tr>
+                <tr><td class="l">ADX 20 en vez de 25</td><td class="neg">−1,61 %</td><td class="neg">−6,32 %</td><td class="pos">+0,83 %</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="honest" style="margin-top:14px">Los datos sintéticos son un paseo aleatorio con rachas de tendencia, y esas rachas son justo lo que aprovecha un bot como este. Que gane aquí no demuestra que gane en un mercado real. El único examen que cuenta es con datos reales: carga un CSV de tu mercado, mira la liga (fuera de muestra) y prueba en papel antes de arriesgar dinero. Ningún bot garantiza beneficios.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Estrategia Pine v6 para TradingView. Pégala en el editor Pine; el deslizamiento se ajusta en Propiedades.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// TikiTrade v3 · bot autónomo de MenteColmena
+//
+// Idea: seguir la tendencia y entrar en el retroceso. Cada herramienta es un jugador que tiene que
+// pasar el balón al siguiente; si uno lo pierde, no hay remate.
+//   #1 El Muro (portero)           sin posición, sin descanso por racha de pérdidas, lado permitido
+//   #4 La Roca (central)           tendencia: EMA 50 > EMA 200, cierre > EMA 200, EMA 200 subiendo
+//   #3 El Motor (lateral)          fuerza: ADX >= mínimo de la táctica
+//   #8 El Cerebro (mediocentro)    pausa: el RSI retrocedió en las últimas 5 velas (si la táctica la usa)
+//   #10 El Termómetro (mediapunta) volatilidad: percentil del ATR% entre 10 y 90
+//   #7 La Chispa (extremo)         volumen >= 0,9 × media de 20
+//   #9 El Killer (delantero)       gatillo: cierre > máximo anterior, > EMA 20 y vela alcista
+//                                  (en el Juego directo: cierre > máximo de las 48 velas anteriores)
+// Remate: entrada a mercado con el stop (2 ATR) ya colocado en la misma vela. La posición entera corre
+// con el trailing chandelier (3 ATR) hasta que salta o se rompe la tendencia de fondo. Hay un TP1
+// parcial opcional (apagado: en el estudio v3 recortaba las jugadas que pagan el partido).
+//
+// EL ENTRENADOR decide solo, vela a vela y con datos pasados:
+//   · ojea al rival: volátil (ATR% en el percentil >= 80 de 500 velas), tendencia alcista/bajista
+//     (EMA 50 a >= 2,5 ATR de la EMA 200 y eficiencia de Kaufman(100) >= 0,08), lateral o transición;
+//   · elige el lado: tendencia alcista → solo largos, bajista → solo cortos, lateral → banquillo;
+//   · elige la táctica: juega en la sombra Tiki-Taka, Contraataque, Catenaccio y Juego directo y
+//     alinea la que más R ha sumado en los últimos 30 días (720 velas de 1 h); si ninguna está en
+//     positivo, no juega;
+//   · el lado también se gana en la sombra: si con esa táctica los largos (o los cortos) van en
+//     negativo en la ventana, ese lado no juega.
+// Tamaño por riesgo: 1 % del capital por operación. Cortos en espejo. Deslizamiento: en Propiedades.
+//@version=6
+strategy("TikiTrade v3", shorttitle="TikiTrade", overlay=true, initial_capital=10000,
+     commission_type=strategy.commission.percent, commission_value=0.05, pyramiding=0,
+     default_qty_type=strategy.fixed, process_orders_on_close=false, calc_on_order_fills=false,
+     max_labels_count=500, max_bars_back=1000)
+
+// ── El Entrenador ────────────────────────────────────────────────────────────
+G0 = "🧑‍🏫 El Entrenador"
+coachOn    = input.bool(true, "Entrenador automático (elige táctica y lado)", group=G0)
+manualTac  = input.string("Tiki-Taka", "Táctica si está en manual", options=["Tiki-Taka", "Contraataque", "Catenaccio", "Juego directo"], group=G0)
+manualSide = input.string("Ambos", "Lado si está en manual", options=["Ambos", "Solo largos", "Solo cortos"], group=G0)
+windowBars = input.int(720, "Ventana de evaluación (velas)", minval=50, group=G0)
+minTrades  = input.int(3, "Jugadas mínimas para evaluar una táctica", minval=1, group=G0)
+needPos    = input.bool(true, "Solo alinear tácticas en positivo", group=G0)
+benchLat   = input.bool(true, "No jugar en mercado lateral", group=G0)
+sideShadow = input.bool(true, "El lado también se gana en la sombra", group=G0)
+erLen      = input.int(100, "Ojeador: eficiencia (velas)", minval=10, group=G0)
+erTrend    = input.float(0.08, "Ojeador: eficiencia mínima de tendencia", step=0.01, group=G0)
+spreadTr   = input.float(2.5, "Ojeador: distancia EMA 50–200 de tendencia (ATR)", step=0.1, group=G0)
+spreadRg   = input.float(1.5, "Ojeador: distancia máxima en lateral (ATR)", step=0.1, group=G0)
+volHigh    = input.float(80, "Ojeador: percentil de ATR% volátil", group=G0)
+riskPct    = input.float(1.0, "Riesgo por operación (%)", minval=0.1, maxval=5, step=0.1, group=G0)
+maxExpo    = input.float(1.0, "Exposición máxima (× capital)", minval=0.1, maxval=10, step=0.1, group=G0)
+slipPct    = input.float(0.02, "Deslizamiento para los partidos en la sombra (%)", minval=0, step=0.01, group=G0)
+
+// ── #1 El Muro (portero) ─────────────────────────────────────────────────────
+G1 = "🧤 #1 El Muro — riesgo"
+atrLen     = input.int(14, "ATR", minval=1, group=G1)
+stopAtr    = input.float(2.0, "Stop (× ATR)", minval=0.5, step=0.25, group=G1)
+useCool    = input.bool(true, "Descanso tras racha de pérdidas", group=G1)
+lossLimit  = input.int(2, "Pérdidas seguidas", minval=1, group=G1)
+restBars   = input.int(10, "Velas de descanso", minval=1, group=G1)
+
+// ── Resto del equipo ─────────────────────────────────────────────────────────
+G2 = "🛡️ #4 La Roca — tendencia"
+useTrend   = input.bool(true, "Activar", group=G2)
+emaFastLen = input.int(20, "EMA rápida", minval=1, group=G2)
+emaMidLen  = input.int(50, "EMA media", minval=1, group=G2)
+emaSlowLen = input.int(200, "EMA lenta", minval=1, group=G2)
+slopeLen   = input.int(20, "Pendiente de la EMA lenta (velas)", minval=1, group=G2)
+G3 = "⚙️ #3 El Motor — fuerza"
+useStrength = input.bool(true, "Activar", group=G3)
+adxLen     = input.int(14, "ADX", minval=2, group=G3)
+G4 = "🧭 #8 El Cerebro — pausa"
+rsiLen     = input.int(14, "RSI", minval=2, group=G4)
+pullLook   = input.int(5, "Ventana (velas)", minval=1, group=G4)
+G5 = "🌡️ #10 El Termómetro — volatilidad"
+useVolat   = input.bool(true, "Activar", group=G5)
+volLook    = input.int(100, "Ventana del percentil", minval=10, group=G5)
+volPctMin  = input.float(10, "Percentil mínimo", group=G5)
+volPctMax  = input.float(90, "Percentil máximo", group=G5)
+G6 = "⚡ #7 La Chispa — volumen"
+useVolume  = input.bool(true, "Activar", group=G6)
+volMult    = input.float(0.9, "Volumen ≥ media 20 ×", minval=0, step=0.1, group=G6)
+G7 = "⚽ #9 El Killer — definición"
+donLen     = input.int(48, "Juego directo: ruptura de N velas", minval=2, group=G7)
+tp1Pct     = input.float(0, "TP1 parcial (% de la posición, 0 = sin TP)", minval=0, maxval=100, group=G7)
+tp1R       = input.float(1.5, "TP1 (R)", minval=0.25, step=0.25, group=G7)
+trailAtr   = input.float(3.0, "Trailing chandelier (× ATR)", minval=0.5, step=0.25, group=G7)
+useTrendExit = input.bool(true, "Salir si se rompe la tendencia de fondo", group=G7)
+
+// Tácticas: [usar pausa, ADX mínimo, RSI de retroceso, gatillo de ruptura larga]
+TAC_NAMES = array.from("Tiki-Taka", "Contraataque", "Catenaccio", "Juego directo")
+TAC_PULL  = array.from(true, false, true, false)
+TAC_ADX   = array.from(25.0, 20.0, 30.0, 20.0)
+TAC_RSI   = array.from(45.0, 45.0, 40.0, 45.0)
+TAC_DON   = array.from(false, false, false, true)
+
+// ── Indicadores (todos fuera de and/or: en v6 se evalúan de forma perezosa) ──
+emaF  = ta.ema(close, emaFastLen)
+emaM  = ta.ema(close, emaMidLen)
+emaS  = ta.ema(close, emaSlowLen)
+atr   = ta.atr(atrLen)
+[_, _, adx] = ta.dmi(adxLen, adxLen)
+rsi   = ta.rsi(close, rsiLen)
+rank  = ta.percentrank(atr / close, volLook)
+volSma = ta.sma(volume, 20)
+rsiLo = ta.lowest(rsi, pullLook)
+rsiHi = ta.highest(rsi, pullLook)
+slopeUp = emaS > emaS[slopeLen]
+slopeDn = emaS < emaS[slopeLen]
+pathLen = math.sum(math.abs(ta.change(close)), erLen)
+er      = pathLen > 0 ? math.abs(close - close[erLen]) / pathLen : 0.0
+spread  = (emaM - emaS) / atr
+volRank500 = ta.percentrank(atr / close, 500)
+donHi   = ta.highest(high, donLen)[1]
+donLo   = ta.lowest(low, donLen)[1]
+
+// Condiciones comunes (sin la del portero ni las de la táctica)
+volOk  = not useVolume or na(volume) or volume == 0 or na(volSma) ? true : volume >= volSma * volMult
+rankOk = not useVolat or (rank >= volPctMin and rank <= volPctMax)
+cbL = not useTrend or (emaM > emaS and close > emaS and slopeUp)
+cbS = not useTrend or (emaM < emaS and close < emaS and slopeDn)
+fwL = close > high[1] and close > emaF and close > open
+fwS = close < low[1] and close < emaF and close < open
+dnL = bar_index > donLen and close > donHi
+dnS = bar_index > donLen and close < donLo
+
+sigLong(int k) =>
+    cbL and (not useStrength or adx >= TAC_ADX.get(k)) and (not TAC_PULL.get(k) or rsiLo <= TAC_RSI.get(k)) and rankOk and volOk and (TAC_DON.get(k) ? dnL : fwL) and atr > 0
+sigShort(int k) =>
+    cbS and (not useStrength or adx >= TAC_ADX.get(k)) and (not TAC_PULL.get(k) or rsiHi >= 100 - TAC_RSI.get(k)) and rankOk and volOk and (TAC_DON.get(k) ? dnS : fwS) and atr > 0
+
+// ── Partidos en la sombra (una táctica cada uno, sin dinero, en R) ───────────
+type Shadow
+    int   dir = 0
+    float entry = na
+    float stop = na
+    float tp1 = na
+    float ref = na
+    float ext = na
+    float risk = na
+    bool  tp1Done = false
+    float rem = 1.0
+    float rAcc = 0.0
+    int   pend = 0
+    float pStop = na
+    float pTp1 = na
+    float pRef = na
+    float pRisk = na
+    bool  exitNext = false
+    int   restUntil = -1
+    int   streak = 0
+    array<float> rs
+    array<int> rbar
+    array<int> rdir
+
+method finish(Shadow s, float px) =>
+    s.rAcc += s.rem * s.dir * (px - s.entry) / s.risk
+    s.rAcc -= (0.1 / 100) * s.entry / s.risk   // comisión de entrada y salida (0,05 % × 2)
+    s.rs.push(s.rAcc)
+    s.rbar.push(bar_index)
+    s.rdir.push(s.dir)
+    if useCool
+        s.streak := s.rAcc < 0 ? s.streak + 1 : 0
+        if s.streak >= lossLimit
+            s.restUntil := bar_index + restBars
+            s.streak := 0
+    s.dir := 0
+    s.rem := 1.0
+    s.rAcc := 0.0
+    s.tp1Done := false
+    s.exitNext := false
+
+method takeTp1(Shadow s, float px) =>
+    p = tp1Pct / 100
+    s.rAcc += p * s.dir * (px - s.entry) / s.risk
+    s.rem -= p
+    s.tp1Done := true
+
+method step(Shadow s, bool goL, bool goS) =>
+    slip = slipPct / 100
+    // apertura: salida pendiente y entrada pendiente
+    if s.exitNext and s.dir != 0
+        s.finish(open * (1 - s.dir * slip))
+    if s.pend != 0
+        s.dir := s.pend
+        s.entry := open * (1 + s.pend * slip)
+        s.stop := s.pStop
+        s.tp1 := s.pTp1
+        s.ref := s.pRef
+        s.risk := s.pRisk
+        s.ext := s.pend > 0 ? high : low
+        s.pend := 0
+    // durante la vela: stop y TP1 (recorrido apertura → extremo más cercano → otro extremo → cierre)
+    if s.dir != 0
+        op = open
+        if (s.dir > 0 and op <= s.stop) or (s.dir < 0 and op >= s.stop)
+            s.finish(op * (1 - s.dir * slip))
+        else
+            if not s.tp1Done and tp1Pct > 0 and ((s.dir > 0 and op >= s.tp1) or (s.dir < 0 and op <= s.tp1))
+                s.takeTp1(op)
+            highFirst = (high - op) < (op - low)
+            path = highFirst ? array.from(op, high, low, close) : array.from(op, low, high, close)
+            for k = 0 to 2
+                if s.dir == 0
+                    break
+                a = path.get(k)
+                b = path.get(k + 1)
+                if a != b
+                    up = b > a
+                    stopSide = s.dir > 0 ? not up : up
+                    crossStop = up ? (s.stop > a and s.stop <= b) : (s.stop < a and s.stop >= b)
+                    crossTp = up ? (s.tp1 > a and s.tp1 <= b) : (s.tp1 < a and s.tp1 >= b)
+                    if stopSide and crossStop
+                        s.finish(s.stop * (1 - s.dir * slip))
+                    else if not stopSide and not s.tp1Done and tp1Pct > 0 and crossTp
+                        s.takeTp1(s.tp1)
+    // cierre: gestión y nueva señal
+    if s.dir != 0
+        s.ext := s.dir > 0 ? math.max(s.ext, high) : math.min(s.ext, low)
+        chand = s.dir > 0 ? s.ext - trailAtr * atr : s.ext + trailAtr * atr
+        s.stop := s.dir > 0 ? math.max(s.stop, chand) : math.min(s.stop, chand)
+        if s.tp1Done
+            s.stop := s.dir > 0 ? math.max(s.stop, s.ref) : math.min(s.stop, s.ref)
+        broken = s.dir > 0 ? (emaM < emaS or close < emaS) : (emaM > emaS or close > emaS)
+        if useTrendExit and broken
+            s.exitNext := true
+    else if s.pend == 0 and not (useCool and bar_index <= s.restUntil) and (goL or goS)
+        d = goL ? 1 : -1
+        dist = atr * stopAtr
+        s.pend := d
+        s.pStop := close - d * dist
+        s.pTp1 := close + d * tp1R * dist
+        s.pRef := close
+        s.pRisk := dist
+
+method score(Shadow s) =>
+    // R de las jugadas cerradas en la ventana (antes de esta vela): total, largos y cortos
+    while s.rbar.size() > 0 and s.rbar.get(0) < bar_index - windowBars
+        s.rbar.shift()
+        s.rs.shift()
+        s.rdir.shift()
+    float tot = 0.0
+    float lng = 0.0
+    for [j, r] in s.rs
+        tot += r
+        if s.rdir.get(j) > 0
+            lng += r
+    [tot, lng, tot - lng]
+
+newShadow() =>
+    Shadow.new(rs = array.new<float>(), rbar = array.new<int>(), rdir = array.new<int>())
+var Shadow sh0 = newShadow()
+var Shadow sh1 = newShadow()
+var Shadow sh2 = newShadow()
+var Shadow sh3 = newShadow()
+
+// Puntuación con lo que ya había cerrado antes de esta vela; después juegan la vela actual
+[sc0, scL0, scS0] = sh0.score()
+[sc1, scL1, scS1] = sh1.score()
+[sc2, scL2, scS2] = sh2.score()
+[sc3, scL3, scS3] = sh3.score()
+n0 = sh0.rs.size()
+n1 = sh1.rs.size()
+n2 = sh2.rs.size()
+n3 = sh3.rs.size()
+sL0 = sigLong(0)
+sS0 = sigShort(0)
+sL1 = sigLong(1)
+sS1 = sigShort(1)
+sL2 = sigLong(2)
+sS2 = sigShort(2)
+sL3 = sigLong(3)
+sS3 = sigShort(3)
+sh0.step(sL0, not sL0 and sS0)
+sh1.step(sL1, not sL1 and sS1)
+sh2.step(sL2, not sL2 and sS2)
+sh3.step(sL3, not sL3 and sS3)
+
+// ── Ojeador y decisión ───────────────────────────────────────────────────────
+string rival = "Transición"
+if na(er) or na(spread) or na(volRank500)
+    rival := "Transición"
+else if volRank500 >= volHigh
+    rival := "Volátil"
+else if er >= erTrend and spread >= spreadTr and close > emaS
+    rival := "Tendencia alcista"
+else if er >= erTrend and spread <= -spreadTr and close < emaS
+    rival := "Tendencia bajista"
+else if math.abs(spread) < spreadRg and er < erTrend
+    rival := "Lateral"
+
+int tactic = manualTac == "Contraataque" ? 1 : manualTac == "Catenaccio" ? 2 : manualTac == "Juego directo" ? 3 : 0
+bool allowL = manualSide != "Solo cortos"
+bool allowS = manualSide != "Solo largos"
+if coachOn
+    allowL := rival == "Tendencia alcista" or rival == "Volátil" or rival == "Transición" or (rival == "Lateral" and not benchLat)
+    allowS := rival == "Tendencia bajista" or rival == "Volátil" or rival == "Transición" or (rival == "Lateral" and not benchLat)
+    best = -1
+    bestSc = -1e9
+    if n0 >= minTrades and sc0 > bestSc
+        best := 0
+        bestSc := sc0
+    if n1 >= minTrades and sc1 > bestSc
+        best := 1
+        bestSc := sc1
+    if n2 >= minTrades and sc2 > bestSc
+        best := 2
+        bestSc := sc2
+    if n3 >= minTrades and sc3 > bestSc
+        best := 3
+        bestSc := sc3
+    if best >= 0 and (bestSc > 0 or not needPos)
+        tactic := best
+    else if needPos and best >= 0
+        allowL := false
+        allowS := false
+    else
+        tactic := 0
+    if sideShadow
+        allowL := allowL and (tactic == 0 ? scL0 : tactic == 1 ? scL1 : tactic == 2 ? scL2 : scL3) >= 0
+        allowS := allowS and (tactic == 0 ? scS0 : tactic == 1 ? scS1 : tactic == 2 ? scS2 : scS3) >= 0
+
+// ── Estado del equipo real ───────────────────────────────────────────────────
+var float stopLvl = na
+var float tp1Lvl  = na
+var float entryRef = na
+var float stop0 = na
+var float ext = na
+var float qty0 = 0.0
+var int   restUntil = -1
+var int   streak = 0
+var float netMark = 0.0
+var int   goals = 0
+var int   conceded = 0
+
+if strategy.position_size == 0 and strategy.netprofit != netMark
+    pnl = strategy.netprofit - netMark
+    netMark := strategy.netprofit
+    if pnl > 0
+        goals += 1
+        streak := 0
+        label.new(bar_index, high, "⚽ GOL", style=label.style_label_down, color=color.new(#F2B705, 0), textcolor=color.black, size=size.small)
+    else
+        conceded += 1
+        streak += 1
+        label.new(bar_index, low, "🥅", style=label.style_label_up, color=color.new(color.red, 20), textcolor=color.white, size=size.small)
+        if useCool and streak >= lossLimit
+            restUntil := bar_index + restBars
+            streak := 0
+
+flat    = strategy.position_size == 0
+resting = useCool and bar_index <= restUntil
+realL = tactic == 0 ? sL0 : tactic == 1 ? sL1 : tactic == 2 ? sL2 : sL3
+realS = tactic == 0 ? sS0 : tactic == 1 ? sS1 : tactic == 2 ? sS2 : sS3
+goLong  = flat and not resting and allowL and realL
+goShort = not goLong and flat and not resting and allowS and realS
+
+// ── Remate: entrada con el stop (y el TP1, si está activo) ya colocados ─────
+if goLong or goShort
+    dir      = goLong ? 1 : -1
+    stopDist = atr * stopAtr
+    qty      = math.min(strategy.equity * riskPct / 100 / stopDist, strategy.equity * maxExpo / close)
+    stopLvl  := close - dir * stopDist
+    tp1Lvl   := tp1Pct > 0 ? close + dir * tp1R * stopDist : na
+    entryRef := close
+    stop0    := stopLvl
+    ext      := na
+    qty0     := qty
+    id = goLong ? "L" : "S"
+    tname = TAC_NAMES.get(tactic)
+    strategy.entry(id, goLong ? strategy.long : strategy.short, qty=qty, comment=(goLong ? "⚽ Largo · " : "⚽ Corto · ") + tname)
+    if tp1Pct > 0
+        strategy.exit(id + "-TP1", id, qty_percent=tp1Pct, limit=tp1Lvl, stop=stopLvl, comment_profit="TP1", comment_loss="Stop")
+    strategy.exit(id + "-RUN", id, stop=stopLvl, comment="Stop")
+    alert('{"bot":"TikiTrade","side":"' + (goLong ? "long" : "short") + '","symbol":"' + syminfo.ticker + '","tactic":"' + tname + '","rival":"' + rival +
+         '","price":' + str.tostring(close) + ',"stop":' + str.tostring(stopLvl) + ',"tp1":' + (tp1Pct > 0 ? str.tostring(tp1Lvl) : "null") + ',"qty":' + str.tostring(qty) + '}', alert.freq_once_per_bar_close)
+
+// ── Gestión de la posición abierta (los niveles cambian al cierre) ───────────
+if strategy.position_size != 0
+    long   = strategy.position_size > 0
+    id     = long ? "L" : "S"
+    ext    := na(ext) ? (long ? high : low) : (long ? math.max(ext, high) : math.min(ext, low))
+    chand  = long ? ext - trailAtr * atr : ext + trailAtr * atr
+    tp1Done = math.abs(strategy.position_size) < qty0 * 0.999
+    stopLvl := long ? math.max(stopLvl, chand) : math.min(stopLvl, chand)
+    if tp1Done
+        stopLvl := long ? math.max(stopLvl, entryRef) : math.min(stopLvl, entryRef)
+    if not tp1Done and tp1Pct > 0
+        strategy.exit(id + "-TP1", id, qty_percent=tp1Pct, limit=tp1Lvl, stop=stopLvl, comment_profit="TP1", comment_loss="Stop")
+    trailing = long ? stopLvl > stop0 : stopLvl < stop0
+    strategy.exit(id + "-RUN", id, stop=stopLvl, comment=tp1Done or trailing ? "Trailing" : "Stop")
+    trendBroken = long ? (emaM < emaS or close < emaS) : (emaM > emaS or close > emaS)
+    if useTrendExit and trendBroken
+        strategy.close(id, comment="Cambio de sistema")
+
+// ── Visual ───────────────────────────────────────────────────────────────────
+plot(emaF, "EMA 20", color=color.new(#F2B705, 30))
+plot(emaM, "EMA 50", color=color.new(color.orange, 0))
+plot(emaS, "EMA 200", color=color.new(color.gray, 0), linewidth=2)
+plot(strategy.position_size != 0 ? stopLvl : na, "Stop", color=color.red, style=plot.style_linebr)
+plot(tp1Pct > 0 and strategy.position_size != 0 and math.abs(strategy.position_size) >= qty0 * 0.999 ? tp1Lvl : na, "TP1", color=color.green, style=plot.style_linebr)
+plotshape(goLong, "Remate largo", shape.triangleup, location.belowbar, color.new(#F2B705, 0), size=size.small)
+plotshape(goShort, "Remate corto", shape.triangledown, location.abovebar, color.new(#F2B705, 0), size=size.small)
+benchNow = coachOn and not allowL and not allowS
+bgcolor(resting or benchNow ? color.new(color.gray, 88) : na, title="Banquillo")
+
+var table board = table.new(position.top_right, 3, 4, bgcolor=color.new(#111111, 10), border_width=1)
+if barstate.islast
+    table.cell(board, 0, 0, "TIKITRADE", text_color=#F2B705, text_size=size.small)
+    table.cell(board, 1, 0, str.tostring(goals) + " : " + str.tostring(conceded), text_color=color.white, text_size=size.large)
+    table.cell(board, 2, 0, "MERCADO", text_color=color.silver, text_size=size.small)
+    table.cell(board, 0, 1, "Rival", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 1, 1, rival, text_color=color.white, text_size=size.small)
+    table.cell(board, 2, 1, benchNow ? "banquillo" : allowL and allowS ? "ambos lados" : allowL ? "solo largos" : "solo cortos", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 0, 2, "Táctica", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 1, 2, TAC_NAMES.get(tactic), text_color=#F2B705, text_size=size.small)
+    table.cell(board, 2, 2, "sombra R: " + str.tostring(sc0, "#.#") + " / " + str.tostring(sc1, "#.#") + " / " + str.tostring(sc2, "#.#") + " / " + str.tostring(sc3, "#.#"), text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 0, 3, "Neto", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 1, 3, str.tostring(strategy.netprofit, "#.##"), text_color=strategy.netprofit >= 0 ? color.lime : color.red, text_size=size.small)
+    table.cell(board, 2, 3, resting ? "descanso" : flat ? "esperando" : "en juego", text_color=color.silver, text_size=size.tiny)
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineTikiTrade;
+const $ = id => document.getElementById(id);
+const STORE = 'tikitrade-v3';
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const nf = (x, d) => isFinite(x) ? x.toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d}) : '–';
+const sgn = (x, d, u) => isFinite(x) ? (x > 0 ? '+' : x < 0 ? '−' : '') + nf(Math.abs(x), d) + (u || '') : '–';
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+// ---------- state ----------
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (e) { saved = {}; }
+let tactic = E.TACTICS[saved.tactic] ? saved.tactic : 'tikitaka';
+let params = Object.assign({}, E.DEFAULTS, E.TACTICS[tactic].p, saved.params || {});
+let rival = saved.rival && E.RIVALS[saved.rival] ? saved.rival : 'mixto';
+let coachOn = saved.coachOn !== false;
+let coachCfg = Object.assign({}, E.COACH_DEFAULTS, saved.coachCfg || {});
+let scoutRes = null;
+const eff = () => Object.assign({}, params, { coach: coachOn ? coachCfg : null });
+const REG = { alcista: 'Tendencia alcista', bajista: 'Tendencia bajista', lateral: 'Lateral', volatil: 'Volátil', transicion: 'Transición' };
+const SIDE = { long: 'solo largos', short: 'solo cortos', both: 'largos y cortos', none: 'banquillo' };
+const REG_COL = { alcista: '#2FA36B', bajista: '#D9493D', lateral: '#8C9990', volatil: '#8E5CC7', transicion: 'rgba(140,153,144,.35)' };
+const TAC_COL = { tikitaka: '#F2B705', contraataque: '#E0762B', catenaccio: '#3A7BD5', directo: '#1B9AAA' };
+const tacName = k => k && E.TACTICS[k] ? E.TACTICS[k].name : (E.TACTICS[tactic] ? E.TACTICS[tactic].name : 'Personalizada');
+let data = null, dataLabel = '', res = null, sel = -1, benchCache = null;
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify({tactic, rival, params, coachOn, coachCfg})); } catch (e) {} };
+
+// ---------- controls ----------
+$('rival').innerHTML = Object.entries(E.RIVALS).map(([k, v]) => '<option value="' + k + '">' + v + '</option>').join('') + '<option value="csv" disabled>Partido real (CSV)</option>';
+$('rival').value = rival;
+$('tactic').innerHTML = Object.entries(E.TACTICS).map(([k, v]) => '<button type="button" data-k="' + k + '" aria-pressed="' + (k === tactic) + '">' + v.name + '</button>').join('');
+$('dir').value = params.direction;
+function setTacticUI(){
+  document.querySelectorAll('#tactic button').forEach(b => { b.setAttribute('aria-pressed', String(!coachOn && b.dataset.k === tactic)); b.disabled = coachOn; });
+  document.querySelectorAll('#coachmode button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.m === 'auto') === coachOn)));
+  $('dir').disabled = coachOn;
+  $('auto1').textContent = coachOn ? '· la elige el Entrenador' : ''; $('auto2').textContent = coachOn ? '· lo elige el Entrenador' : '';
+  $('tactic-desc').textContent = coachOn ? 'Bot autónomo: en cada vela el Entrenador ojea el mercado y juega en la sombra las cuatro tácticas. Alinea la que más R suma en los últimos 30 días y solo por el lado que también va en positivo. Si ninguna va en positivo, o el mercado está lateral, el equipo se queda en el banquillo.' : tactic === 'custom' ? 'Táctica personalizada desde la alineación.' : E.TACTICS[tactic].desc;
+}
+$('coachmode').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-m]'); if (!b) return;
+  coachOn = b.dataset.m === 'auto';
+  // en automático las tácticas se montan sobre la base del Tiki-Taka, no sobre la última táctica manual
+  if (coachOn && E.TACTICS[tactic] && tactic !== 'tikitaka'){ tactic = 'tikitaka'; Object.assign(params, tikiBase()); buildLineup(); }
+  setTacticUI(); save(); runNow(true);
+});
+$('tactic').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-k]'); if (!b) return;
+  tactic = b.dataset.k; params = Object.assign({}, E.DEFAULTS, E.TACTICS[tactic].p, {direction: params.direction});
+  setTacticUI(); buildLineup(); save(); runNow(true);
+});
+$('dir').addEventListener('change', () => { params.direction = $('dir').value; save(); runNow(true); });
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7);
+  data = E.makeSample(seed, 26, rival);
+  dataLabel = 'vs <b>' + E.RIVALS[rival] + '</b> · 26 sem · 1 h · semilla ' + seed + ' · datos sintéticos';
+  setMsg('');
+}
+$('rival').addEventListener('change', () => { rival = $('rival').value; save(); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random() * 9999); loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { data = E.parseCSV(String(rd.result)); $('rival').value = 'csv'; dataLabel = 'vs <b>' + esc(file.name) + '</b> · ' + data.t.length.toLocaleString('es-ES') + ' velas · datos reales'; setMsg(''); runNow(true); }
+    catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+
+// ---------- run ----------
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => runNow(false), 160); }
+function runNow(resetView){
+  res = E.run(data, eff());
+  scoutRes = res.plan ? null : E.scout(data, params, coachCfg);
+  benchCache = null; preCache = null; calCache = null;
+  const s = res.stats, closed = res.trades.filter(x => x.exitIdx !== null);
+  const g = goals(res.trades), rs = g.f > g.a ? ['Victoria', 'w'] : g.f < g.a ? ['Derrota', 'l'] : ['Empate', ''];
+  $('score').textContent = g.f + ' : ' + g.a;
+  const br = $('b-res'); br.textContent = rs[0]; br.className = 'result ' + rs[1];
+  $('b-goals').textContent = 'cada gol = 1 R ganado (≈ 1 % de la cuenta) · ' + s.wins + ' operaciones en verde, ' + s.losses + ' en rojo';
+  $('b-rival').innerHTML = dataLabel + ' · ' + fmtDay(data.t[0]) + ' → ' + fmtDay(data.t[data.t.length - 1]);
+  $('b-coach').innerHTML = coachOn ? 'Entrenador <b>automático</b> · ' + res.plan.changes.length + ' decisiones' : 'Entrenador en <b>manual</b>: ' + tacName(null) + ' · ' + SIDE[params.direction];
+  const bn = $('b-net'); bn.textContent = 'Beneficio neto ' + sgn(s.netPct, 2, ' %') + ' · ' + sgn(s.netProfit, 0, ' $'); bn.className = 'net ' + (s.netProfit >= 0 ? 'pos' : 'neg');
+  renderStats(); renderPlays(); renderLineupResults();
+  if (resetView || !view.count){ view.count = Math.min(res.n, defaultCount()); view.start = res.n - view.count; }
+  if (sel >= closed.length || resetView) sel = closed.length - 1;
+  clampView(); draw(); drawEquity(); drawTimeline();
+  if (sel >= 0) showTrade(sel, false); else showBar(res.n - 1);
+  refreshOpenTab();
+}
+// Goles en R: un +3,2 R son 3 goles; un stop de −1 R es 1 gol encajado. Con un 1 % de riesgo por
+// jugada, 1 R ≈ 1 % de la cuenta, así que el marcador sigue al dinero y no al número de operaciones.
+function goals(trades){
+  let pos = 0, neg = 0;
+  trades.forEach(x => { if (x.exitIdx === null) return; if (x.r > 0) pos += x.r; else neg -= x.r; });
+  const f = Math.round(pos), net = Math.round(pos - neg);
+  return { pos, neg, f, a: Math.max(0, f - net) };
+}
+function renderStats(){
+  const s = res.stats, T = s.trades || 1;
+  const row = (label, lv, rv, lw, rw) => {
+    const tot = (lw + rw) || 1;
+    return '<div class="bs"><span class="l">' + lv + '</span><div class="mid"><span>' + label + '</span><div class="bar"><i class="us" style="width:' + (lw / tot * 100).toFixed(1) + '%"></i><i class="them" style="width:' + (rw / tot * 100).toFixed(1) + '%"></i></div></div><span class="r">' + rv + '</span></div>';
+  };
+  let worst = 0, cur = 0; res.trades.filter(x => x.exitIdx !== null).forEach(x => { cur = x.pnl <= 0 ? cur + 1 : 0; worst = Math.max(worst, cur); });
+  const g = goals(res.trades);
+  $('bstats').innerHTML = row('Goles (R ganados / R perdidos)', nf(g.pos, 1), nf(g.neg, 1), g.pos, g.neg)
+    + row('Operaciones en verde / en rojo', s.wins, s.losses, s.wins, s.losses)
+    + row('Posesión (tiempo con posición)', nf(s.exposurePct, 0) + ' %', nf(100 - s.exposurePct, 0) + ' %', s.exposurePct, 100 - s.exposurePct)
+    + row('Mejor racha / peor racha', s.bestStreak, worst, s.bestStreak, worst)
+    + row('R medio al ganar / al perder', sgn(s.avgWinR, 2), sgn(s.avgLossR, 2), Math.max(0, s.avgWinR || 0), Math.abs(s.avgLossR || 0))
+    + row('Largos / cortos', s.longs, s.shorts, s.longs, s.shorts);
+  $('st-sub').textContent = 'TikiTrade · Mercado';
+  $('kpis').innerHTML = 'PF <b>' + (isFinite(s.profitFactor) ? nf(s.profitFactor, 2) : s.profitFactor === Infinity ? '∞' : '–') + '</b> R medio <b>' + sgn(s.avgR, 2) + '</b> máx. DD <b class="neg">' + nf(s.maxDdPct, 2) + ' %</b> comisiones <b>' + nf(s.commissionPaid, 0) + ' $</b> comprar y mantener <b>' + sgn(s.buyHoldPct, 1, ' %') + '</b>';
+}
+function renderPlays(){
+  const closed = res.trades.filter(x => x.exitIdx !== null), t = data.t, n = res.n;
+  $('plays').innerHTML = closed.length ? closed.map((x, k) => {
+    const win = x.pnl > 0;
+    return '<tr class="click' + (k === sel ? ' sel' : '') + '" data-k="' + k + '"><td>' + (k + 1) + '</td><td>' + Math.round(x.signalIdx / n * 90) + '\'</td><td class="l">' + fmtDate(t[x.entryIdx]) + '</td>'
+      + '<td class="l"><span class="pill ' + (x.dir > 0 ? 'g' : 'r') + '">' + (x.dir > 0 ? 'Largo' : 'Corto') + '</span></td><td class="l t">' + tacName(x.tactic) + '</td><td>' + nf(x.entry, 2) + '</td><td>' + nf(x.stop0, 2) + '</td><td>' + nf(x.tp1, 2) + '</td><td>' + nf(x.exitPrice, 2) + '</td>'
+      + '<td class="l t">' + esc(x.reason) + '</td><td class="' + (win ? 'pos' : 'neg') + '">' + sgn(x.r, 2) + '</td><td><span class="pill ' + (win ? 'h' : 'r') + '">' + (win ? 'GOL' : 'Encajado') + '</span> <span class="' + (win ? 'pos' : 'neg') + '">' + sgn(x.pnl, 0, ' $') + '</span></td></tr>';
+  }).join('') : '<tr><td colspan="12" class="l t" style="color:var(--muted)">Ningún remate en este partido: la defensa no dejó pasar ninguna jugada o el Entrenador tuvo al equipo en el banquillo.</td></tr>';
+}
+$('plays').addEventListener('click', ev => { const r = ev.target.closest('tr[data-k]'); if (!r) return; showTrade(+r.dataset.k, true); focusTrade(); });
+
+// ---------- the pitch ----------
+const POS = { gk:[85,300], cb:[245,300], lb:[340,120], mc:[480,300], mp:[610,440], ex:[730,130], fw:[860,300] };
+const GOAL = [985,300], RIVAL_GK = [945,300];
+const DEF = [{x:780,y:220,t:'Ruido'},{x:800,y:390,t:'Comisión'},{x:690,y:300,t:'Deslizamiento'}];
+function buildPitch(){
+  const svg = $('pitch');
+  let s = '';
+  for (let k = 0; k < 10; k++) s += '<rect x="' + (k * 100) + '" y="0" width="100" height="580" fill="' + (k % 2 ? '#1F5B37' : '#22613C') + '"/>';
+  const L = 'stroke="rgba(255,255,255,.75)" stroke-width="3" fill="none"';
+  s += '<rect x="15" y="20" width="970" height="540" ' + L + '/><line x1="500" y1="20" x2="500" y2="560" ' + L + '/><circle cx="500" cy="290" r="72" ' + L + '/><circle cx="500" cy="290" r="4" fill="rgba(255,255,255,.8)"/>';
+  s += '<rect x="15" y="140" width="150" height="300" ' + L + '/><rect x="15" y="215" width="55" height="150" ' + L + '/><rect x="835" y="140" width="150" height="300" ' + L + '/><rect x="930" y="215" width="55" height="150" ' + L + '/>';
+  s += '<rect x="985" y="250" width="12" height="100" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="3"/>';
+  s += '<text x="500" y="14" text-anchor="middle" font-family="Saira Condensed, Arial Narrow, sans-serif" font-size="13" fill="rgba(255,255,255,.7)" letter-spacing="2">TIKITRADE ATACA → HACIA LA PORTERÍA DEL MERCADO</text>';
+  DEF.forEach(d => { s += '<g opacity=".8"><circle cx="' + d.x + '" cy="' + d.y + '" r="17" fill="#8E978F" stroke="#3B423C" stroke-width="3"/><text x="' + d.x + '" y="' + (d.y + 34) + '" text-anchor="middle" font-family="Barlow, sans-serif" font-size="14" fill="rgba(255,255,255,.75)">' + d.t + '</text></g>'; });
+  s += '<g opacity=".9"><circle cx="' + RIVAL_GK[0] + '" cy="' + RIVAL_GK[1] + '" r="19" fill="#5E6660" stroke="#EEF2EC" stroke-width="3"/><text x="' + RIVAL_GK[0] + '" y="' + (RIVAL_GK[1] - 28) + '" text-anchor="middle" font-family="Saira Condensed, sans-serif" font-weight="700" font-size="15" fill="#EEF2EC">MERCADO</text></g>';
+  s += '<g><circle cx="44" cy="604" r="20" fill="#16140F" stroke="#F2B705" stroke-width="3"/><text x="44" y="611" text-anchor="middle" font-family="Saira Condensed, sans-serif" font-weight="800" font-size="17" fill="#F2B705">DT</text>'
+    + '<text id="dt-text" x="76" y="610" font-family="Barlow, sans-serif" font-weight="600" font-size="19" fill="#FFFFFF"></text></g>';
+  s += '<path id="pass-line" d="" fill="none" stroke="rgba(242,183,5,.55)" stroke-width="3" stroke-dasharray="8 8"/>';
+  E.PLAYERS.forEach(p => {
+    const [x, y] = POS[p.key];
+    s += '<g class="pl idle" id="pl-' + p.key + '" data-key="' + p.key + '" tabindex="0" role="button" aria-label="' + p.role + ' ' + p.name + ': ' + p.tool + '">'
+      + '<circle class="ring" cx="' + x + '" cy="' + y + '" r="31"/>'
+      + '<circle cx="' + x + '" cy="' + y + '" r="24" fill="#F2B705" stroke="#16140F" stroke-width="4"/>'
+      + '<text x="' + x + '" y="' + (y + 8) + '" text-anchor="middle" font-weight="800" font-size="23" fill="#16140F">' + p.num + '</text>'
+      + '<text x="' + x + '" y="' + (y + 52) + '" text-anchor="middle" font-weight="700" font-size="17" fill="#FFFFFF">' + p.name + '</text>'
+      + '<text x="' + x + '" y="' + (y + 69) + '" text-anchor="middle" font-weight="600" font-size="14" fill="rgba(255,255,255,.72)">' + p.short + '</text></g>';
+  });
+  s += '<g class="ball" id="ball" style="transform:translate(' + POS.gk[0] + 'px,' + (POS.gk[1] - 36) + 'px)"><circle r="11" fill="#FFFFFF" stroke="#16140F" stroke-width="2.5"/><polygon points="0,-5 4.8,-1.5 3,4 -3,4 -4.8,-1.5" fill="#16140F"/></g>';
+  svg.innerHTML = s;
+  svg.querySelectorAll('.pl').forEach(g => {
+    const go = () => { selectTab('lineup'); const c = document.getElementById('card-' + g.dataset.key); if (c) c.scrollIntoView({block:'nearest', behavior: reduced ? 'auto' : 'smooth'}); };
+    g.addEventListener('click', go); g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+  });
+}
+let curTac = null;   // táctica de la jugada o vela mostrada en el campo
+const tacParams = k => k && E.TACTICS[k] ? Object.assign({}, params, E.TACTICS[k].p) : params;
+const benched = key => { const p = E.PLAYERS.find(x => x.key === key), A = tacParams(curTac); return p.toggle ? !A[p.toggle] || (key === 'ex' && !res.hasVolume) : false; };
+const regAt = i => res.plan ? res.plan.regime[i] : scoutRes ? scoutRes.label[i] : 'transicion';
+function decisionAt(i){
+  if (res.plan) return { reg: res.plan.regime[i], tac: res.plan.tactic[i], side: res.plan.side[i] };
+  return { reg: regAt(i), tac: null, side: params.direction };
+}
+function setDT(i){
+  const d = decisionAt(i);
+  $('dt-text').textContent = 'El Entrenador · ve ' + REG[d.reg] + ' → ' + (d.side === 'none' ? 'banquillo' : tacName(d.tac) + ', ' + SIDE[d.side]) + (coachOn ? '' : ' (manual)');
+  renderCoach(i);
+}
+function ballTo(x, y){ $('ball').style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
+function setPlayers(k){
+  E.PLAYERS.forEach((p, i) => {
+    const g = $('pl-' + p.key);
+    const st = benched(p.key) ? 'bench' : i < k ? 'pass' : i === k ? 'lost' : 'idle';
+    g.setAttribute('class', 'pl ' + st);
+  });
+  const pts = E.PLAYERS.slice(0, Math.min(k, 6) + 1).map(p => POS[p.key]);
+  if (k >= 7) pts.push(GOAL);
+  $('pass-line').setAttribute('d', pts.length > 1 ? 'M' + pts.map(p => p.join(',')).join(' L') : '');
+}
+let playTimers = [];
+const clearPlay = () => { playTimers.forEach(clearTimeout); playTimers = []; $('banner').classList.remove('show'); };
+function banner(txt, loss){ const b = $('banner-text'); b.textContent = txt; b.className = loss ? 'loss' : ''; $('banner').classList.add('show'); }
+
+// narration lines for a trade
+function lines(tr){
+  const P = tacParams(tr.tactic), S = tr.snap, L = tr.dir > 0, t = data.t, n = res.n;
+  const out = [];
+  out.push({no: Math.round(tr.signalIdx / n * 90) + '\'', min: true, html: fmtDate(t[tr.signalIdx]) + ' · ataque por ' + (L ? 'la banda de los <b>largos</b>' : 'la banda de los <b>cortos</b>') + '.'});
+  if (res.plan){
+    const i = tr.signalIdx, sc = Object.keys(E.TACTICS).map(k => E.TACTICS[k].name + ' ' + sgn(res.plan.score[k][i], 1) + ' R').join(' · ');
+    const ss = res.plan.sideScore[tr.tactic];
+    out.push({no: 'DT', html: '<b>El Entrenador</b> ve <b>' + REG[tr.regime] + '</b> y alinea <b>' + tacName(tr.tactic) + '</b> (' + SIDE[res.plan.side[i]] + '; en la sombra, largos ' + sgn(ss.long[i], 1) + ' R y cortos ' + sgn(ss.short[i], 1) + ' R). Últimos 30 días: ' + sc + '.'});
+  } else out.push({no: 'DT', html: 'Entrenador en manual: juega <b>' + tacName(null) + '</b>, ' + SIDE[params.direction] + '.'});
+  out.push({no: 1, html: '<b>El Muro</b> saca: no hay posición abierta' + (P.useCooldown ? ' y el equipo no está de descanso' : '') + '. Arriesga el ' + nf(P.riskPct, 1) + ' % de la cuenta.'});
+  out.push({no: 4, html: benched('cb') ? '<b>La Roca</b> está en el banquillo: el balón pasa sin mirar la tendencia.' : '<b>La Roca</b> ve la tendencia: EMA 50 ' + nf(S.emaM, 0) + (L ? ' por encima' : ' por debajo') + ' de la EMA 200 ' + nf(S.emaS, 0) + '.'});
+  out.push({no: 3, html: benched('lb') ? '<b>El Motor</b> descansa en el banquillo.' : '<b>El Motor</b> aprieta: ADX ' + nf(S.adx, 1) + ' (mínimo ' + nf(P.adxMin, 0) + ').'});
+  out.push({no: 8, html: benched('mc') ? '<b>El Cerebro</b> no juega: ' + (S.don ? 'juego directo, balón largo sin pausa.' : 'sin esperar la pausa.') : '<b>El Cerebro</b> pausa el juego: el RSI ' + (L ? 'bajó a ' : 'subió a ') + nf(S.rsi, 1) + '.'});
+  out.push({no: 10, html: benched('mp') ? '<b>El Termómetro</b> no juega.' : '<b>El Termómetro</b> da el visto bueno: volatilidad en el percentil ' + nf(S.rank, 0) + '.'});
+  out.push({no: 7, html: benched('ex') ? '<b>La Chispa</b> no juega' + (res.hasVolume ? '.' : ': estos datos no tienen volumen.') : '<b>La Chispa</b> acelera: volumen ' + nf(S.vol, 2) + ' × la media.'});
+  const lvl = S.don ? (L ? ' por encima del máximo de ' : ' por debajo del mínimo de ') + S.don + ' velas' : (L ? ' por encima del máximo anterior' : ' por debajo del mínimo anterior');
+  out.push({no: 9, html: '<b>El Killer</b> remata: cierre ' + nf(S.close, 2) + lvl + '. Entrada a ' + nf(tr.entry, 2) + ', stop ' + nf(tr.stop0, 2) + (isFinite(tr.tp1) ? ', TP1 ' + nf(tr.tp1, 2) : ' y la posición entera corre con el trailing') + '.'});
+  const win = tr.pnl > 0;
+  const how = tr.reason.startsWith('TP1') ? 'TP1 cobrado a ' + nf(P.tp1R, 1) + ' R y el resto por ' + tr.reason.replace('TP1 + ', '').toLowerCase() : tr.reason === 'Stop' ? 'salta el stop' : tr.reason === 'Trailing' ? 'sale por el trailing' : 'la tendencia se rompe y se sale (cambio de sistema)';
+  out.push({no: win ? '⚽' : '✕', big: true, cls: win ? 'goal' : 'against', html: win ? '¡GOOOL! ' + how + ': ' + sgn(tr.r, 2) + ' R (' + sgn(tr.pnl, 0, ' $') + ')' : 'Encajado: ' + how + ', ' + sgn(tr.r, 2) + ' R (' + sgn(tr.pnl, 0, ' $') + ')'});
+  return out;
+}
+function renderLines(ls, upto){
+  $('narr').innerHTML = ls.slice(0, upto).map(l => '<li class="' + (l.big ? 'big ' : '') + (l.cls || '') + '"><span class="no' + (l.min ? ' min' : '') + '">' + l.no + '</span><span>' + l.html + '</span></li>').join('');
+  const o = $('narr'); o.scrollTop = o.scrollHeight;
+}
+function showTrade(k, animate){
+  const closed = res.trades.filter(x => x.exitIdx !== null);
+  if (k < 0 || k >= closed.length) return;
+  sel = k; clearPlay();
+  document.querySelectorAll('#plays tr').forEach(r => r.classList.toggle('sel', +r.dataset.k === k));
+  const tr = closed[k]; curTac = tr.tactic; const ls = lines(tr), win = tr.pnl > 0;
+  $('narr-live').textContent = 'Jugada ' + (k + 1) + ' de ' + closed.length;
+  $('pitch-cap').innerHTML = 'Jugada ' + (k + 1) + ': <b>' + (win ? 'gol' : 'encajado') + '</b> · ' + esc(tr.reason) + ' · ' + sgn(tr.r, 2) + ' R';
+  setDT(tr.signalIdx); focusBar = tr.signalIdx; drawTimeline();
+  if (!animate || reduced){
+    setPlayers(7); ballTo(win ? GOAL[0] - 20 : RIVAL_GK[0] - 26, GOAL[1] + (win ? 0 : 26)); renderLines(ls, ls.length);
+    if (animate) banner(win ? '¡GOL!' : 'ENCAJADO', !win);
+    draw(); return;
+  }
+  setPlayers(-1); ballTo(POS.gk[0], POS.gk[1] - 36); renderLines(ls, 1);
+  E.PLAYERS.forEach((p, i) => {
+    playTimers.push(setTimeout(() => { setPlayers(i); E.PLAYERS.forEach((q, j) => { if (j === i) $('pl-' + q.key).setAttribute('class', 'pl ' + (benched(q.key) ? 'bench' : 'pass')); }); ballTo(POS[p.key][0], POS[p.key][1] - 36); renderLines(ls, i + 2); }, 120 + i * 520));
+  });
+  playTimers.push(setTimeout(() => {
+    setPlayers(7); renderLines(ls, ls.length);
+    if (win) ballTo(GOAL[0] - 20, GOAL[1]); else ballTo(RIVAL_GK[0] - 26, RIVAL_GK[1] + 26);
+    playTimers.push(setTimeout(() => banner(win ? '¡GOL!' : 'ENCAJADO', !win), 380));
+    playTimers.push(setTimeout(() => $('banner').classList.remove('show'), 2400));
+  }, 120 + 7 * 520));
+  draw();
+}
+function showBar(i){
+  clearPlay();
+  curTac = res.plan ? res.plan.tactic[i] : null;
+  const kl = res.progL[i], ks = res.progS[i];
+  const useL = kl >= ks, k = useL ? kl : ks, side = useL ? 'largos' : 'cortos';
+  setPlayers(k);
+  const p = E.PLAYERS[Math.min(k, 6)];
+  if (k >= 7) ballTo(POS.fw[0] + 30, POS.fw[1] - 36); else ballTo(POS[p.key][0], POS[p.key][1] - 36);
+  const dec = decisionAt(i);
+  const why = k >= 7 ? 'remate: se abre operación en la apertura siguiente' : k === 0 ? (res.inPos[i] ? 'ya hay una operación en juego' : res.plan && dec.side === 'none' ? 'el Entrenador tiene al equipo en el banquillo (' + (dec.reg === 'lateral' ? 'mercado lateral' : 'ninguna táctica va en positivo') + ')' : 'El Muro no saca (descanso o lado no permitido)') : 'pierde el balón <b>' + p.name + '</b> (' + p.tool + ')';
+  $('pitch-cap').innerHTML = fmtDate(data.t[i]) + ' · ataque de ' + side + ': ' + why;
+  setDT(i); focusBar = i; drawTimeline();
+}
+$('replay').addEventListener('click', () => { if (sel >= 0) showTrade(sel, true); });
+$('prev').addEventListener('click', () => { if (sel > 0) { showTrade(sel - 1, true); focusTrade(); } });
+$('next').addEventListener('click', () => { const c = res.trades.filter(x => x.exitIdx !== null).length; if (sel < c - 1) { showTrade(sel + 1, true); focusTrade(); } });
+function focusTrade(){
+  const tr = res.trades.filter(x => x.exitIdx !== null)[sel]; if (!tr) return;
+  view.count = Math.max(80, Math.min(260, tr.exitIdx - tr.signalIdx + 100));
+  view.start = Math.round((tr.signalIdx + tr.exitIdx) / 2 - view.count / 2); clampView(); draw();
+}
+
+// ---------- coach panel ----------
+let focusBar = -1;
+function renderCoach(i){
+  const d = decisionAt(i), real = data.regime ? data.regime[i] : null;
+  const rows = [['Momento', fmtDate(data.t[i])], ['Rival detectado', REG[d.reg] + (real ? ' <span style="color:var(--muted);font-weight:500">(real: ' + REG[real] + ')</span>' : '')],
+    ['Táctica', d.side === 'none' ? '—' : tacName(d.tac)], ['Lado', SIDE[d.side]]];
+  $('dec').innerHTML = rows.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('');
+  if (!res.plan){ $('shadow').innerHTML = ''; $('dec-note').textContent = 'Modo manual: el ojeador sigue mirando el mercado, pero la táctica y el lado los eliges tú.'; return; }
+  const ks = Object.keys(E.TACTICS), vals = ks.map(k => res.plan.score[k][i]), mx = Math.max(1, ...vals.map(Math.abs));
+  $('shadow').innerHTML = '<span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Partidos en la sombra · R en 30 días</span>' + ks.map((k, j) => {
+    const v = vals[j], w = Math.abs(v) / mx * 50, cnt = res.plan.count[k][i];
+    return '<div class="sh' + (d.tac === k && d.side !== 'none' ? ' on' : '') + '"><span>' + E.TACTICS[k].name + '</span><div class="track"><i style="background:' + (v >= 0 ? 'var(--win)' : 'var(--loss)') + ';left:' + (v >= 0 ? 50 : 50 - w) + '%;width:' + w + '%"></i><i style="left:50%;width:1px;background:var(--muted)"></i></div><b class="' + (v >= 0 ? 'pos' : 'neg') + '">' + sgn(v, 1) + '</b></div>'
+      + '<div style="font-size:11.5px;color:var(--muted);margin:-4px 0 0 108px">' + cnt + ' jugadas · largos ' + sgn(res.plan.sideScore[k].long[i], 1) + ' · cortos ' + sgn(res.plan.sideScore[k].short[i], 1) + '</div>';
+  }).join('');
+  const bestOk = ks.some(k => res.plan.count[k][i] >= coachCfg.minTrades && res.plan.score[k][i] > 0);
+  const byReg = E.SIDE_BY_REGIME[d.reg], cut = d.side !== byReg && !(d.reg === 'lateral');
+  $('dec-note').innerHTML = d.side === 'none'
+    ? (d.reg === 'lateral' && coachCfg.benchLateral ? 'Mercado lateral: el Entrenador no juega, porque ahí pierden todas las tácticas.' : !bestOk ? 'Ninguna táctica va en positivo en la sombra: el Entrenador espera.' : 'La mejor táctica va en positivo, pero por el lado que permite el mercado pierde en la sombra: el Entrenador espera.')
+    : (d.reg === 'alcista' ? 'Tendencia alcista: solo se buscan largos.' : d.reg === 'bajista' ? 'Tendencia bajista: solo se buscan cortos.' : 'Mercado ' + REG[d.reg].toLowerCase() + ': decide la táctica que va mejor.')
+      + (cut ? ' En la sombra, ' + (d.side === 'long' ? 'los cortos' : 'los largos') + ' van en negativo con esta táctica, así que juega con ' + SIDE[d.side] + '.' : '');
+}
+const tcv = $('tl'), tctx = tcv.getContext('2d');
+function drawTimeline(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(tcv), T = tok(), n = res.n;
+  tctx.clearRect(0,0,W,H);
+  const left = 96, pw = W - left - 4, X = i => left + i / n * pw, bw = Math.max(1, pw / n + 0.5);
+  tctx.font = '12px ' + T.mono; tctx.textBaseline = 'middle'; tctx.fillStyle = T.muted;
+  tctx.fillText('Rival', 0, 18); tctx.fillText('Decisión', 0, 58); tctx.fillText('Jugadas', 0, 96);
+  if (data.regime){ tctx.fillText('(real)', 0, 34); }
+  for (let i = 0; i < n; i++){
+    tctx.fillStyle = REG_COL[regAt(i)]; tctx.fillRect(X(i), 6, bw, data.regime ? 18 : 26);
+    if (data.regime){ tctx.fillStyle = REG_COL[data.regime[i]]; tctx.fillRect(X(i), 27, bw, 7); }
+    const d = decisionAt(i);
+    tctx.fillStyle = d.side === 'none' ? 'rgba(128,128,128,.22)' : res.plan ? TAC_COL[d.tac] : '#F2B705';
+    tctx.fillRect(X(i), 44, bw, 26);
+  }
+  res.trades.filter(x => x.exitIdx !== null).forEach(tr => { tctx.fillStyle = tr.pnl > 0 ? T.win : T.loss; tctx.beginPath(); tctx.arc(X(tr.exitIdx), 96, 4, 0, Math.PI * 2); tctx.fill(); });
+  const vs = view.start, ve = Math.min(n, view.start + view.count);
+  tctx.strokeStyle = T.ink; tctx.lineWidth = 1; tctx.strokeRect(X(vs) + .5, 2.5, Math.max(2, X(ve) - X(vs)), H - 5);
+  if (focusBar >= 0){ tctx.fillStyle = T.ink; tctx.fillRect(X(focusBar) - 1, 2, 2, H - 4); }
+  $('tl-sub').textContent = res.plan ? res.plan.changes.length + ' cambios de decisión' : 'modo manual';
+}
+tcv.addEventListener('click', ev => {
+  const r = tcv.getBoundingClientRect(), left = 96, x = ev.clientX - r.left; if (x < left) return;
+  const i = Math.max(0, Math.min(res.n - 1, Math.floor((x - left) / (r.width - left - 4) * res.n)));
+  view.start = i - Math.floor(view.count / 2); clampView(); draw(); showBar(i);
+});
+function renderSwatches(){
+  $('swatches').innerHTML = Object.entries(REG).map(([k, v]) => '<span><i style="background:' + REG_COL[k] + '"></i>' + v + '</span>').join('')
+    + Object.entries(E.TACTICS).map(([k, v]) => '<span><i style="background:' + TAC_COL[k] + '"></i>' + v.name + '</span>').join('') + '<span><i style="background:rgba(128,128,128,.22)"></i>Banquillo</span>';
+}
+renderSwatches();
+
+// ---------- lineup ----------
+const CARDS = [
+  {key:'club', num:'€', name:'La Directiva', role:'Club', tool:'Presupuesto y costes', fields:[['riskPct','Riesgo por operación %',0.1,{min:0.1,max:5}],['maxExposure','Exposición máx. (× capital)',0.1,{min:0.1}],['commissionPct','Comisión % por lado',0.01,{min:0}],['slippagePct','Deslizamiento %',0.01,{min:0}],['initialCapital','Capital inicial',1000,{min:100}]]},
+  {key:'gk', toggle:'useCooldown', fields:[['atrLen','ATR',1,{min:1,int:true}],['stopAtr','Stop (× ATR)',0.25,{min:0.5}],['lossStreak','Pérdidas seguidas para descansar',1,{min:1,int:true}],['restBars','Velas de descanso',1,{min:1,int:true}]]},
+  {key:'cb', fields:[['emaFast','EMA rápida',1,{min:1,int:true}],['emaMid','EMA media',1,{min:1,int:true}],['emaSlow','EMA lenta',1,{min:2,int:true}],['slopeLen','Pendiente EMA lenta (velas)',1,{min:1,int:true}]]},
+  {key:'lb', fields:[['adxLen','ADX',1,{min:2,int:true}],['adxMin','ADX mínimo',1,{min:0}]]},
+  {key:'mc', fields:[['rsiLen','RSI',1,{min:2,int:true}],['pullbackRsi','RSI de retroceso (largo ≤)',1,{min:1,max:99}],['pullbackLookback','Ventana (velas)',1,{min:1,int:true}]]},
+  {key:'mp', fields:[['volLookback','Ventana del percentil',10,{min:10,int:true}],['volPctMin','Percentil mínimo',5,{min:0,max:100}],['volPctMax','Percentil máximo',5,{min:0,max:100}]]},
+  {key:'ex', fields:[['volMult','Volumen ≥ media 20 ×',0.1,{min:0}]]},
+  {key:'fw', toggle:'useTrendExit', toggleLabel:'Salir si se rompe la tendencia', fields:[['donLen','Ruptura de N velas (0 = vela anterior)',1,{min:0,int:true}],['trailAtr','Trailing chandelier (× ATR)',0.25,{min:0.5}],['tp1Pct','TP1 parcial (% de la posición, 0 = sin TP)',5,{min:0,max:100}],['tp1R','TP1 (R)',0.25,{min:0.25}]]}
+];
+const DT_FIELDS = [['window','Ventana de evaluación (velas)',24,{min:50,int:true}],['minTrades','Jugadas mínimas para evaluar',1,{min:1,int:true}],['erTrend','Ojeador: eficiencia de tendencia',0.01,{min:0}],['spreadTrend','Ojeador: distancia EMA 50–200 (ATR)',0.1,{min:0}],['spreadRange','Ojeador: distancia máx. en lateral (ATR)',0.1,{min:0}],['volHigh','Ojeador: percentil ATR% volátil',5,{min:0,max:100}]];
+function buildDTCard(host){
+  const div = document.createElement('div'); div.className = 'card'; div.id = 'card-dt';
+  let h = '<div class="card-top"><span class="shirt" style="background:var(--kit);color:#F2B705;border-color:#F2B705">DT</span><div><h3>El Entrenador</h3><p>Banquillo · Ojeador y decisiones</p></div></div><div class="fields">'
+    + '<div class="field"><label for="c-needPositive">Solo alinear tácticas en positivo</label><input type="checkbox" id="c-needPositive"' + (coachCfg.needPositive ? ' checked' : '') + '></div>'
+    + '<div class="field"><label for="c-benchLateral">No jugar en mercado lateral</label><input type="checkbox" id="c-benchLateral"' + (coachCfg.benchLateral ? ' checked' : '') + '></div>'
+    + '<div class="field"><label for="c-sideByShadow">El lado también se gana en la sombra</label><input type="checkbox" id="c-sideByShadow"' + (coachCfg.sideByShadow ? ' checked' : '') + '></div>';
+  DT_FIELDS.forEach(([k, label, step, o]) => { h += '<div class="field' + (coachCfg[k] !== E.COACH_DEFAULTS[k] ? ' changed' : '') + '"><label for="c-' + k + '">' + label + '</label><input type="number" id="c-' + k + '" step="' + step + '" min="' + o.min + '"' + (o.max != null ? ' max="' + o.max + '"' : '') + ' value="' + coachCfg[k] + '"></div>'; });
+  h += '</div><div class="benchres" id="bench-dt">Prueba de banquillo: abre esta pestaña para calcularla.</div>';
+  div.innerHTML = h; host.appendChild(div);
+  ['needPositive', 'benchLateral', 'sideByShadow'].forEach(k => div.querySelector('#c-' + k).addEventListener('change', ev => { coachCfg[k] = ev.target.checked; save(); schedule(); }));
+  DT_FIELDS.forEach(([k,,, o]) => { const el = div.querySelector('#c-' + k); el.addEventListener('input', () => { let v = parseFloat(el.value); if (!isFinite(v)) return; if (o.int) v = Math.round(v); v = Math.max(o.min, o.max != null ? Math.min(o.max, v) : v); coachCfg[k] = v; el.closest('.field').classList.toggle('changed', v !== E.COACH_DEFAULTS[k]); save(); schedule(); }); });
+}
+function buildLineup(){
+  const host = $('lineup'); host.innerHTML = '';
+  buildDTCard(host);
+  CARDS.forEach(c => {
+    const p = E.PLAYERS.find(x => x.key === c.key) || c;
+    const toggle = c.toggle || p.toggle;
+    const div = document.createElement('div'); div.className = 'card'; div.id = 'card-' + c.key;
+    let h = '<div class="card-top"><span class="shirt">' + p.num + '</span><div><h3>' + p.name + '</h3><p>' + p.role + ' · ' + p.tool + '</p></div>';
+    if (toggle) h += '<label class="sw field" style="gap:6px;font-size:12.5px" for="t-' + c.key + '"><input type="checkbox" id="t-' + c.key + '"' + (params[toggle] ? ' checked' : '') + '> ' + (c.toggleLabel || (c.key === 'gk' ? 'Descanso tras racha' : 'Titular')) + '</label>';
+    h += '</div><div class="fields">';
+    c.fields.forEach(([k, label, step, o]) => { h += '<div class="field" data-key="' + k + '"><label for="f-' + k + '">' + label + '</label><input type="number" id="f-' + k + '" step="' + step + '"' + (o.min != null ? ' min="' + o.min + '"' : '') + (o.max != null ? ' max="' + o.max + '"' : '') + ' value="' + params[k] + '"></div>'; });
+    h += '</div>' + (c.key === 'club' ? '' : '<div class="benchres" id="bench-' + c.key + '">Prueba de banquillo: abre esta pestaña para calcularla.</div>');
+    div.innerHTML = h; host.appendChild(div);
+    if (toggle){ const el = div.querySelector('#t-' + c.key); el.addEventListener('change', () => { params[toggle] = el.checked; custom(); div.classList.toggle('benched', !el.checked && c.key !== 'gk' && c.key !== 'fw'); }); div.classList.toggle('benched', !params[toggle] && c.key !== 'gk' && c.key !== 'fw'); }
+    c.fields.forEach(([k,,, o]) => {
+      const el = div.querySelector('#f-' + k), row = el.closest('.field');
+      el.addEventListener('input', () => { let v = parseFloat(el.value); if (!isFinite(v)) return; if (o.int) v = Math.round(v); if (o.max != null) v = Math.min(o.max, v); if (o.min != null) v = Math.max(o.min, v); params[k] = v; row.classList.toggle('changed', v !== E.DEFAULTS[k]); custom(); });
+      row.classList.toggle('changed', params[k] !== E.DEFAULTS[k]);
+    });
+  });
+}
+function custom(){ tactic = 'custom'; setTacticUI(); save(); schedule(); }
+$('reset').addEventListener('click', () => { tactic = 'tikitaka'; coachCfg = Object.assign({}, E.COACH_DEFAULTS); params = Object.assign({}, E.DEFAULTS, {direction: params.direction}); setTacticUI(); buildLineup(); save(); runNow(true); });
+function renderLineupResults(){
+  if ($('lineup').closest('[hidden]')) return;
+  if (!benchCache) benchCache = E.bench(data, eff());
+  const dtEl = $('bench-dt');
+  if (dtEl){
+    if (coachOn){ const fixed = E.run(data, params).stats, b0 = benchCache.base, d0 = b0.netPct - fixed.netPct;
+      dtEl.innerHTML = 'Sin él (' + tacName(null) + ' fija, ' + SIDE[params.direction] + '): <b class="' + (fixed.netPct >= 0 ? 'pos' : 'neg') + '">' + sgn(fixed.netPct, 2, ' %') + '</b> en ' + fixed.trades + ' jugadas (con él ' + sgn(b0.netPct, 2, ' %') + ' en ' + b0.trades + '). ' + (Math.abs(d0) < 0.05 ? 'En este partido no cambia nada.' : d0 > 0 ? '<b class="pos">Aporta ' + sgn(d0, 2, ' puntos') + '.</b>' : '<b class="neg">En este partido resta ' + nf(-d0, 2) + ' puntos.</b>');
+    } else dtEl.innerHTML = 'El Entrenador está en modo manual.';
+  }
+  const B = benchCache, base = B.base;
+  const map = {useTrend:'cb', useStrength:'lb', usePullback:'mc', useVolatility:'mp', useVolume:'ex', useCooldown:'gk', useTrendExit:'fw'};
+  Object.values(map).forEach(k => { const el = $('bench-' + k); if (el) el.innerHTML = 'Prueba de banquillo: ya está fuera de la alineación.'; });
+  B.rows.forEach(r => {
+    const el = $('bench-' + map[r.key]); if (!el) return;
+    const d = base.netPct - r.stats.netPct;
+    el.innerHTML = 'Sin él: <b class="' + (r.stats.netPct >= 0 ? 'pos' : 'neg') + '">' + sgn(r.stats.netPct, 2, ' %') + '</b> en ' + r.stats.trades + ' jugadas (con él ' + sgn(base.netPct, 2, ' %') + ' en ' + base.trades + '). '
+      + (Math.abs(d) < 0.05 ? 'En este partido no cambia nada.' : d > 0 ? '<b class="pos">Aporta ' + sgn(d, 2, ' puntos') + '.</b>' : '<b class="neg">En este partido resta ' + nf(-d, 2) + ' puntos.</b>');
+  });
+  if (!res.hasVolume){ const el = $('bench-ex'); if (el) el.innerHTML = 'Estos datos no tienen volumen: La Chispa no puede jugar.'; }
+}
+
+// ---------- preseason & calendar ----------
+let preCache = null, calCache = null;
+function renderPre(){
+  const out = $('pre-out');
+  if (!preCache){ out.innerHTML = '<p class="note">Jugando 64 alineaciones' + (coachOn ? ' con el Entrenador (tarda unos segundos)' : '') + '…</p>'; setTimeout(() => { preCache = E.preseason(data, eff(), 0.6); renderPre(); }, 30); return; }
+  const P = preCache, b = P.best, t = data.t;
+  const cell = m => '<td>' + m.trades + '</td><td>' + m.wins + '–' + (m.trades - m.wins) + '</td><td class="' + (m.net >= 0 ? 'pos' : 'neg') + '">' + sgn(m.net, 0, ' $') + '</td><td>' + (isFinite(m.pf) ? nf(m.pf, 2) : m.pf === Infinity ? '∞' : '–') + '</td>';
+  const top = P.rows.slice().filter(x => x.train.trades >= 8).sort((a, b) => b.train.net - a.train.net).slice(0, 8);
+  out.innerHTML = '<p class="note" style="margin-top:0">Pretemporada: ' + fmtDay(t[0]) + ' → ' + fmtDay(t[P.cut]) + ' · Liga: ' + fmtDay(t[P.cut]) + ' → ' + fmtDay(t[t.length - 1]) + '. De las 64 alineaciones, <b>' + P.testPositive + '</b> ' + (P.testPositive === 1 ? 'gana' : 'ganan') + ' en liga.</p>'
+    + '<div class="table-scroll" style="max-height:none"><table><thead><tr><th class="l">Alineación</th><th class="l">Stop · Trailing · ADX</th><th>Jugadas</th><th>G–E</th><th>Neto</th><th>PF</th><th>Jugadas</th><th>G–E</th><th>Neto</th><th>PF</th></tr><tr><th></th><th></th><th colspan="4" style="text-align:center">Pretemporada (dentro de muestra)</th><th colspan="4" style="text-align:center">Liga (fuera de muestra)</th></tr></thead><tbody>'
+    + '<tr class="sel"><td class="l t"><b>La mejor en pretemporada</b></td><td class="l">' + b.stopAtr + ' · ' + b.trailAtr + ' · ' + b.adxMin + '</td>' + cell(b.train) + cell(b.test) + '</tr>'
+    + '<tr><td class="l t">Tu alineación actual</td><td class="l">' + params.stopAtr + ' · ' + params.trailAtr + ' · ' + params.adxMin + '</td>' + cell(P.base.train) + cell(P.base.test) + '</tr>'
+    + top.slice(1).map((r, k) => '<tr><td class="l t">' + (k + 2) + '.ª en pretemporada</td><td class="l">' + r.stopAtr + ' · ' + r.trailAtr + ' · ' + r.adxMin + '</td>' + cell(r.train) + cell(r.test) + '</tr>').join('')
+    + '</tbody></table></div><p class="note">' + (b.train.net > 0 && b.test.net <= 0 ? 'La mejor de pretemporada <b>pierde en liga</b>: es el aspecto típico del sobreajuste. Por eso TikiTrade usa valores de manual y no los que mejor quedan en el pasado.' : b.test.net > 0 ? 'La mejor de pretemporada también gana en liga. Compara con tu alineación y con cuántas de las 64 ganan fuera de muestra antes de cambiar nada.' : 'Ni en pretemporada ni en liga hay una alineación ganadora clara en estos datos.') + '</p>';
+}
+const CAL_SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
+$('cal-seeds').textContent = CAL_SEEDS.join(', ');
+function renderCal(){
+  const out = $('cal-out');
+  if (!calCache){
+    const nt = Object.keys(E.TACTICS).length, nr = Object.keys(E.RIVALS).length;
+    out.innerHTML = '<p class="note">Jugando ' + (nt + 1) * nr * CAL_SEEDS.length + ' partidos (el Entrenador juega además ' + nt + ' en la sombra por partido; tarda unos segundos)…</p>';
+    setTimeout(() => {
+      const res2 = {};
+      for (const [tk, t] of Object.entries(E.TACTICS)) {
+        res2[tk] = {};
+        for (const rk of Object.keys(E.RIVALS)) {
+          let w = 0, l = 0, net = 0;
+          for (const sd of CAL_SEEDS) { const r = E.run(E.makeSample(sd, 26, rk), Object.assign({}, params, tikiBase(), t.p, { direction: 'both', coach: null })), g = goals(r.trades); w += g.f; l += g.a; net += r.stats.netPct; }
+          res2[tk][rk] = { w: w / CAL_SEEDS.length, l: l / CAL_SEEDS.length, net: net / CAL_SEEDS.length };
+        }
+      }
+      res2.auto = {};
+      for (const rk of Object.keys(E.RIVALS)) {
+        let w = 0, l = 0, net = 0;
+        for (const sd of CAL_SEEDS) { const r = E.run(E.makeSample(sd, 26, rk), Object.assign({}, params, tikiBase(), { direction: 'both', coach: coachCfg })), g = goals(r.trades); w += g.f; l += g.a; net += r.stats.netPct; }
+        res2.auto[rk] = { w: w / CAL_SEEDS.length, l: l / CAL_SEEDS.length, net: net / CAL_SEEDS.length };
+      }
+      calCache = res2; renderCal();
+    }, 30);
+    return;
+  }
+  const verdict = x => x.net >= 0.5 ? ['V', 'g'] : x.net <= -0.5 ? ['D', 'r'] : ['E', 'n'];
+  let h = '<div class="table-scroll" style="max-height:none"><table class="cal"><thead><tr><th class="l">Táctica</th>' + Object.values(E.RIVALS).map(r => '<th>' + r + '</th>').join('') + '<th>Puntos</th></tr></thead><tbody>';
+  for (const [tk, t] of Object.entries(E.TACTICS).concat([['auto', { name: 'El Entrenador (automático)' }]])) {
+    let pts = 0;
+    h += '<tr><td class="l t"><b>' + t.name + '</b></td>' + Object.keys(E.RIVALS).map(rk => { const x = calCache[tk][rk], v = verdict(x); pts += v[0] === 'V' ? 3 : v[0] === 'E' ? 1 : 0; return '<td><span class="pill ' + v[1] + '">' + v[0] + '</span> <span class="res">' + nf(x.w, 1) + '–' + nf(x.l, 1) + '</span><br><span class="' + (x.net >= 0 ? 'pos' : 'neg') + '">' + sgn(x.net, 2, ' %') + '</span></td>'; }).join('') + '<td class="res">' + pts + '</td></tr>';
+  }
+  h += '</tbody></table></div><p class="note">Las tácticas usan los parámetros del Entrenador que tengas (riesgo, comisiones) y los de cada táctica. En mercado lateral pierden todas; lo que las distingue es cuánto. El Contraataque y el Juego directo ganan más cuando hay tendencia y pierden muchísimo cuando no la hay. El Entrenador combina las cuatro: juega la que va bien, por el lado que va bien, y se queda en el banquillo en lateral.</p>';
+  out.innerHTML = h;
+}
+const tikiBase = () => ({ usePullback: E.DEFAULTS.usePullback, adxMin: E.DEFAULTS.adxMin, pullbackRsi: E.DEFAULTS.pullbackRsi, donLen: 0 });
+$('pre-run').addEventListener('click', renderPre);
+$('cal-run').addEventListener('click', renderCal);
+
+// ---------- tabs ----------
+function selectTab(name){
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x.dataset.tab === name)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== name);
+  refreshOpenTab();
+}
+function refreshOpenTab(){
+  const open = document.querySelector('.tab[aria-selected=true]').dataset.tab;
+  if (open === 'lineup') renderLineupResults();
+  if (open === 'pre' && preCache === null && $('pre-out').querySelector('table')) renderPre();
+  if (open === 'cal' && calCache === null && $('cal-out').querySelector('table')) renderCal();
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+
+// ---------- replay chart ----------
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(100, Math.min(360, Math.floor(cv.clientWidth / 3)));
+function clampView(){
+  const n = res.n;
+  view.count = Math.max(40, Math.min(n, view.count));
+  view.start = Math.max(0, Math.min(n - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, n - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  const o = {}; ['ink','muted','line','grid','win','loss','surface','mono','candle','ema20','ema50','ema200','dd','honey'].forEach(k => o[k] = g('--' + k)); o.fill = '#F2B705'; return o;
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = data, n = res.n, r = res;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 74, timeH = 22, plotW = W - axisW, priceH = H - timeH;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  const closed = r.trades.filter(x => x.exitIdx !== null), selTr = closed[sel];
+  let lo = Infinity, hi = -Infinity;
+  const inc = v => { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+  for (let i = s; i < e; i++){ inc(d.l[i]); inc(d.h[i]); inc(r.emaM[i]); inc(r.emaF[i]); }
+  if (selTr && selTr.exitIdx >= s && selTr.signalIdx < e) { inc(selTr.stop0); inc(selTr.tp1); }
+  const padY = (hi - lo) * 0.05 || 1; lo -= padY; hi += padY;
+  const Y = p => 10 + (hi - p) / (hi - lo) * (priceH - 20);
+  geo = {bw, plotW};
+  for (let i = s; i < e; i++) if (r.inPos[i]) { ctx.fillStyle = r.inPos[i] > 0 ? 'rgba(46,160,100,.07)' : 'rgba(198,58,47,.07)'; ctx.fillRect(X(i) - bw/2, 0, bw + .5, priceH); }
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const st = niceStep((hi - lo) / 7);
+  for (let p = Math.ceil(lo / st) * st; p <= hi; p += st){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(nf(p, st < 1 ? 2 : 0), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line; ctx.beginPath(); ctx.moveTo(plotW + .5, 0); ctx.lineTo(plotW + .5, priceH); ctx.stroke();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw)); let lastDay = -1;
+  for (let i = s; i < e; i++){ if ((i - s) % every) continue; const day = new Date(d.t[i]).getUTCDate(); ctx.fillStyle = T.muted; ctx.fillText(day !== lastDay ? fmtDay(d.t[i]) : pad(new Date(d.t[i]).getUTCHours()) + ':00', Math.min(Math.max(X(i), 24), plotW - 24), H - 6); lastDay = day; }
+  ctx.textAlign = 'left';
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  const line = (arr, color, width) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); let on = false; for (let i = Math.max(0, s - 1); i < Math.min(n, e + 1); i++){ const v = arr[i]; if (!isFinite(v)) { on = false; continue; } on ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); on = true; } ctx.stroke(); };
+  const bodyW = Math.max(1, Math.min(10, bw * 0.66));
+  for (let i = s; i < e; i++){
+    const up = d.c[i] >= d.o[i], x = X(i);
+    ctx.strokeStyle = ctx.fillStyle = T.candle; ctx.globalAlpha = up ? 0.55 : 0.95;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + .5, Y(d.h[i])); ctx.lineTo(Math.round(x) + .5, Y(d.l[i])); ctx.stroke();
+    const y1 = Y(Math.max(d.o[i], d.c[i])), y2 = Y(Math.min(d.o[i], d.c[i]));
+    if (up) ctx.strokeRect(x - bodyW/2 + .5, y1 + .5, Math.max(1, bodyW - 1), Math.max(1, y2 - y1)); else ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+  ctx.globalAlpha = 1;
+  line(r.emaS, T.ema200, 2); line(r.emaM, T.ema50, 1.3); line(r.emaF, T.ema20, 1);
+  // stop / tp of open positions
+  ctx.lineWidth = 1.5;
+  for (let i = s; i < e; i++){ if (isFinite(r.stopPlot[i])) { ctx.strokeStyle = T.loss; ctx.globalAlpha = .7; ctx.beginPath(); ctx.moveTo(X(i) - bw/2, Y(r.stopPlot[i])); ctx.lineTo(X(i) + bw/2, Y(r.stopPlot[i])); ctx.stroke(); } if (isFinite(r.tpPlot[i])) { ctx.strokeStyle = T.win; ctx.beginPath(); ctx.moveTo(X(i) - bw/2, Y(r.tpPlot[i])); ctx.lineTo(X(i) + bw/2, Y(r.tpPlot[i])); ctx.stroke(); } }
+  ctx.globalAlpha = 1;
+  const sz = bw > 5 ? 7 : 5;
+  closed.forEach((tr, k) => {
+    if (tr.exitIdx < s || tr.signalIdx >= e) return;
+    const L = tr.dir > 0, xs = X(tr.signalIdx), ys = L ? Y(d.l[tr.signalIdx]) + 12 : Y(d.h[tr.signalIdx]) - 12;
+    ctx.fillStyle = T.fill; ctx.strokeStyle = '#16140F'; ctx.lineWidth = 1.5; ctx.beginPath();
+    if (L){ ctx.moveTo(xs, ys - sz); ctx.lineTo(xs - sz, ys + sz); ctx.lineTo(xs + sz, ys + sz); } else { ctx.moveTo(xs, ys + sz); ctx.lineTo(xs - sz, ys - sz); ctx.lineTo(xs + sz, ys - sz); }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    const xe = X(tr.exitIdx), ye = Y(tr.exitPrice);
+    ctx.setLineDash([4,3]); ctx.strokeStyle = tr.pnl > 0 ? T.win : T.loss; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(X(tr.entryIdx), Y(tr.entry)); ctx.lineTo(xe, ye); ctx.stroke(); ctx.setLineDash([]);
+    if (tr.pnl > 0){ ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#16140F'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(xe, ye, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#16140F'; ctx.beginPath(); ctx.arc(xe, ye, 2.2, 0, Math.PI*2); ctx.fill(); }
+    else { ctx.strokeStyle = T.loss; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(xe - 5, ye - 5); ctx.lineTo(xe + 5, ye + 5); ctx.moveTo(xe + 5, ye - 5); ctx.lineTo(xe - 5, ye + 5); ctx.stroke(); }
+    if (k === sel){ ctx.strokeStyle = T.fill; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(xs, ys, 12, 0, Math.PI*2); ctx.stroke(); }
+  });
+  ctx.restore();
+  if (hover >= s && hover < e){ const x = Math.round(X(hover)) + .5; ctx.strokeStyle = T.muted; ctx.globalAlpha = .5; ctx.setLineDash([2,3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, priceH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+  drawTimeline();
+  const i = hover >= s && hover < e ? hover : e - 1;
+  $('readout').innerHTML = fmtDate(d.t[i]) + ' UTC  C <b>' + nf(d.c[i], 2) + '</b> · ADX <b>' + nf(r.adx[i], 1) + '</b> · RSI <b>' + nf(r.rsi[i], 1) + '</b> · ATR% pct <b>' + nf(r.rank[i], 0) + '</b>';
+}
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const mx = ev.clientX - cv.getBoundingClientRect().left;
+  if (drag){ view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView(); }
+  const i = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  if (i !== hover){ hover = i; if (i >= 0 && i < res.n) showBar(i); }
+  draw();
+});
+cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('pointercancel', () => { drag = null; });
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); if (sel >= 0) showTrade(sel, false); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const frac = Math.min(1, (ev.clientX - cv.getBoundingClientRect().left) / geo.plotW), anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) view.start += Math.round(ev.deltaX / geo.bw);
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = res.n; clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+
+const ecv = $('eq'), ectx = ecv.getContext('2d');
+function drawEquity(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(ecv), T = tok(), eq = res.equity, n = eq.length, cap = params.initialCapital;
+  ectx.clearRect(0,0,W,H); if (!n) return;
+  const axisW = 78, plotW = W - axisW, plotH = H - 22;
+  let lo = cap, hi = cap; for (const v of eq) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const pd = (hi - lo) * 0.1 || cap * 0.01; lo -= pd; hi += pd;
+  const X = i => i / Math.max(1, n - 1) * plotW, Y = v => 4 + (hi - v) / (hi - lo) * plotH;
+  ectx.font = '11px ' + T.mono; ectx.textBaseline = 'middle'; ectx.lineWidth = 1;
+  const st = niceStep((hi - lo) / 4);
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st){ const y = Math.round(Y(v)) + .5; ectx.strokeStyle = T.grid; ectx.beginPath(); ectx.moveTo(0, y); ectx.lineTo(plotW, y); ectx.stroke(); ectx.fillStyle = T.muted; ectx.fillText(nf(v, 0) + ' $', plotW + 8, y); }
+  let peak = -Infinity; const peaks = eq.map(v => (peak = Math.max(peak, v)));
+  ectx.fillStyle = T.dd; ectx.beginPath(); ectx.moveTo(0, Y(eq[0])); for (let i = 0; i < n; i++) ectx.lineTo(X(i), Y(peaks[i])); for (let i = n - 1; i >= 0; i--) ectx.lineTo(X(i), Y(eq[i])); ectx.closePath(); ectx.fill();
+  ectx.setLineDash([4,4]); ectx.strokeStyle = T.muted; ectx.beginPath(); ectx.moveTo(0, Math.round(Y(cap)) + .5); ectx.lineTo(plotW, Math.round(Y(cap)) + .5); ectx.stroke(); ectx.setLineDash([]);
+  ectx.strokeStyle = T.honey; ectx.lineWidth = 2; ectx.beginPath(); for (let i = 0; i < n; i++) i ? ectx.lineTo(X(i), Y(eq[i])) : ectx.moveTo(X(i), Y(eq[i])); ectx.stroke();
+  ectx.fillStyle = T.honey; ectx.beginPath(); ectx.arc(X(n - 1), Y(eq[n - 1]), 4, 0, Math.PI*2); ectx.fill();
+  res.trades.filter(x => x.exitIdx !== null).forEach(tr => { ectx.fillStyle = tr.pnl > 0 ? T.win : T.loss; ectx.fillRect(X(tr.exitIdx) - 1, H - 14, 2, 8); });
+  ectx.fillStyle = T.muted; ectx.textBaseline = 'alphabetic'; ectx.textAlign = 'left'; ectx.fillText(fmtDay(data.t[0]), 0, H - 1); ectx.textAlign = 'right'; ectx.fillText(fmtDay(data.t[n - 1]), plotW, H - 1); ectx.textAlign = 'left';
+}
+
+// ---------- Pine code ----------
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, q = '', ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (!inStr && (ch === '"' || ch === "'")) { inStr = true; q = ch; } else if (inStr && ch === q) inStr = false; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code).replace(/("[^"]*"|'[^']*')/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na|for|to|int|float|bool|string)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+
+new ResizeObserver(() => { if (res) { clampView(); draw(); drawEquity(); } }).observe($('chart-box'));
+const redraw = () => { draw(); drawEquity(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildPitch(); buildLineup(); setTacticUI(); loadSample(); runNow(true);
+})();
+</script>
+</body>
+</html>

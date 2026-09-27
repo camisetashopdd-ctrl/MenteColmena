@@ -1,0 +1,860 @@
+// This Pine Script(R) code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// Bot Integration v8.4 - SOL/USD (21.02.2026)
+// Symbol-spezifisch fuer SOLUSD - Kraken Futures
+// Basiert auf: v7.3 TF-spezifische Filter (bewaehrt) + v8.0 Keltner/Regime (nur SHORT Squeeze)
+//
+// AENDERUNGEN gegenueber v8.0 (basierend auf 2102 Signal-Analyse):
+// =================================================================
+// [21.02.2026] v8.4: Daten-getriebene Optimierung aus 136 Signalen + 9406 1m-Candles
+//   1. TF-SPEZIFISCHE SCHWELLEN ZURUECK (v7.3) - v8.0 hatte nur globale = schlechter
+//   2. SQUEEZE LONG DEAKTIVIERT - 21.7% $20-Rate, R/R 0.44x = katastrophal
+//   3. SQUEEZE SHORT BEHALTEN - 53.8% $20-Rate, R/R 1.39x = gut
+//   4. SHORT RSI DIFFERENZIERT pro TF - v8.0 global RSI>78 blockierte profitable Shorts
+//   5. WEAK_UP REGIME BLOCK - 0% Erfolgsrate in Analyse, alle Signale blockieren
+//   6. ADX-FILTER GELOCKERT - 2/3 ADX-Blocks waren falsch-positiv
+//   7. KELTNER + REGIME als Info-Overlay behalten (kein Trade-Impact auf Basis-Signale)
+//
+// SIGNAL-LOGIK:
+// =================================================
+// Basis: v7.3 TF-spezifische RSI + StochK + Slope + ADX (30S-20m)
+// Add-on: Squeeze SHORT (Keltner) wenn squeezeFired + Momentum bearish
+// Regime: Overlay-Info + WEAK_UP Block + Confidence-Modifier
+//
+// BEWIESENE PERFORMANCE (2102 Analyse):
+//   v7.3 Basis LONG:     68.2% $20-Rate, R/R 1.48x
+//   Squeeze SHORT:       53.8% $20-Rate, R/R 1.39x
+//   Akzeptiert gesamt:   50.0% $20-Rate, R/R 1.35x
+//   Beste TFs: 30S (47.1%), 45S (34.8%), 12m+ (33%+)
+
+//@version=5
+indicator("Bot Webhook v8.4 [SOL]", overlay=true, max_labels_count=50)
+
+// ============================================================================
+// INPUTS - Trend Settings
+// ============================================================================
+emaFilter = input.int(200, "Trend Filter EMA", group="Trend Settings")
+ema50 = input.int(50, "Medium EMA", group="Trend Settings")
+ema20 = input.int(20, "Short EMA", group="Trend Settings")
+
+// RSI Settings
+rsiLength = input.int(14, "RSI Length", group="RSI Settings")
+rsiSlopeLength = input.int(5, "RSI Slope Length", group="RSI Settings")
+
+// ============================================================================
+// INPUTS - LONG Settings: 30S-5m (v7.3 bewaehrt, RSI 35->30)
+// ============================================================================
+longRsi30S = input.int(30, "LONG RSI (30S)", group="LONG 30S-5m", tooltip="v7.3: 35->30 (nur echte Oversold)")
+longRsi45S = input.int(30, "LONG RSI (45S)", group="LONG 30S-5m", tooltip="v7.3: 35->30")
+longRsi1m = input.int(30, "LONG RSI (1m)", group="LONG 30S-5m", tooltip="v7.3: 35->30")
+longRsi2m = input.int(30, "LONG RSI (2m)", group="LONG 30S-5m", tooltip="v7.3: 35->30")
+longRsi3m = input.int(32, "LONG RSI (3m)", group="LONG 30S-5m", tooltip="v7.2: 28->32")
+longRsi4m = input.int(30, "LONG RSI (4m)", group="LONG 30S-5m")
+longRsi5m = input.int(28, "LONG RSI (5m)", group="LONG 30S-5m", tooltip="v7.2: 25->28")
+
+longK30S = input.int(10, "LONG K (30S)", group="LONG 30S-5m", tooltip="v7.2: 15->10")
+longK45S = input.int(12, "LONG K (45S)", group="LONG 30S-5m", tooltip="v7.2: 18->12")
+longK1m = input.int(12, "LONG K (1m)", group="LONG 30S-5m", tooltip="v7.2: 18->12")
+longK2m = input.int(10, "LONG K (2m)", group="LONG 30S-5m", tooltip="v7.2: 15->10")
+longK3m = input.int(10, "LONG K (3m)", group="LONG 30S-5m", tooltip="v7.2: 15->10")
+longK4m = input.int(15, "LONG K (4m)", group="LONG 30S-5m")
+longK5m = input.int(8, "LONG K (5m)", group="LONG 30S-5m", tooltip="v7.2: 10->8")
+
+longSlope30S = input.float(-3.0, "LONG Slope (30S)", group="LONG 30S-5m")
+longSlope45S = input.float(-3.0, "LONG Slope (45S)", group="LONG 30S-5m")
+longSlope1m = input.float(-3.0, "LONG Slope (1m)", group="LONG 30S-5m")
+longSlope2m = input.float(-5.0, "LONG Slope (2m)", group="LONG 30S-5m")
+longSlope3m = input.float(-5.0, "LONG Slope (3m)", group="LONG 30S-5m")
+longSlope4m = input.float(-5.0, "LONG Slope (4m)", group="LONG 30S-5m")
+longSlope5m = input.float(-5.0, "LONG Slope (5m)", group="LONG 30S-5m")
+
+longAdx30S = input.int(35, "LONG ADX (30S)", group="LONG 30S-5m", tooltip="v7.3")
+longAdx45S = input.int(45, "LONG ADX (45S)", group="LONG 30S-5m", tooltip="v8.4: 40->45 (ADX-Block war zu aggressiv)")
+longAdx1m = input.int(50, "LONG ADX (1m)", group="LONG 30S-5m", tooltip="v8.4: 45->50")
+longAdx2m = input.int(55, "LONG ADX (2m)", group="LONG 30S-5m", tooltip="v8.4: 50->55")
+longAdx3m = input.int(60, "LONG ADX (3m)", group="LONG 30S-5m")
+longAdx4m = input.int(50, "LONG ADX (4m)", group="LONG 30S-5m")
+longAdx5m = input.int(60, "LONG ADX (5m)", group="LONG 30S-5m")
+
+enable4mLong = input.bool(false, "LONG auf 4m aktivieren", group="LONG 30S-5m", tooltip="Keine Daten - DEAKTIVIERT!")
+
+// ============================================================================
+// INPUTS - LONG Settings: 6m-10m (v7.3 bewaehrt)
+// ============================================================================
+longRsi6m = input.int(18, "LONG RSI (6m)", group="LONG 6m-10m")
+longRsi7m = input.int(22, "LONG RSI (7m)", group="LONG 6m-10m")
+longRsi8m = input.int(18, "LONG RSI (8m)", group="LONG 6m-10m")
+longRsi9m = input.int(28, "LONG RSI (9m)", group="LONG 6m-10m")
+longRsi10m = input.int(18, "LONG RSI (10m)", group="LONG 6m-10m")
+
+longK6m = input.int(20, "LONG K (6m)", group="LONG 6m-10m")
+longK7m = input.int(15, "LONG K (7m)", group="LONG 6m-10m")
+longK8m = input.int(8, "LONG K (8m)", group="LONG 6m-10m")
+longK9m = input.int(15, "LONG K (9m)", group="LONG 6m-10m")
+longK10m = input.int(3, "LONG K (10m)", group="LONG 6m-10m", tooltip="EXTREM oversold!")
+
+longSlope6m = input.float(-1.0, "LONG Slope (6m)", group="LONG 6m-10m")
+longSlope7m = input.float(0.0, "LONG Slope (7m)", group="LONG 6m-10m")
+longSlope8m = input.float(-5.0, "LONG Slope (8m)", group="LONG 6m-10m")
+longSlope9m = input.float(2.0, "LONG Slope (9m)", group="LONG 6m-10m")
+longSlope10m = input.float(-5.0, "LONG Slope (10m)", group="LONG 6m-10m")
+
+longAdx6m = input.int(60, "LONG ADX (6m)", group="LONG 6m-10m")
+longAdx7m = input.int(60, "LONG ADX (7m)", group="LONG 6m-10m")
+longAdx8m = input.int(60, "LONG ADX (8m)", group="LONG 6m-10m")
+longAdx9m = input.int(50, "LONG ADX (9m)", group="LONG 6m-10m")
+longAdx10m = input.int(50, "LONG ADX (10m)", group="LONG 6m-10m")
+
+enable6mLong = input.bool(true, "LONG auf 6m aktivieren", group="LONG 6m-10m", tooltip="80% WR")
+enable7mLong = input.bool(true, "LONG auf 7m aktivieren", group="LONG 6m-10m", tooltip="100% WR")
+enable8mLong = input.bool(true, "LONG auf 8m aktivieren", group="LONG 6m-10m", tooltip="100% WR")
+enable9mLong = input.bool(true, "LONG auf 9m aktivieren", group="LONG 6m-10m", tooltip="67% WR")
+enable10mLong = input.bool(true, "LONG auf 10m aktivieren", group="LONG 6m-10m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - LONG Settings: 11m-15m (v7.3 bewaehrt)
+// ============================================================================
+longRsi11m = input.int(28, "LONG RSI (11m)", group="LONG 11m-15m")
+longRsi12m = input.int(18, "LONG RSI (12m)", group="LONG 11m-15m")
+longRsi13m = input.int(20, "LONG RSI (13m)", group="LONG 11m-15m")
+longRsi14m = input.int(20, "LONG RSI (14m)", group="LONG 11m-15m")
+longRsi15m = input.int(20, "LONG RSI (15m)", group="LONG 11m-15m")
+
+longK11m = input.int(20, "LONG K (11m)", group="LONG 11m-15m")
+longK12m = input.int(10, "LONG K (12m)", group="LONG 11m-15m")
+longK13m = input.int(5, "LONG K (13m)", group="LONG 11m-15m")
+longK14m = input.int(8, "LONG K (14m)", group="LONG 11m-15m")
+longK15m = input.int(5, "LONG K (15m)", group="LONG 11m-15m")
+
+longSlope11m = input.float(2.0, "LONG Slope (11m)", group="LONG 11m-15m")
+longSlope12m = input.float(1.0, "LONG Slope (12m)", group="LONG 11m-15m")
+longSlope13m = input.float(-5.0, "LONG Slope (13m)", group="LONG 11m-15m")
+longSlope14m = input.float(-3.0, "LONG Slope (14m)", group="LONG 11m-15m")
+longSlope15m = input.float(-2.0, "LONG Slope (15m)", group="LONG 11m-15m")
+
+longAdx11m = input.int(40, "LONG ADX (11m)", group="LONG 11m-15m")
+longAdx12m = input.int(60, "LONG ADX (12m)", group="LONG 11m-15m")
+longAdx13m = input.int(40, "LONG ADX (13m)", group="LONG 11m-15m")
+longAdx14m = input.int(60, "LONG ADX (14m)", group="LONG 11m-15m")
+longAdx15m = input.int(60, "LONG ADX (15m)", group="LONG 11m-15m")
+
+enable11mLong = input.bool(true, "LONG auf 11m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable12mLong = input.bool(true, "LONG auf 12m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable13mLong = input.bool(true, "LONG auf 13m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable14mLong = input.bool(true, "LONG auf 14m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable15mLong = input.bool(true, "LONG auf 15m aktivieren", group="LONG 11m-15m", tooltip="75% WR")
+
+// ============================================================================
+// INPUTS - LONG Settings: 16m-20m (v7.3 bewaehrt)
+// ============================================================================
+longRsi16m = input.int(22, "LONG RSI (16m)", group="LONG 16m-20m")
+longRsi17m = input.int(22, "LONG RSI (17m)", group="LONG 16m-20m")
+longRsi18m = input.int(22, "LONG RSI (18m)", group="LONG 16m-20m")
+longRsi19m = input.int(15, "LONG RSI (19m)", group="LONG 16m-20m")
+longRsi20m = input.int(20, "LONG RSI (20m)", group="LONG 16m-20m")
+
+longK16m = input.int(3, "LONG K (16m)", group="LONG 16m-20m", tooltip="EXTREM oversold!")
+longK17m = input.int(10, "LONG K (17m)", group="LONG 16m-20m")
+longK18m = input.int(5, "LONG K (18m)", group="LONG 16m-20m")
+longK19m = input.int(8, "LONG K (19m)", group="LONG 16m-20m")
+longK20m = input.int(5, "LONG K (20m)", group="LONG 16m-20m")
+
+longSlope16m = input.float(-5.0, "LONG Slope (16m)", group="LONG 16m-20m")
+longSlope17m = input.float(-5.0, "LONG Slope (17m)", group="LONG 16m-20m")
+longSlope18m = input.float(-3.0, "LONG Slope (18m)", group="LONG 16m-20m")
+longSlope19m = input.float(-3.0, "LONG Slope (19m)", group="LONG 16m-20m")
+longSlope20m = input.float(-3.0, "LONG Slope (20m)", group="LONG 16m-20m")
+
+longAdx16m = input.int(40, "LONG ADX (16m)", group="LONG 16m-20m")
+longAdx17m = input.int(40, "LONG ADX (17m)", group="LONG 16m-20m")
+longAdx18m = input.int(50, "LONG ADX (18m)", group="LONG 16m-20m")
+longAdx19m = input.int(60, "LONG ADX (19m)", group="LONG 16m-20m")
+longAdx20m = input.int(60, "LONG ADX (20m)", group="LONG 16m-20m")
+
+enable16mLong = input.bool(true, "LONG auf 16m aktivieren", group="LONG 16m-20m", tooltip="80% WR")
+enable17mLong = input.bool(true, "LONG auf 17m aktivieren", group="LONG 16m-20m", tooltip="100% WR")
+enable18mLong = input.bool(true, "LONG auf 18m aktivieren", group="LONG 16m-20m", tooltip="100% WR")
+enable19mLong = input.bool(true, "LONG auf 19m aktivieren", group="LONG 16m-20m", tooltip="86% WR")
+enable20mLong = input.bool(true, "LONG auf 20m aktivieren", group="LONG 16m-20m", tooltip="75% WR")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 30S-5m (v7.3 TF-spezifisch)
+// ============================================================================
+enableShort30S = input.bool(true, "SHORT auf 30S aktivieren", group="SHORT 30S-5m")
+enableShort1m = input.bool(true, "SHORT auf 1m aktivieren", group="SHORT 30S-5m")
+enable4mShort = input.bool(false, "SHORT auf 4m aktivieren", group="SHORT 30S-5m", tooltip="Keine Daten - DEAKTIVIERT!")
+
+shortRsi30S = input.int(78, "SHORT RSI (30S)", group="SHORT 30S-5m", tooltip="v7.3: 65->78")
+shortRsi45S = input.int(78, "SHORT RSI (45S)", group="SHORT 30S-5m")
+shortRsi1m = input.int(78, "SHORT RSI (1m)", group="SHORT 30S-5m", tooltip="v7.3: 70->78")
+shortRsi2m = input.int(65, "SHORT RSI (2m)", group="SHORT 30S-5m", tooltip="v7.3 bewaehrt: 65 (100% WR)")
+shortRsi3m = input.int(65, "SHORT RSI (3m)", group="SHORT 30S-5m", tooltip="v7.3 bewaehrt: 65 (100% WR)")
+shortRsi4m = input.int(72, "SHORT RSI (4m)", group="SHORT 30S-5m")
+shortRsi5m = input.int(75, "SHORT RSI (5m)", group="SHORT 30S-5m", tooltip="v7.3 bewaehrt: 75 (100% WR)")
+
+shortK30S = input.int(80, "SHORT K (30S)", group="SHORT 30S-5m")
+shortK45S = input.int(80, "SHORT K (45S)", group="SHORT 30S-5m")
+shortK1m = input.int(80, "SHORT K (1m)", group="SHORT 30S-5m")
+shortK2m = input.int(88, "SHORT K (2m)", group="SHORT 30S-5m")
+shortK3m = input.int(70, "SHORT K (3m)", group="SHORT 30S-5m")
+shortK4m = input.int(80, "SHORT K (4m)", group="SHORT 30S-5m")
+shortK5m = input.int(70, "SHORT K (5m)", group="SHORT 30S-5m")
+
+shortSlope30S = input.float(0.0, "SHORT Slope (30S)", group="SHORT 30S-5m")
+shortSlope45S = input.float(-2.0, "SHORT Slope (45S)", group="SHORT 30S-5m")
+shortSlope1m = input.float(0.0, "SHORT Slope (1m)", group="SHORT 30S-5m")
+shortSlope2m = input.float(-3.0, "SHORT Slope (2m)", group="SHORT 30S-5m")
+shortSlope3m = input.float(-5.0, "SHORT Slope (3m)", group="SHORT 30S-5m")
+shortSlope4m = input.float(-1.0, "SHORT Slope (4m)", group="SHORT 30S-5m")
+shortSlope5m = input.float(2.0, "SHORT Slope (5m)", group="SHORT 30S-5m")
+
+shortAdx30S = input.int(50, "SHORT ADX (30S)", group="SHORT 30S-5m")
+shortAdx45S = input.int(60, "SHORT ADX (45S)", group="SHORT 30S-5m")
+shortAdx1m = input.int(50, "SHORT ADX (1m)", group="SHORT 30S-5m")
+shortAdx2m = input.int(50, "SHORT ADX (2m)", group="SHORT 30S-5m")
+shortAdx3m = input.int(30, "SHORT ADX (3m)", group="SHORT 30S-5m")
+shortAdx4m = input.int(50, "SHORT ADX (4m)", group="SHORT 30S-5m")
+shortAdx5m = input.int(40, "SHORT ADX (5m)", group="SHORT 30S-5m")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 6m-10m (v7.3 bewaehrt)
+// ============================================================================
+shortRsi6m = input.int(72, "SHORT RSI (6m)", group="SHORT 6m-10m")
+shortRsi7m = input.int(65, "SHORT RSI (7m)", group="SHORT 6m-10m")
+shortRsi8m = input.int(65, "SHORT RSI (8m)", group="SHORT 6m-10m")
+shortRsi9m = input.int(75, "SHORT RSI (9m)", group="SHORT 6m-10m")
+shortRsi10m = input.int(78, "SHORT RSI (10m)", group="SHORT 6m-10m")
+
+shortK6m = input.int(85, "SHORT K (6m)", group="SHORT 6m-10m")
+shortK7m = input.int(88, "SHORT K (7m)", group="SHORT 6m-10m")
+shortK8m = input.int(70, "SHORT K (8m)", group="SHORT 6m-10m")
+shortK9m = input.int(95, "SHORT K (9m)", group="SHORT 6m-10m")
+shortK10m = input.int(92, "SHORT K (10m)", group="SHORT 6m-10m")
+
+shortSlope6m = input.float(1.0, "SHORT Slope (6m)", group="SHORT 6m-10m")
+shortSlope7m = input.float(1.0, "SHORT Slope (7m)", group="SHORT 6m-10m")
+shortSlope8m = input.float(-3.0, "SHORT Slope (8m)", group="SHORT 6m-10m")
+shortSlope9m = input.float(1.0, "SHORT Slope (9m)", group="SHORT 6m-10m")
+shortSlope10m = input.float(2.0, "SHORT Slope (10m)", group="SHORT 6m-10m")
+
+shortAdx6m = input.int(50, "SHORT ADX (6m)", group="SHORT 6m-10m")
+shortAdx7m = input.int(30, "SHORT ADX (7m)", group="SHORT 6m-10m")
+shortAdx8m = input.int(30, "SHORT ADX (8m)", group="SHORT 6m-10m")
+shortAdx9m = input.int(100, "SHORT ADX (9m)", group="SHORT 6m-10m", tooltip="100 = kein ADX-Filter")
+shortAdx10m = input.int(60, "SHORT ADX (10m)", group="SHORT 6m-10m")
+
+enable6mShort = input.bool(true, "SHORT auf 6m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable7mShort = input.bool(true, "SHORT auf 7m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable8mShort = input.bool(true, "SHORT auf 8m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable9mShort = input.bool(true, "SHORT auf 9m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable10mShort = input.bool(true, "SHORT auf 10m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 11m-15m (v7.3 bewaehrt)
+// ============================================================================
+shortRsi11m = input.int(68, "SHORT RSI (11m)", group="SHORT 11m-15m")
+shortRsi12m = input.int(78, "SHORT RSI (12m)", group="SHORT 11m-15m")
+shortRsi13m = input.int(68, "SHORT RSI (13m)", group="SHORT 11m-15m")
+shortRsi14m = input.int(80, "SHORT RSI (14m)", group="SHORT 11m-15m")
+shortRsi15m = input.int(68, "SHORT RSI (15m)", group="SHORT 11m-15m")
+
+shortK11m = input.int(70, "SHORT K (11m)", group="SHORT 11m-15m")
+shortK12m = input.int(70, "SHORT K (12m)", group="SHORT 11m-15m")
+shortK13m = input.int(95, "SHORT K (13m)", group="SHORT 11m-15m")
+shortK14m = input.int(75, "SHORT K (14m)", group="SHORT 11m-15m")
+shortK15m = input.int(88, "SHORT K (15m)", group="SHORT 11m-15m")
+
+shortSlope11m = input.float(0.0, "SHORT Slope (11m)", group="SHORT 11m-15m")
+shortSlope12m = input.float(-5.0, "SHORT Slope (12m)", group="SHORT 11m-15m")
+shortSlope13m = input.float(1.0, "SHORT Slope (13m)", group="SHORT 11m-15m")
+shortSlope14m = input.float(-3.0, "SHORT Slope (14m)", group="SHORT 11m-15m")
+shortSlope15m = input.float(2.0, "SHORT Slope (15m)", group="SHORT 11m-15m")
+
+shortAdx11m = input.int(30, "SHORT ADX (11m)", group="SHORT 11m-15m")
+shortAdx12m = input.int(100, "SHORT ADX (12m)", group="SHORT 11m-15m", tooltip="100 = kein ADX-Filter")
+shortAdx13m = input.int(60, "SHORT ADX (13m)", group="SHORT 11m-15m")
+shortAdx14m = input.int(100, "SHORT ADX (14m)", group="SHORT 11m-15m", tooltip="100 = kein ADX-Filter")
+shortAdx15m = input.int(30, "SHORT ADX (15m)", group="SHORT 11m-15m")
+
+enable11mShort = input.bool(true, "SHORT auf 11m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable12mShort = input.bool(true, "SHORT auf 12m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable13mShort = input.bool(true, "SHORT auf 13m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable14mShort = input.bool(true, "SHORT auf 14m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable15mShort = input.bool(true, "SHORT auf 15m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 16m-20m (v7.3 bewaehrt)
+// ============================================================================
+shortRsi16m = input.int(85, "SHORT RSI (16m)", group="SHORT 16m-20m")
+shortRsi17m = input.int(78, "SHORT RSI (17m)", group="SHORT 16m-20m")
+shortRsi18m = input.int(80, "SHORT RSI (18m)", group="SHORT 16m-20m")
+shortRsi19m = input.int(70, "SHORT RSI (19m)", group="SHORT 16m-20m")
+shortRsi20m = input.int(85, "SHORT RSI (20m)", group="SHORT 16m-20m")
+
+shortK16m = input.int(70, "SHORT K (16m)", group="SHORT 16m-20m")
+shortK17m = input.int(85, "SHORT K (17m)", group="SHORT 16m-20m")
+shortK18m = input.int(92, "SHORT K (18m)", group="SHORT 16m-20m")
+shortK19m = input.int(85, "SHORT K (19m)", group="SHORT 16m-20m")
+shortK20m = input.int(90, "SHORT K (20m)", group="SHORT 16m-20m")
+
+shortSlope16m = input.float(1.0, "SHORT Slope (16m)", group="SHORT 16m-20m")
+shortSlope17m = input.float(-2.0, "SHORT Slope (17m)", group="SHORT 16m-20m")
+shortSlope18m = input.float(2.0, "SHORT Slope (18m)", group="SHORT 16m-20m")
+shortSlope19m = input.float(0.0, "SHORT Slope (19m)", group="SHORT 16m-20m")
+shortSlope20m = input.float(2.0, "SHORT Slope (20m)", group="SHORT 16m-20m")
+
+shortAdx16m = input.int(50, "SHORT ADX (16m)", group="SHORT 16m-20m")
+shortAdx17m = input.int(100, "SHORT ADX (17m)", group="SHORT 16m-20m", tooltip="100 = kein ADX-Filter")
+shortAdx18m = input.int(60, "SHORT ADX (18m)", group="SHORT 16m-20m")
+shortAdx19m = input.int(30, "SHORT ADX (19m)", group="SHORT 16m-20m")
+shortAdx20m = input.int(50, "SHORT ADX (20m)", group="SHORT 16m-20m")
+
+enable16mShort = input.bool(true, "SHORT auf 16m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable17mShort = input.bool(true, "SHORT auf 17m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable18mShort = input.bool(true, "SHORT auf 18m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable19mShort = input.bool(true, "SHORT auf 19m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable20mShort = input.bool(true, "SHORT auf 20m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - Stochastic / MACD / BB / ATR / ADX
+// ============================================================================
+stochRsiLength = input.int(14, "Stoch RSI Length", group="Stochastic RSI")
+stochRsiSmooth = input.int(3, "Stoch RSI Smooth K", group="Stochastic RSI")
+stochRsiSmoothD = input.int(3, "Stoch RSI Smooth D", group="Stochastic RSI")
+
+macdFast = input.int(12, "MACD Fast", group="MACD")
+macdSlow = input.int(26, "MACD Slow", group="MACD")
+macdSignal = input.int(9, "MACD Signal", group="MACD")
+
+bbLength = input.int(20, "BB Length", group="Bollinger Bands")
+bbMult = input.float(2.0, "BB Multiplier", group="Bollinger Bands")
+
+atrLength = input.int(14, "ATR Length", group="ATR Filter")
+atrMultSL = input.float(1.5, "ATR Multiplier SL", group="ATR Filter")
+atrMultTP = input.float(2.5, "ATR Multiplier TP", group="ATR Filter")
+
+adxLength = input.int(14, "ADX Length", group="ADX Settings")
+
+// ============================================================================
+// INPUTS - KELTNER CHANNEL (von v8.0, fuer Squeeze SHORT)
+// ============================================================================
+kcEmaLength = input.int(20, "KC EMA Length", group="Keltner Channel")
+kcAtrLength = input.int(14, "KC ATR Length", group="Keltner Channel")
+kcAtrMult = input.float(1.5, "KC ATR Multiplier", group="Keltner Channel")
+showKC = input.bool(true, "Keltner Channel anzeigen", group="Keltner Channel")
+
+// ============================================================================
+// INPUTS - SQUEEZE DETECTION (v8.4: NUR SHORT!)
+// ============================================================================
+minSqueezeBars = input.int(3, "Min Squeeze Bars", group="Squeeze Detection")
+squeezeVolMin = input.float(1.2, "Squeeze Vol Spike Min", group="Squeeze Detection")
+squeezeMomMin = input.float(0.1, "Squeeze Momentum Min %", group="Squeeze Detection")
+enableSqueezeShort = input.bool(true, "Squeeze SHORT aktivieren", group="Squeeze Detection", tooltip="v8.4: NUR SHORT! LONG deaktiviert (21.7% Rate = schlecht)")
+// v8.4: SQUEEZE LONG bewusst entfernt - nur 21.7% $20-Rate, R/R 0.44x
+
+// ============================================================================
+// INPUTS - VOLATILITY REGIME (v8.0, als Info + WEAK_UP Block)
+// ============================================================================
+adxTrendThreshold = input.int(25, "ADX Trend Threshold", group="Volatility Regime")
+adxRangeThreshold = input.int(20, "ADX Range Threshold", group="Volatility Regime")
+atrPercLookback = input.int(50, "ATR Percentile Lookback", group="Volatility Regime")
+atrHighPercentile = input.float(70.0, "ATR High Percentile", group="Volatility Regime")
+atrLowPercentile = input.float(40.0, "ATR Low Percentile", group="Volatility Regime")
+showRegime = input.bool(true, "Regime anzeigen", group="Volatility Regime")
+blockWeakUp = input.bool(true, "WEAK_TREND_UP Regime blockieren", group="Volatility Regime", tooltip="v8.4: 0% Erfolgsrate im WEAK_TREND_UP Regime!")
+
+// ============================================================================
+// INPUTS - Signal Filter
+// ============================================================================
+minConfidenceForAlert = input.float(0.70, "Min Confidence for Alert", minval=0.0, maxval=1.0, step=0.05, group="Signal Filter")
+
+// ============================================================================
+// TIMEFRAME DETECTION
+// ============================================================================
+is30S = timeframe.period == "30S"
+is45S = timeframe.period == "45S"
+is1m = timeframe.period == "1"
+is2m = timeframe.period == "2"
+is3m = timeframe.period == "3"
+is4m = timeframe.period == "4"
+is5m = timeframe.period == "5"
+is6m = timeframe.period == "6"
+is7m = timeframe.period == "7"
+is8m = timeframe.period == "8"
+is9m = timeframe.period == "9"
+is10m = timeframe.period == "10"
+is11m = timeframe.period == "11"
+is12m = timeframe.period == "12"
+is13m = timeframe.period == "13"
+is14m = timeframe.period == "14"
+is15m = timeframe.period == "15"
+is16m = timeframe.period == "16"
+is17m = timeframe.period == "17"
+is18m = timeframe.period == "18"
+is19m = timeframe.period == "19"
+is20m = timeframe.period == "20"
+
+isKnownTF = is30S or is45S or is1m or is2m or is3m or is4m or is5m or is6m or is7m or is8m or is9m or is10m or is11m or is12m or is13m or is14m or is15m or is16m or is17m or is18m or is19m or is20m
+
+tfDisplay = is30S ? "30S" : is45S ? "45S" : is1m ? "1m" : is2m ? "2m" : is3m ? "3m" : is4m ? "4m" : is5m ? "5m" : is6m ? "6m" : is7m ? "7m" : is8m ? "8m" : is9m ? "9m" : is10m ? "10m" : is11m ? "11m" : is12m ? "12m" : is13m ? "13m" : is14m ? "14m" : is15m ? "15m" : is16m ? "16m" : is17m ? "17m" : is18m ? "18m" : is19m ? "19m" : is20m ? "20m" : timeframe.period
+
+// ============================================================================
+// CALCULATIONS - Basis-Indikatoren
+// ============================================================================
+filterMA = ta.ema(close, emaFilter)
+mediumMA = ta.ema(close, ema50)
+shortMA = ta.ema(close, ema20)
+
+priceAbove200 = close > filterMA
+priceBelow200 = close < filterMA
+strongDowntrend = priceBelow200 and shortMA < mediumMA and mediumMA < filterMA
+strongUptrend = priceAbove200 and shortMA > mediumMA and mediumMA > filterMA
+
+rsi = ta.rsi(close, rsiLength)
+rsiSlope = rsi - rsi[rsiSlopeLength]
+
+stochRsi = ta.rsi(close, stochRsiLength)
+stochK = ta.sma(ta.stoch(stochRsi, stochRsi, stochRsi, stochRsiLength), stochRsiSmooth)
+stochD = ta.sma(stochK, stochRsiSmoothD)
+
+[macdLine, signalLine, histLine] = ta.macd(close, macdFast, macdSlow, macdSignal)
+
+bbBasis = ta.sma(close, bbLength)
+bbDev = bbMult * ta.stdev(close, bbLength)
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+
+atr = ta.atr(atrLength)
+atrPct = atr / close * 100
+
+[diPlus, diMinus, adxValue] = ta.dmi(adxLength, adxLength)
+
+volSma = ta.sma(volume, 20)
+volRatio = volume / volSma
+isLowVolume = volume < (volSma - 2 * ta.stdev(volume, 20))
+
+// ============================================================================
+// KELTNER CHANNEL (von v8.0)
+// ============================================================================
+kcMiddle = ta.ema(close, kcEmaLength)
+kcAtr = ta.atr(kcAtrLength)
+kcUpper = kcMiddle + kcAtr * kcAtrMult
+kcLower = kcMiddle - kcAtr * kcAtrMult
+kcWidth = (kcUpper - kcLower) / kcMiddle * 100
+kcPosition = (close - kcLower) / (kcUpper - kcLower)
+
+// ============================================================================
+// SQUEEZE DETECTION (von v8.0, v8.4: NUR fuer SHORT)
+// ============================================================================
+squeezeOn = bbUpper < kcUpper and bbLower > kcLower
+squeezeOff = not squeezeOn
+
+var int squeezeBarsCount = 0
+if squeezeOn
+    squeezeBarsCount += 1
+else
+    squeezeBarsCount := 0
+
+squeezeFired = squeezeOff and squeezeOn[1]
+
+momDirection = histLine > 0 ? 1 : histLine < 0 ? -1 : 0
+momRising = histLine > histLine[1]
+momFalling = histLine < histLine[1]
+momPct = math.abs(close - close[3]) / close[3] * 100
+
+// ============================================================================
+// VOLATILITY REGIME (von v8.0)
+// ============================================================================
+var float[] atrHistory = array.new_float(0)
+if barstate.isconfirmed
+    array.push(atrHistory, atr)
+    if array.size(atrHistory) > atrPercLookback
+        array.shift(atrHistory)
+
+atrPercentile = 50.0
+if array.size(atrHistory) >= 10
+    below = 0
+    for i = 0 to array.size(atrHistory) - 1
+        if array.get(atrHistory, i) <= atr
+            below += 1
+    atrPercentile := below / array.size(atrHistory) * 100
+
+isTrending = adxValue >= adxTrendThreshold
+isRanging = adxValue < adxRangeThreshold
+isHighVol = atrPercentile >= atrHighPercentile
+isLowVol = atrPercentile <= atrLowPercentile
+
+string volatilityRegime = "UNKNOWN"
+if squeezeOn and squeezeBarsCount >= minSqueezeBars
+    volatilityRegime := "SQUEEZE_BUILDING"
+else if squeezeFired
+    volatilityRegime := "BREAKOUT_IMMINENT"
+else if isTrending and isHighVol
+    volatilityRegime := "TRENDING_HIGH_VOL"
+else if isTrending and not isHighVol
+    volatilityRegime := "TRENDING_LOW_VOL"
+else if isRanging and isHighVol
+    volatilityRegime := "RANGING_HIGH_VOL"
+else if isRanging
+    volatilityRegime := "RANGING_LOW_VOL"
+else
+    volatilityRegime := "TRANSITIONAL"
+
+// ============================================================================
+// REGIME DETECTION (v8.4 - Bot-kompatible Naming: STRONG_TREND_UP etc.)
+// ============================================================================
+// [21.02.2026] FIX: Pine sendete "STRONG_UP" aber Bot erwartet "STRONG_TREND_UP"
+// → Sicherheits-Blocks in bot.py (Zeile 2035/2050) griffen NIE!
+// → Regime-Bonus wurde NIE angewendet
+string regime = "NEUTRAL"
+if strongUptrend
+    regime := "STRONG_TREND_UP"
+else if strongDowntrend
+    regime := "STRONG_TREND_DOWN"
+else if priceAbove200
+    regime := "WEAK_TREND_UP"
+else if priceBelow200
+    regime := "WEAK_TREND_DOWN"
+
+// v8.4: WEAK_TREND_UP Block - 0% Erfolgsrate in 2102 Analyse!
+isWeakUpBlocked = blockWeakUp and regime == "WEAK_TREND_UP"
+
+// ============================================================================
+// ADAPTIVE THRESHOLDS (v7.3 TF-spezifisch)
+// ============================================================================
+longRsiThresh = is30S ? longRsi30S : is45S ? longRsi45S : is1m ? longRsi1m : is2m ? longRsi2m : is3m ? longRsi3m : is4m ? longRsi4m : is5m ? longRsi5m : is6m ? longRsi6m : is7m ? longRsi7m : is8m ? longRsi8m : is9m ? longRsi9m : is10m ? longRsi10m : is11m ? longRsi11m : is12m ? longRsi12m : is13m ? longRsi13m : is14m ? longRsi14m : is15m ? longRsi15m : is16m ? longRsi16m : is17m ? longRsi17m : is18m ? longRsi18m : is19m ? longRsi19m : longRsi20m
+
+longKThresh = is30S ? longK30S : is45S ? longK45S : is1m ? longK1m : is2m ? longK2m : is3m ? longK3m : is4m ? longK4m : is5m ? longK5m : is6m ? longK6m : is7m ? longK7m : is8m ? longK8m : is9m ? longK9m : is10m ? longK10m : is11m ? longK11m : is12m ? longK12m : is13m ? longK13m : is14m ? longK14m : is15m ? longK15m : is16m ? longK16m : is17m ? longK17m : is18m ? longK18m : is19m ? longK19m : longK20m
+
+longSlopeThresh = is30S ? longSlope30S : is45S ? longSlope45S : is1m ? longSlope1m : is2m ? longSlope2m : is3m ? longSlope3m : is4m ? longSlope4m : is5m ? longSlope5m : is6m ? longSlope6m : is7m ? longSlope7m : is8m ? longSlope8m : is9m ? longSlope9m : is10m ? longSlope10m : is11m ? longSlope11m : is12m ? longSlope12m : is13m ? longSlope13m : is14m ? longSlope14m : is15m ? longSlope15m : is16m ? longSlope16m : is17m ? longSlope17m : is18m ? longSlope18m : is19m ? longSlope19m : longSlope20m
+
+longAdxThresh = is30S ? longAdx30S : is45S ? longAdx45S : is1m ? longAdx1m : is2m ? longAdx2m : is3m ? longAdx3m : is4m ? longAdx4m : is5m ? longAdx5m : is6m ? longAdx6m : is7m ? longAdx7m : is8m ? longAdx8m : is9m ? longAdx9m : is10m ? longAdx10m : is11m ? longAdx11m : is12m ? longAdx12m : is13m ? longAdx13m : is14m ? longAdx14m : is15m ? longAdx15m : is16m ? longAdx16m : is17m ? longAdx17m : is18m ? longAdx18m : is19m ? longAdx19m : longAdx20m
+
+shortRsiThresh = is30S ? shortRsi30S : is45S ? shortRsi45S : is1m ? shortRsi1m : is2m ? shortRsi2m : is3m ? shortRsi3m : is4m ? shortRsi4m : is5m ? shortRsi5m : is6m ? shortRsi6m : is7m ? shortRsi7m : is8m ? shortRsi8m : is9m ? shortRsi9m : is10m ? shortRsi10m : is11m ? shortRsi11m : is12m ? shortRsi12m : is13m ? shortRsi13m : is14m ? shortRsi14m : is15m ? shortRsi15m : is16m ? shortRsi16m : is17m ? shortRsi17m : is18m ? shortRsi18m : is19m ? shortRsi19m : shortRsi20m
+
+shortKThresh = is30S ? shortK30S : is45S ? shortK45S : is1m ? shortK1m : is2m ? shortK2m : is3m ? shortK3m : is4m ? shortK4m : is5m ? shortK5m : is6m ? shortK6m : is7m ? shortK7m : is8m ? shortK8m : is9m ? shortK9m : is10m ? shortK10m : is11m ? shortK11m : is12m ? shortK12m : is13m ? shortK13m : is14m ? shortK14m : is15m ? shortK15m : is16m ? shortK16m : is17m ? shortK17m : is18m ? shortK18m : is19m ? shortK19m : shortK20m
+
+shortSlopeThresh = is30S ? shortSlope30S : is45S ? shortSlope45S : is1m ? shortSlope1m : is2m ? shortSlope2m : is3m ? shortSlope3m : is4m ? shortSlope4m : is5m ? shortSlope5m : is6m ? shortSlope6m : is7m ? shortSlope7m : is8m ? shortSlope8m : is9m ? shortSlope9m : is10m ? shortSlope10m : is11m ? shortSlope11m : is12m ? shortSlope12m : is13m ? shortSlope13m : is14m ? shortSlope14m : is15m ? shortSlope15m : is16m ? shortSlope16m : is17m ? shortSlope17m : is18m ? shortSlope18m : is19m ? shortSlope19m : shortSlope20m
+
+shortAdxThresh = is30S ? shortAdx30S : is45S ? shortAdx45S : is1m ? shortAdx1m : is2m ? shortAdx2m : is3m ? shortAdx3m : is4m ? shortAdx4m : is5m ? shortAdx5m : is6m ? shortAdx6m : is7m ? shortAdx7m : is8m ? shortAdx8m : is9m ? shortAdx9m : is10m ? shortAdx10m : is11m ? shortAdx11m : is12m ? shortAdx12m : is13m ? shortAdx13m : is14m ? shortAdx14m : is15m ? shortAdx15m : is16m ? shortAdx16m : is17m ? shortAdx17m : is18m ? shortAdx18m : is19m ? shortAdx19m : shortAdx20m
+
+longAdxOK = longAdxThresh >= 100 or adxValue < longAdxThresh
+shortAdxOK = shortAdxThresh >= 100 or adxValue < shortAdxThresh
+
+// Expected Win Rate (v7.3 bewaehrt)
+longWR = is30S ? "100%" : is45S ? "100%" : is1m ? "100%" : is2m ? "80%" : is3m ? "100%" : is4m ? "0%" : is5m ? "100%" : is6m ? "80%" : is7m ? "100%" : is8m ? "100%" : is9m ? "67%" : is10m ? "100%" : is11m ? "100%" : is12m ? "100%" : is13m ? "100%" : is14m ? "100%" : is15m ? "75%" : is16m ? "80%" : is17m ? "100%" : is18m ? "100%" : is19m ? "86%" : is20m ? "75%" : "N/A"
+shortWR = is30S ? "~80%" : is45S ? "100%" : is1m ? "~80%" : is2m ? "100%" : is3m ? "100%" : is4m ? "0%" : is5m ? "100%" : is6m ? "100%" : is7m ? "100%" : is8m ? "100%" : is9m ? "100%" : is10m ? "100%" : is11m ? "100%" : is12m ? "100%" : is13m ? "100%" : is14m ? "100%" : is15m ? "100%" : is16m ? "100%" : is17m ? "100%" : is18m ? "100%" : is19m ? "100%" : is20m ? "100%" : "N/A"
+
+// Disable-Flags
+long4mDisabled = is4m and not enable4mLong
+short4mDisabled = is4m and not enable4mShort
+
+longDisabledNew = (is6m and not enable6mLong) or (is7m and not enable7mLong) or (is8m and not enable8mLong) or (is9m and not enable9mLong) or (is10m and not enable10mLong) or (is11m and not enable11mLong) or (is12m and not enable12mLong) or (is13m and not enable13mLong) or (is14m and not enable14mLong) or (is15m and not enable15mLong) or (is16m and not enable16mLong) or (is17m and not enable17mLong) or (is18m and not enable18mLong) or (is19m and not enable19mLong) or (is20m and not enable20mLong)
+
+shortDisabled30S1m = (is30S and not enableShort30S) or (is1m and not enableShort1m)
+shortDisabledNew = (is6m and not enable6mShort) or (is7m and not enable7mShort) or (is8m and not enable8mShort) or (is9m and not enable9mShort) or (is10m and not enable10mShort) or (is11m and not enable11mShort) or (is12m and not enable12mShort) or (is13m and not enable13mShort) or (is14m and not enable14mShort) or (is15m and not enable15mShort) or (is16m and not enable16mShort) or (is17m and not enable17mShort) or (is18m and not enable18mShort) or (is19m and not enable19mShort) or (is20m and not enable20mShort)
+
+// ============================================================================
+// SIGNAL DETECTION - v7.3 Basis + Squeeze SHORT
+// ============================================================================
+// === LONG SIGNALS (v7.3 TF-spezifisch) ===
+longCondition30S = is30S and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition45S = is45S and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition1m = is1m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition2m = is2m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition3m = is3m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition4m = enable4mLong and is4m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition5m = is5m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition6m = enable6mLong and is6m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition7m = enable7mLong and is7m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition8m = enable8mLong and is8m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition9m = enable9mLong and is9m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition10m = enable10mLong and is10m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition11m = enable11mLong and is11m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition12m = enable12mLong and is12m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition13m = enable13mLong and is13m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition14m = enable14mLong and is14m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition15m = enable15mLong and is15m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition16m = enable16mLong and is16m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition17m = enable17mLong and is17m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition18m = enable18mLong and is18m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition19m = enable19mLong and is19m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition20m = enable20mLong and is20m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+
+longBaseSignal = (longCondition30S or longCondition45S or longCondition1m or longCondition2m or longCondition3m or longCondition4m or longCondition5m or longCondition6m or longCondition7m or longCondition8m or longCondition9m or longCondition10m or longCondition11m or longCondition12m or longCondition13m or longCondition14m or longCondition15m or longCondition16m or longCondition17m or longCondition18m or longCondition19m or longCondition20m) and barstate.isconfirmed
+
+// === SHORT SIGNALS (v7.3 TF-spezifisch) ===
+shortCondition30S = enableShort30S and is30S and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition45S = is45S and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition1m = enableShort1m and is1m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition2m = is2m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition3m = is3m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition4m = enable4mShort and is4m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition5m = is5m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition6m = enable6mShort and is6m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition7m = enable7mShort and is7m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition8m = enable8mShort and is8m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition9m = enable9mShort and is9m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition10m = enable10mShort and is10m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition11m = enable11mShort and is11m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition12m = enable12mShort and is12m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition13m = enable13mShort and is13m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition14m = enable14mShort and is14m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition15m = enable15mShort and is15m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition16m = enable16mShort and is16m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition17m = enable17mShort and is17m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition18m = enable18mShort and is18m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition19m = enable19mShort and is19m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition20m = enable20mShort and is20m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+
+shortBaseSignal = (shortCondition30S or shortCondition45S or shortCondition1m or shortCondition2m or shortCondition3m or shortCondition4m or shortCondition5m or shortCondition6m or shortCondition7m or shortCondition8m or shortCondition9m or shortCondition10m or shortCondition11m or shortCondition12m or shortCondition13m or shortCondition14m or shortCondition15m or shortCondition16m or shortCondition17m or shortCondition18m or shortCondition19m or shortCondition20m) and barstate.isconfirmed
+
+// === SQUEEZE SHORT Signal (v8.4: NUR SHORT, kein LONG!) ===
+squeezeShortSignal = enableSqueezeShort and squeezeFired and momDirection < 0 and momPct > squeezeMomMin and volRatio > squeezeVolMin and rsi > 25 and barstate.isconfirmed
+
+// v8.4: SQUEEZE LONG bewusst ENTFERNT!
+// Grund: 21.7% $20-Rate, R/R 0.44x in 2102 Analyse = katastrophal
+
+// Kombinierte Signale
+longSignal = longBaseSignal and not isWeakUpBlocked
+shortSignal = (shortBaseSignal or squeezeShortSignal) and not isWeakUpBlocked
+
+// Signal-Typ Bestimmung
+string signalType = "NONE"
+string signalStrategy = "NONE"
+if squeezeShortSignal and not shortBaseSignal
+    signalType := "SHORT_SQUEEZE"
+    signalStrategy := "KELTNER_SQUEEZE"
+else if shortBaseSignal
+    signalType := "SHORT_V73"
+    signalStrategy := "RSI_STOCH_V73"
+if longBaseSignal and not isWeakUpBlocked
+    signalType := "LONG_V73"
+    signalStrategy := "RSI_STOCH_V73"
+
+// ============================================================================
+// CONFIDENCE CALCULATION (v8.4 - v7.3 Basis + Regime-Modifier)
+// ============================================================================
+var float signalConfidence = 0.0
+
+if longSignal
+    // v7.3 Basis-Confidence basierend auf verifizierten WRs
+    signalConfidence := is9m ? 0.72 : (is15m or is20m) ? 0.78 : (is2m or is6m or is16m) ? 0.82 : is19m ? 0.85 : 0.92
+
+    if rsi < 20
+        signalConfidence += 0.05
+    else if rsi < 25
+        signalConfidence += 0.03
+    if stochK < 3
+        signalConfidence += 0.04
+    else if stochK < 5
+        signalConfidence += 0.03
+    if rsiSlope > 2
+        signalConfidence += 0.02
+
+    // v8.4 Regime-Modifier (von v8.0 uebernommen)
+    if volatilityRegime == "RANGING_HIGH_VOL"
+        signalConfidence -= 0.08
+    else if volatilityRegime == "TRENDING_HIGH_VOL" and not strongDowntrend
+        signalConfidence += 0.04
+    else if volatilityRegime == "SQUEEZE_BUILDING"
+        signalConfidence -= 0.03
+
+    if strongDowntrend
+        signalConfidence -= 0.10
+    if isLowVolume
+        signalConfidence -= 0.05
+
+    signalConfidence := math.min(signalConfidence, 0.98)
+
+if shortSignal
+    if squeezeShortSignal and not shortBaseSignal
+        // Squeeze SHORT: Basis 0.85
+        signalConfidence := 0.85
+        if momPct > 0.3
+            signalConfidence += 0.05
+        if squeezeBarsCount > 5
+            signalConfidence += 0.03
+        if volRatio > 2.0
+            signalConfidence += 0.04
+    else
+        // v7.3 Basis SHORT
+        signalConfidence := (is30S or is1m) ? 0.85 : 0.92
+        if rsi > 80
+            signalConfidence += 0.04
+        if stochK > 95
+            signalConfidence += 0.03
+        if rsiSlope < -4
+            signalConfidence += 0.02
+
+    // v8.4 Regime-Modifier
+    if volatilityRegime == "RANGING_HIGH_VOL"
+        signalConfidence -= 0.08
+    else if volatilityRegime == "TRENDING_HIGH_VOL" and not strongUptrend
+        signalConfidence += 0.04
+
+    if strongUptrend
+        signalConfidence -= 0.10
+    if isLowVolume
+        signalConfidence -= 0.05
+
+    signalConfidence := math.min(signalConfidence, 0.98)
+
+// ============================================================================
+// STOP LOSS / TAKE PROFIT
+// ============================================================================
+squeezeAtrMultSL = 1.2
+squeezeAtrMultTP = 3.0
+
+isSqueezeTrade = squeezeShortSignal and not shortBaseSignal
+longSL = close - atr * atrMultSL
+longTP = close + atr * atrMultTP
+shortSL = close + atr * (isSqueezeTrade ? squeezeAtrMultSL : atrMultSL)
+shortTP = close - atr * (isSqueezeTrade ? squeezeAtrMultTP : atrMultTP)
+
+// ============================================================================
+// ALERTS (v8.4 - mit v8.0 Metadata-Format)
+// ============================================================================
+if longSignal and signalConfidence >= minConfidenceForAlert
+    alert('{"signal":"long","symbol":"SOLUSD","timeframe":"' + timeframe.period + '","price":' + str.tostring(close, "#.##") + ',"source":"Bot_Webhook_v84","confidence":' + str.tostring(signalConfidence, "#.##") + ',"metadata":{"entry":' + str.tostring(close, "#.##") + ',"stop_loss":' + str.tostring(longSL, "#.##") + ',"take_profit":' + str.tostring(longTP, "#.##") + ',"atr":' + str.tostring(atr, "#.##") + ',"atr_pct":' + str.tostring(atrPct, "#.###") + ',"adx":' + str.tostring(adxValue, "#.##") + ',"rsi":' + str.tostring(rsi, "#.##") + ',"rsi_slope":' + str.tostring(rsiSlope, "#.##") + ',"stoch_k":' + str.tostring(stochK, "#.##") + ',"macd_hist":' + str.tostring(histLine, "#.##") + ',"signal_type":"' + signalType + '","strategy":"' + signalStrategy + '","regime":"' + regime + '","vol_regime":"' + volatilityRegime + '","squeeze_on":' + str.tostring(squeezeOn ? 1 : 0) + ',"squeeze_bars":' + str.tostring(squeezeBarsCount) + ',"kc_position":' + str.tostring(kcPosition, "#.###") + ',"atr_percentile":' + str.tostring(atrPercentile, "#.#") + ',"expected_wr":"' + longWR + '"}}', alert.freq_once_per_bar)
+
+if shortSignal and signalConfidence >= minConfidenceForAlert
+    alert('{"signal":"short","symbol":"SOLUSD","timeframe":"' + timeframe.period + '","price":' + str.tostring(close, "#.##") + ',"source":"Bot_Webhook_v84","confidence":' + str.tostring(signalConfidence, "#.##") + ',"metadata":{"entry":' + str.tostring(close, "#.##") + ',"stop_loss":' + str.tostring(shortSL, "#.##") + ',"take_profit":' + str.tostring(shortTP, "#.##") + ',"atr":' + str.tostring(atr, "#.##") + ',"atr_pct":' + str.tostring(atrPct, "#.###") + ',"adx":' + str.tostring(adxValue, "#.##") + ',"rsi":' + str.tostring(rsi, "#.##") + ',"rsi_slope":' + str.tostring(rsiSlope, "#.##") + ',"stoch_k":' + str.tostring(stochK, "#.##") + ',"macd_hist":' + str.tostring(histLine, "#.##") + ',"signal_type":"' + signalType + '","strategy":"' + signalStrategy + '","regime":"' + regime + '","vol_regime":"' + volatilityRegime + '","squeeze_on":' + str.tostring(squeezeOn ? 1 : 0) + ',"squeeze_bars":' + str.tostring(squeezeBarsCount) + ',"squeeze_fired":' + str.tostring(squeezeFired ? 1 : 0) + ',"mom_direction":' + str.tostring(momDirection) + ',"kc_position":' + str.tostring(kcPosition, "#.###") + ',"atr_percentile":' + str.tostring(atrPercentile, "#.#") + ',"expected_wr":"' + shortWR + '"}}', alert.freq_once_per_bar)
+
+// [22.02.2026] squeeze_building Alert ENTFERNT
+// Grund: Rein informativ, kein Einfluss auf Trading-Entscheidungen
+// Bot erkennt SQUEEZE_BUILDING Regime selbststaendig via volatility_regime.py
+// Erzeugte massiven Webhook-Traffic (jeder TF, jede Bar = ~15 Alerts vs 2 Trade-Signale)
+
+// ============================================================================
+// VISUAL
+// ============================================================================
+plot(filterMA, "200 EMA", color=color.gray, linewidth=2)
+plot(mediumMA, "50 EMA", color=color.orange, linewidth=1)
+plot(shortMA, "20 EMA", color=color.purple, linewidth=1)
+plot(bbUpper, "BB Upper", color=color.blue, linewidth=1)
+plot(bbLower, "BB Lower", color=color.blue, linewidth=1)
+
+kcUpperPlot = plot(showKC ? kcUpper : na, "KC Upper", color=color.new(color.orange, 60), linewidth=1, style=plot.style_circles)
+kcLowerPlot = plot(showKC ? kcLower : na, "KC Lower", color=color.new(color.orange, 60), linewidth=1, style=plot.style_circles)
+
+// Signal Markers
+plotshape(longBaseSignal and not isWeakUpBlocked and signalConfidence >= minConfidenceForAlert, "LONG v7.3", shape.triangleup, location.belowbar, color.green, size=size.normal)
+plotshape(shortBaseSignal and not isWeakUpBlocked and signalConfidence >= minConfidenceForAlert, "SHORT v7.3", shape.triangledown, location.abovebar, color.red, size=size.normal)
+plotshape(squeezeShortSignal and not shortBaseSignal and signalConfidence >= minConfidenceForAlert, "SQUEEZE SHORT", shape.diamond, location.abovebar, color.fuchsia, size=size.large)
+
+// Squeeze + Trend Background
+plotshape(squeezeOn and squeezeBarsCount >= minSqueezeBars, "Squeeze Active", shape.circle, location.bottom, color.new(color.yellow, 30), size=size.tiny)
+
+trendColor = strongUptrend ? color.new(color.green, 90) : strongDowntrend ? color.new(color.red, 90) : isWeakUpBlocked ? color.new(color.orange, 85) : color.new(color.gray, 97)
+bgcolor(trendColor, title="Trend")
+
+squeezeColor = squeezeOn ? color.new(color.yellow, 85) : na
+bgcolor(squeezeColor, title="Squeeze Zone")
+
+squeezeFiredColor = squeezeFired ? (momDirection > 0 ? color.new(color.lime, 70) : color.new(color.fuchsia, 70)) : na
+bgcolor(squeezeFiredColor, title="Squeeze Fired")
+
+// LONG/SHORT Ready Zones
+longReady = stochK < longKThresh and rsi < longRsiThresh and longAdxOK and not long4mDisabled and not longDisabledNew and not isWeakUpBlocked
+bgcolor(longReady ? color.new(color.lime, 85) : na, title="LONG Ready")
+
+shortReady = stochK > shortKThresh and rsi > shortRsiThresh and shortAdxOK and not shortDisabled30S1m and not short4mDisabled and not shortDisabledNew and not isWeakUpBlocked
+bgcolor(shortReady ? color.new(color.red, 85) : na, title="SHORT Ready")
+
+// ============================================================================
+// INFO TABLE (v8.4 - kombiniert v7.3 + v8.0)
+// ============================================================================
+var table infoTable = table.new(position.top_right, 2, 22, bgcolor=color.new(color.black, 80))
+if barstate.islast
+    table.cell(infoTable, 0, 0, "v8.4 SOL", text_color=color.lime)
+    table.cell(infoTable, 1, 0, tfDisplay, text_color=isKnownTF ? color.yellow : color.red)
+
+    // Volatility Regime
+    regimeColor = volatilityRegime == "TRENDING_HIGH_VOL" ? color.lime : volatilityRegime == "TRENDING_LOW_VOL" ? color.green : volatilityRegime == "SQUEEZE_BUILDING" ? color.yellow : volatilityRegime == "BREAKOUT_IMMINENT" ? color.aqua : volatilityRegime == "RANGING_HIGH_VOL" ? color.orange : volatilityRegime == "RANGING_LOW_VOL" ? color.gray : color.white
+    table.cell(infoTable, 0, 1, "Vol Regime", text_color=color.white)
+    table.cell(infoTable, 1, 1, volatilityRegime, text_color=regimeColor)
+
+    // Trend Regime
+    table.cell(infoTable, 0, 2, "Trend", text_color=color.white)
+    trendRegimeColor = strongUptrend ? color.green : strongDowntrend ? color.red : isWeakUpBlocked ? color.orange : color.gray
+    table.cell(infoTable, 1, 2, regime + (isWeakUpBlocked ? " BLOCK!" : ""), text_color=trendRegimeColor)
+
+    // Squeeze Status
+    squeezeStatus = squeezeFired ? "FIRED!" : squeezeOn ? "ON (" + str.tostring(squeezeBarsCount) + ")" : "off"
+    squeezeStatusColor = squeezeFired ? color.aqua : squeezeOn ? color.yellow : color.gray
+    table.cell(infoTable, 0, 3, "Squeeze", text_color=color.white)
+    table.cell(infoTable, 1, 3, squeezeStatus + " (S only)", text_color=squeezeStatusColor)
+
+    table.cell(infoTable, 0, 4, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 4, "INDICATORS", text_color=color.gray)
+
+    // RSI
+    table.cell(infoTable, 0, 5, "RSI (<" + str.tostring(longRsiThresh) + " L)", text_color=color.white)
+    table.cell(infoTable, 1, 5, str.tostring(rsi, "#.#"), text_color=rsi < longRsiThresh ? color.green : rsi > shortRsiThresh ? color.red : color.gray)
+
+    // Slope
+    table.cell(infoTable, 0, 6, "Slope (>" + str.tostring(longSlopeThresh, "#.#") + " L)", text_color=color.white)
+    table.cell(infoTable, 1, 6, str.tostring(rsiSlope, "#.#"), text_color=rsiSlope > longSlopeThresh ? color.green : rsiSlope < shortSlopeThresh ? color.red : color.gray)
+
+    // StochK
+    table.cell(infoTable, 0, 7, "K (<" + str.tostring(longKThresh) + " L)", text_color=color.yellow)
+    kColor = stochK < longKThresh ? color.lime : stochK > shortKThresh ? color.red : color.gray
+    if stochK < 3
+        kColor := color.aqua
+    table.cell(infoTable, 1, 7, str.tostring(stochK, "#.#"), text_color=kColor)
+
+    // ADX
+    table.cell(infoTable, 0, 8, "ADX (<" + str.tostring(longAdxThresh) + ")", text_color=color.white)
+    table.cell(infoTable, 1, 8, str.tostring(adxValue, "#.#"), text_color=longAdxOK ? color.green : color.red)
+
+    // ATR Percentile
+    table.cell(infoTable, 0, 9, "ATR %ile", text_color=color.white)
+    table.cell(infoTable, 1, 9, str.tostring(atrPercentile, "#") + "%", text_color=isHighVol ? color.red : isLowVol ? color.green : color.gray)
+
+    // Volume
+    table.cell(infoTable, 0, 10, "Volume", text_color=color.white)
+    table.cell(infoTable, 1, 10, str.tostring(volRatio, "#.##") + "x", text_color=volRatio > 1.5 ? color.lime : isLowVolume ? color.red : color.gray)
+
+    table.cell(infoTable, 0, 11, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 11, "SIGNALS", text_color=color.gray)
+
+    // LONG Status
+    longIsOff = long4mDisabled or longDisabledNew or isWeakUpBlocked
+    table.cell(infoTable, 0, 12, "LONG", text_color=color.white)
+    longStatus = isWeakUpBlocked ? "WEAK_UP!" : longIsOff ? "OFF" : longReady ? "READY!" : "wait"
+    longStatusColor = isWeakUpBlocked ? color.orange : longIsOff ? color.orange : longReady ? color.lime : color.gray
+    table.cell(infoTable, 1, 12, longStatus, text_color=longStatusColor)
+
+    // SHORT Status
+    shortIsOff = shortDisabled30S1m or short4mDisabled or shortDisabledNew or isWeakUpBlocked
+    shortReadyNow = shortReady and rsiSlope < shortSlopeThresh
+    table.cell(infoTable, 0, 13, "SHORT", text_color=color.white)
+    shortStatus = isWeakUpBlocked ? "WEAK_UP!" : shortIsOff ? "OFF" : shortReadyNow ? "READY!" : "wait"
+    shortColor = isWeakUpBlocked ? color.orange : shortIsOff ? color.orange : shortReadyNow ? color.red : color.gray
+    table.cell(infoTable, 1, 13, shortStatus, text_color=shortColor)
+
+    // Signal Type
+    table.cell(infoTable, 0, 14, "Signal", text_color=color.white)
+    table.cell(infoTable, 1, 14, signalType, text_color=signalType == "NONE" ? color.gray : signalType == "SHORT_SQUEEZE" ? color.fuchsia : color.yellow)
+
+    // Confidence
+    table.cell(infoTable, 0, 15, "Confidence", text_color=color.white)
+    table.cell(infoTable, 1, 15, str.tostring(signalConfidence * 100, "#") + "%", text_color=signalConfidence >= minConfidenceForAlert ? color.green : color.red)
+
+    table.cell(infoTable, 0, 16, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 16, "EXP. WR", text_color=color.gray)
+
+    table.cell(infoTable, 0, 17, "LONG WR", text_color=color.teal)
+    table.cell(infoTable, 1, 17, longWR, text_color=longWR == "N/A" ? color.orange : color.teal)
+
+    table.cell(infoTable, 0, 18, "SHORT WR", text_color=color.orange)
+    table.cell(infoTable, 1, 18, shortWR, text_color=shortWR == "N/A" ? color.orange : color.orange)
+
+    table.cell(infoTable, 0, 19, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 19, "FILTER", text_color=color.gray)
+
+    table.cell(infoTable, 0, 20, "L: RSI/K", text_color=color.teal)
+    table.cell(infoTable, 1, 20, "<" + str.tostring(longRsiThresh) + "/<" + str.tostring(longKThresh), text_color=color.teal)
+
+    table.cell(infoTable, 0, 21, "S: RSI/K", text_color=color.orange)
+    table.cell(infoTable, 1, 21, ">" + str.tostring(shortRsiThresh) + "/>" + str.tostring(shortKThresh), text_color=color.orange)

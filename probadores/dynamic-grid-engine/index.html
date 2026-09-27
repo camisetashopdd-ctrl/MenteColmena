@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dynamic Grid Engine Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEEFEC; --surface:#FAFAF8; --surface-2:#E4E6E1; --ink:#181C1A; --muted:#5C6460; --line:#D4D8D2;
+  --accent:#3D5FC4; --accent-ink:#F4F6FE; --buy:#1E7F4E; --sell:#B8352D; --sl:#B8352D; --tp:#1E7F4E; --entry:#2B4A8C;
+  --ut-up:#1E7F4E; --ut-dn:#B8352D; --bb:#8B918D; --ema:#7A4FB5; --trail:#C77A12; --held:#C79A3A; --e200:#2F5FB8; --e21:#D2761C; --e15:#8A4FC0; --adx:#1F6F8B; --off:rgba(184,53,45,.07); --hit:#D9A400; --zone:rgba(24,28,26,.06); --mid:#181C1A; --candle:#3E4540; --grid:rgba(24,28,26,.07); --dd:rgba(184,53,45,.10);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+    --accent:#7F9CF5; --accent-ink:#0B1433; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+    --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --hit:#FFE57F; --zone:rgba(227,231,228,.07); --mid:#E3E7E4; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+  --accent:#7F9CF5; --accent-ink:#0B1433; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+  --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --hit:#FFE57F; --zone:rgba(227,231,228,.07); --mid:#E3E7E4; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input,.seed select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.seed input{width:72px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.msg{font-size:13px;color:var(--sl)}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+.pos{color:var(--tp)} .neg{color:var(--sl)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px)}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{flex:1;min-width:0}
+.field input[type=number]{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--sl)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.ind-row{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;margin-bottom:10px;font-family:var(--mono);color:var(--muted)}
+.ind-row b{color:var(--ink);font-weight:500}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.b{background:color-mix(in srgb,var(--buy) 16%,transparent);color:var(--buy)}
+.pill.s{background:color-mix(in srgb,var(--sell) 16%,transparent);color:var(--sell)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.funnel h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.frow{display:grid;grid-template-columns:180px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12.5px;max-width:78ch;margin:12px 0 0}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--tp)} pre.code .nu{color:var(--entry)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:82ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.mode button{border:0;background:none;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.mode button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.diag{border:1px solid var(--line);border-left:4px solid var(--sl);border-radius:8px;background:var(--surface);padding:14px 16px;display:grid;gap:8px}
+.diag.ok{border-left-color:var(--accent)}
+.diag h2{font-size:15px;font-weight:700}
+.diag p{margin:0;max-width:90ch;color:var(--ink)}
+.diag p.m{color:var(--muted);font-size:13px}
+.diag code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.diag .nums{display:flex;flex-wrap:wrap;gap:6px 22px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.diag .nums b{color:var(--ink);font-weight:500}
+.field select{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+
+.chips .btn{padding:3px 10px;font-size:12px}
+.legend i.tri{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;margin-right:5px}
+.legend i.tri.up{border-bottom:8px solid var(--buy)}
+.legend i.tri.dn{border-top:8px solid var(--sell)}
+#ltable td,#ltable th{text-align:right}
+#ltable td:last-child,#ltable th:last-child{text-align:left}
+#ltable tbody tr{cursor:default}
+.txt{font-family:var(--sans)}
+
+.frow{grid-template-columns:200px minmax(0,1fr) 44px}
+@media (max-width:480px){.frow{grid-template-columns:130px minmax(0,1fr) 40px}}
+.legend i.dot{width:8px;height:8px;border:1.5px solid var(--muted);border-radius:50%}
+.legend i.box{width:12px;height:10px;border:0;background:var(--off);outline:1px solid var(--line)}
+.reasons{display:flex;flex-wrap:wrap;gap:4px 10px}
+#ttable td:nth-child(n+4),#ttable th:nth-child(n+4){text-align:right}
+#ttable td:nth-child(9),#ttable th:nth-child(9){text-align:left}
+.seed select{font-family:var(--sans)}
+.dashb{margin:0;padding:10px 14px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;border-bottom:1px solid var(--line)}
+.dashb[hidden]{display:none}
+#ltable td:first-child,#ltable th:first-child{text-align:left}
+#rtable td,#rtable th{text-align:right}
+#rtable tbody tr{cursor:pointer}
+.dashb dt{color:var(--muted)}
+.dashb dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.dashb .ttl{grid-column:1/-1;display:flex;justify-content:space-between;font-weight:600;color:var(--accent);margin-bottom:2px}
+.dashb .ttl span{color:var(--muted);font-weight:500;font-size:11px}
+.picker{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);flex-wrap:wrap}
+.picker input{flex:1;min-width:140px;accent-color:var(--accent)}
+.legend i.hit{width:12px;height:10px;border:0;background:var(--hit)}
+.legend i.dia{width:8px;height:8px;border:0;background:var(--accent);transform:rotate(45deg)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:6px}
+.kv div{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--bg)}
+.kv b{display:block;font-family:var(--mono);font-size:18px;font-weight:500}
+.kv span{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Dynamic <span>Grid</span> Engine</h1>
+      <p>Probador del indicador «Dynamic Grid Engine v3.0» de AleksDU · Pine v6 portado a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="seed">Semilla</label><input id="seed" type="number" value="7" min="1" step="1"></span>
+      <button class="btn" id="reseed" type="button">Nuevos datos de ejemplo</button>
+      <label class="btn primary" for="csv">Cargar CSV…</label>
+      <input id="csv" type="file" accept=".csv,.txt,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="chips">
+    <span class="chip" id="src-chip"></span>
+    <span class="msg" id="msg" hidden></span>
+  </div>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Paso de la rejilla</span><span class="v" id="s-step">–</span><span class="s" id="s-step2">–</span></div>
+    <div class="stat"><span class="k">Rango por lado</span><span class="v" id="s-range">–</span><span class="s" id="s-range2">–</span></div>
+    <div class="stat"><span class="k">Recentrados</span><span class="v" id="s-rec">–</span><span class="s" id="s-rec2">–</span></div>
+    <div class="stat"><span class="k">Velas «Level Crossed»</span><span class="v" id="s-cross">–</span><span class="s" id="s-cross2">–</span></div>
+    <div class="stat"><span class="k">Cruces mal detectados</span><span class="v" id="s-bad">–</span><span class="s" id="s-bad2">–</span></div>
+    <div class="stat"><span class="k">Alertas «Outside Grid»</span><span class="v" id="s-out">–</span><span class="s" id="s-out2">–</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <span><i style="border-color:var(--sell)" class="dash"></i>Niveles S</span>
+          <span><i style="border-color:var(--buy)" class="dash"></i>Niveles B</span>
+          <span><i style="border-color:var(--mid)"></i>Centro (MID)</span>
+          <span><i style="border-color:var(--muted)" class="dash"></i>Límites históricos</span>
+          <span><i class="hit"></i>Vela «Level Crossed» (barcolor)</span>
+          <span><i class="dia"></i>Recentrado</span>
+        </div>
+        <div class="zoom">
+          <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+          <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+          <button class="btn sm" id="zend" type="button">Final</button>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Gráfico de precio con la rejilla dibujada en la vela analizada"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="picker">
+        <label for="at">Vela analizada (la rejilla se dibuja como si fuera la última; también puedes hacer clic en el gráfico)</label>
+        <input id="at" type="range" min="0" max="0" value="0">
+        <span id="at-lbl"></span>
+        <button class="btn sm" id="at-last" type="button">Última vela</button>
+      </div>
+      <div class="scroller">
+        <input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico">
+        <span id="scroll-lbl"></span>
+      </div>
+    </section>
+
+    <aside class="panel settings">
+      <dl class="dashb" id="dash"></dl>
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="alerts" type="button">Alertas</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="levels" type="button">Niveles</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="rec" type="button">Recentrados</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="alerts">
+      <div class="kv" id="kv"></div>
+      <p class="note" id="anote"></p>
+    </div>
+    <div class="tabpanel" data-panel="levels" hidden>
+      <div class="table-scroll">
+        <table id="ltable">
+          <thead><tr><th>Nivel</th><th>Precio</th><th>Distancia</th><th>Beneficio del paso</th><th>Etiqueta del script</th></tr></thead>
+          <tbody id="lbody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="lnote"></p>
+    </div>
+    <div class="tabpanel" data-panel="rec" hidden>
+      <div class="table-scroll">
+        <table id="rtable">
+          <thead><tr><th>#</th><th>Vela</th><th>Fecha</th><th>Centro anterior</th><th>Nuevo centro</th><th>Salto</th></tr></thead>
+          <tbody id="rbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>Es un indicador, no opera.</b> Solo dibuja la rejilla en la última vela y da alertas. El «beneficio por nivel» es un cálculo teórico: <code>tamaño × paso / precio</code>, sin comisiones.</li>
+        <li><b>Con «Auto-recenter» activado, las alertas de fuera de la rejilla no saltan nunca.</b> En la misma vela en que el cierre sale del rango, el centro pasa a ser ese cierre, así que <code>price_in_grid</code> siempre es verdadero. «Outside Grid», «Above Grid» y «Below Grid» solo funcionan con el recentrado desactivado.</li>
+        <li><b>«Level Crossed» detecta los puntos medios, no los niveles.</b> <code>math.round((close − centro)/paso)</code> cambia al pasar por centro + (k + ½)·paso. Algunas velas se marcan sin cruzar ninguna línea y otras cruzan una sin marcarse. Con <code>math.floor</code> se detectaría el cruce real. Cada recentrado también se marca como cruce.</li>
+        <li><b>Con paso de 0,5 ATR se marcan casi todas las velas.</b> Una vela normal recorre más de medio ATR, así que la alerta salta en la mayoría de las velas.</li>
+        <li><b>Sin recentrado, el centro es el cierre de la primera vela del historial.</b> Queda fijo aunque el precio se haya ido lejos, y la rejilla puede quedar fuera de la pantalla. El <code>if barstate.isfirst</code> no cambia nada, porque la variable ya empieza con ese cierre.</li>
+        <li><b>La rejilla se mueve en cada vela.</b> El paso depende del ATR actual, así que todos los niveles se desplazan aunque el centro no cambie. Una orden colocada en un nivel ya no coincide con él en la vela siguiente.</li>
+        <li><b>Etiquetas con doble signo.</b> Si el precio está por encima de S1 (o por debajo de B1), el texto sale como «S1 +-0.39%» o «B1 --0.4%».</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+//@version=6
+// Dynamic Grid Engine v3.0 — AleksDU
+
+indicator("Dynamic Grid Engine",
+          shorttitle       = "DGE",
+          overlay          = true,
+          max_lines_count  = 500,
+          max_labels_count = 500,
+          max_boxes_count  = 10)
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+var string G_A = "Grid Settings"
+grid_levels  = input.int(15,    "Levels per side",       group=G_A, minval=1,   maxval=50)
+atr_len      = input.int(14,    "ATR Length",            group=G_A, minval=5,   maxval=50)
+atr_mult     = input.float(0.5, "Grid spacing (ATR x)",  group=G_A, minval=0.1, maxval=5.0, step=0.1)
+recenter     = input.bool(true, "Auto-recenter grid",    group=G_A)
+
+var string G_B = "Visual"
+buy_col     = input.color(color.new(#00e676, 0), "Buy color",  group=G_B)
+sell_col    = input.color(color.new(#ff5252, 0), "Sell color", group=G_B)
+mid_col     = input.color(color.new(#ffffff, 0), "Mid color",  group=G_B)
+extend_bars = input.int(20, "Extend lines (bars)", group=G_B, minval=5, maxval=100)
+
+var string G_N = "Neutral Zone (B1-S1)"
+show_zone = input.bool(true, "Show neutral zone", group=G_N)
+zone_col  = input.color(color.new(#ffffff, 90), "Zone color", group=G_N)
+
+var string G_P = "Profit Calculator"
+show_profit  = input.bool(true,   "Show profit per level", group=G_P)
+position_usd = input.float(100.0, "Position size ($)",     group=G_P, minval=1.0, step=10.0)
+
+var string G_M = "Nearest Level"
+show_nearest = input.bool(true, "Show nearest BUY/SELL arrow", group=G_M)
+
+var string G_D = "Dashboard"
+show_dash = input.bool(true, "Show Dashboard", group=G_D)
+
+// ── GRID CALC ─────────────────────────────────────────────────────────────────
+atr       = ta.atr(atr_len)
+grid_step = atr * atr_mult
+
+var float grid_center = close
+
+if recenter
+    if close > grid_center + grid_step * grid_levels or close < grid_center - grid_step * grid_levels
+        grid_center := close
+else
+    if barstate.isfirst
+        grid_center := close
+
+// ── DRAW ──────────────────────────────────────────────────────────────────────
+if barstate.islast
+    int ri = bar_index
+    int re = bar_index + extend_bars
+
+    // Neutral zone box
+    if show_zone
+        box.new(ri - 3, grid_center + grid_step, re, grid_center - grid_step,
+                bgcolor=zone_col,
+                border_color=color.new(#ffffff, 70),
+                border_width=1,
+                border_style=line.style_dashed)
+
+    // MID line
+    line.new(ri - 5, grid_center, re, grid_center, color=mid_col, width=2)
+    label.new(ri - 5, grid_center, "◆ MID",
+              color=color.new(#ffffff, 20), textcolor=color.black,
+              size=size.small, style=label.style_label_right)
+
+    // Find nearest levels
+    float nearest_sell = na
+    float nearest_buy  = na
+    for i = 1 to grid_levels
+        float sl = grid_center + grid_step * i
+        if sl > close and na(nearest_sell)
+            nearest_sell := sl
+        float bl = grid_center - grid_step * i
+        if bl < close and na(nearest_buy)
+            nearest_buy := bl
+
+    // SELL levels
+    for i = 1 to grid_levels
+        float lvl    = grid_center + grid_step * i
+        float pct    = (lvl - close) / close * 100
+        float profit = position_usd * (grid_step / lvl)
+        int   opc    = math.round(math.min(i * 5, 75))
+        bool  is_near = lvl == nearest_sell
+        int   lw     = is_near ? 2 : 1
+
+        line.new(ri - 3, lvl, re, lvl,
+                 color=color.new(sell_col, opc),
+                 width=lw, style=line.style_dashed)
+
+        string lbl = "S" + str.tostring(i) + "  +" + str.tostring(math.round(pct, 2)) + "%"
+        if show_profit
+            lbl := lbl + "  +$" + str.tostring(math.round(profit, 2))
+
+        label.new(re, lvl, lbl,
+                  color=color.new(sell_col, opc + 10),
+                  textcolor=color.white,
+                  size=size.tiny,
+                  style=label.style_label_left)
+
+        if show_nearest and is_near
+            label.new(ri, lvl + atr * 0.2, "▲ SELL here",
+                      color=color.new(#ff5252, 5),
+                      textcolor=color.white,
+                      size=size.small,
+                      style=label.style_label_down)
+
+    // BUY levels
+    for i = 1 to grid_levels
+        float lvl    = grid_center - grid_step * i
+        float pct    = (close - lvl) / close * 100
+        float profit = position_usd * (grid_step / lvl)
+        int   opc    = math.round(math.min(i * 5, 75))
+        bool  is_near = lvl == nearest_buy
+        int   lw     = is_near ? 2 : 1
+
+        line.new(ri - 3, lvl, re, lvl,
+                 color=color.new(buy_col, opc),
+                 width=lw, style=line.style_dashed)
+
+        string lbl = "B" + str.tostring(i) + "  -" + str.tostring(math.round(pct, 2)) + "%"
+        if show_profit
+            lbl := lbl + "  +$" + str.tostring(math.round(profit, 2))
+
+        label.new(re, lvl, lbl,
+                  color=color.new(buy_col, opc + 10),
+                  textcolor=color.white,
+                  size=size.tiny,
+                  style=label.style_label_left)
+
+        if show_nearest and is_near
+            label.new(ri, lvl - atr * 0.2, "▼ BUY here",
+                      color=color.new(#00e676, 5),
+                      textcolor=color.white,
+                      size=size.small,
+                      style=label.style_label_up)
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+upper_bound     = grid_center + grid_step * grid_levels
+lower_bound     = grid_center - grid_step * grid_levels
+price_in_grid   = close >= lower_bound and close <= upper_bound
+single_step_pct = grid_step / close * 100
+total_range_pct = grid_step * grid_levels / close * 100
+profit_per_grid = position_usd * (grid_step / close)
+total_profit    = profit_per_grid * grid_levels * 2
+
+crossed_level = math.abs(
+     math.round((close     - grid_center) / grid_step) -
+     math.round((close[1]  - grid_center) / grid_step)) >= 1
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+if show_dash and barstate.islast
+    var table dash = table.new(position.top_right, 2, 11,
+                               bgcolor=color.new(#0d1117, 5),
+                               border_color=color.new(#21262d, 35), border_width=1,
+                               frame_color=color.new(#58a6ff, 30), frame_width=1)
+
+    table.cell(dash, 0, 0, "Dynamic Grid Engine",
+               bgcolor=color.new(#161b22, 10), text_color=#58a6ff,
+               text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 1, 0, "AleksDU",
+               bgcolor=color.new(#161b22, 10),
+               text_color=color.new(#58a6ff, 50),
+               text_size=size.tiny, text_halign=text.align_center)
+
+    table.cell(dash, 0, 1, "Grid Step",     text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 1, str.tostring(math.round(grid_step, 4)) +
+               " (" + str.tostring(math.round(single_step_pct, 2)) + "%)",
+               text_color=color.white, text_size=size.small)
+
+    table.cell(dash, 0, 2, "Total Range",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 2, str.tostring(math.round(total_range_pct, 1)) + "% each side",
+               text_color=#ffeb3b, text_size=size.small)
+
+    table.cell(dash, 0, 3, "Upper Bound",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 3, str.tostring(math.round(upper_bound, 2)),
+               text_color=#ff5252, text_size=size.small)
+
+    table.cell(dash, 0, 4, "Lower Bound",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 4, str.tostring(math.round(lower_bound, 2)),
+               text_color=#00e676, text_size=size.small)
+
+    table.cell(dash, 0, 5, "Grid Center",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 5, str.tostring(math.round(grid_center, 2)),
+               text_color=color.white, text_size=size.small)
+
+    table.cell(dash, 0, 6, "Price in Grid", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 6, price_in_grid ? "Yes" : "Outside!",
+               text_color=price_in_grid ? #00e676 : #ff5252, text_size=size.small)
+
+    table.cell(dash, 0, 7, "Position Size", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 7, "$" + str.tostring(math.round(position_usd, 2)),
+               text_color=#ffeb3b, text_size=size.small)
+
+    table.cell(dash, 0, 8, "Profit / Grid", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 8, "+$" + str.tostring(math.round(profit_per_grid, 4)),
+               text_color=#00e676, text_size=size.small)
+
+    table.cell(dash, 0, 9, "Total if Full", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 9, "+$" + str.tostring(math.round(total_profit, 2)),
+               text_color=#69f0ae, text_size=size.small)
+
+    table.cell(dash, 0, 10, "Levels",       text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 10, str.tostring(grid_levels) + " Buy + " + str.tostring(grid_levels) + " Sell",
+               text_color=color.white, text_size=size.small)
+
+// ── BARCOLOR ──────────────────────────────────────────────────────────────────
+barcolor(crossed_level ? color.new(#ffe57f, 40) : na)
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+alertcondition(crossed_level,       "DGE: Level Crossed", "Dynamic Grid: Price crossed a grid level!")
+alertcondition(not price_in_grid,   "DGE: Outside Grid",  "Dynamic Grid: Price outside grid range!")
+alertcondition(close > upper_bound, "DGE: Above Grid",    "Dynamic Grid: Price above upper bound!")
+alertcondition(close < lower_bound, "DGE: Below Grid",    "Dynamic Grid: Price below lower bound!")
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineDGE;
+const $ = id => document.getElementById(id);
+const STORE = 'dge-params';
+const SCHEMA = [
+  {g:'Rejilla', open:true, f:[
+    ['gridLevels','Niveles por lado','num',{min:1,max:50,step:1,int:true}], ['atrLen','Longitud ATR','num',{min:5,max:50,step:1,int:true}],
+    ['atrMult','Paso (ATR ×)','num',{min:0.1,max:5,step:0.1}], ['recenter','Recentrado automático','bool']]},
+  {g:'Visual', open:true, f:[
+    ['extendBars','Alargar líneas (velas)','num',{min:5,max:100,step:1,int:true}], ['showZone','Zona neutral B1–S1','bool'],
+    ['showNearest','Flecha al nivel más cercano','bool'], ['showDash','Panel (dashboard)','bool']]},
+  {g:'Calculadora de beneficio', open:true, f:[
+    ['showProfit','Beneficio por nivel en la etiqueta','bool'], ['positionUsd','Tamaño de posición ($)','num',{min:1,step:10}]]}
+];
+let params = Object.assign({}, E.DEFAULTS);
+try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) params = Object.assign(params, saved); } catch (e) {}
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + '</summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key;
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + (type === 'bool' ? '<input type="checkbox" id="'+id+'">'
+        : '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">');
+      box.appendChild(row);
+      const el = row.querySelector('#'+id);
+      if (type === 'bool') el.checked = !!params[key]; else el.value = params[key];
+      el.addEventListener(type === 'bool' ? 'change' : 'input', () => {
+        let val;
+        if (type === 'bool') val = el.checked;
+        else { val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.min != null) val = Math.max(opt.min, val); if (opt.max != null) val = Math.min(opt.max, val); if (opt.int) val = Math.round(val); }
+        row.classList.remove('bad'); params[key] = val; markChanged(); schedule();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  markChanged();
+}
+function markChanged(){
+  document.querySelectorAll('.field').forEach(r => r.classList.toggle('changed', params[r.dataset.key] !== E.DEFAULTS[r.dataset.key]));
+  try { localStorage.setItem(STORE, JSON.stringify(params)); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { params = Object.assign({}, E.DEFAULTS); buildSettings(); schedule(); });
+
+let data = null, dataLabel = '', res = null, grid = null, at = -1;
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7);
+  data = E.makeSample(seed, 10);
+  dataLabel = '<b>Datos de ejemplo sintéticos</b> · tipo BTCUSD 1 h · 10 semanas · semilla ' + seed + ' · no son precios reales';
+  setMsg('');
+}
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random()*9999); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { const d = E.parseCSV(String(rd.result)); data = d; dataLabel = '<b>' + esc(file.name) + '</b> · ' + d.t.length.toLocaleString('es-ES') + ' velas'; setMsg(''); runNow(true); }
+    catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+const nf = (x, d) => isFinite(x) ? x.toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d}) : '–';
+let dec = 2;
+const fmtP = x => nf(x, dec);
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const fmtHM = t => { const d = new Date(t); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => runNow(false), 150); }
+function runNow(resetView){
+  res = E.run(data, params);
+  dec = Math.max(res.decimals, 2);
+  if (resetView || at < 0 || at >= res.n) at = res.n - 1;
+  const A = $('at'); A.max = res.n - 1; A.value = at;
+  $('src-chip').innerHTML = dataLabel + ' · ' + fmtDay(data.t[0]) + ' → ' + fmtDay(data.t[data.t.length-1]) + ' UTC';
+  renderStats(); renderAlerts(); renderRecenters();
+  if (resetView || !view.count){ view.count = Math.min(res.n, defaultCount()); view.start = maxEnd() - view.count; }
+  setAt(at, false);
+}
+function setAt(i, follow){
+  at = Math.max(0, Math.min(res.n - 1, i));
+  $('at').value = at; $('at-lbl').textContent = fmtDate(data.t[at]) + (at === res.n - 1 ? ' (última)' : '');
+  grid = E.gridAt(res, data, at);
+  if (follow && (at < view.start || at > view.start + view.count - 1)) view.start = at + params.extendBars + 30 - view.count;
+  renderDash(); renderLevels();
+  clampView(); draw();
+}
+$('at').addEventListener('input', ev => setAt(+ev.target.value, true));
+$('at-last').addEventListener('click', () => { setAt(res.n - 1, false); view.start = maxEnd() - view.count; clampView(); draw(); });
+
+function renderStats(){
+  const s = res.stats, g = E.gridAt(res, data, res.n - 1), n = s.validBars;
+  $('s-step').textContent = g ? nf(g.step, dec) : '–';
+  $('s-step2').textContent = g ? nf(g.dash.stepPct, 2) + ' % · ' + params.atrMult + ' × ATR ' + params.atrLen : '';
+  $('s-range').textContent = g ? nf(g.dash.totalRangePct, 1) + ' %' : '–';
+  $('s-range2').textContent = res.L + ' niveles × ' + params.atrMult + ' ATR = ' + nf(res.L * params.atrMult, 1) + ' ATR';
+  $('s-rec').textContent = s.recenters;
+  $('s-rec2').textContent = params.recenter ? 'uno cada ' + (s.recenters ? Math.round(n / s.recenters) : n) + ' velas' : 'recentrado desactivado';
+  $('s-cross').textContent = nf(s.detected / n * 100, 0) + ' %';
+  $('s-cross2').textContent = s.detected + ' de ' + n + ' velas';
+  const bad = s.falseAlerts + s.missed;
+  $('s-bad').textContent = nf(bad / n * 100, 1) + ' %'; $('s-bad').className = 'v' + (bad ? ' neg' : '');
+  $('s-bad2').textContent = s.falseAlerts + ' falsas · ' + s.missed + ' perdidas';
+  $('s-out').textContent = s.outside; $('s-out').className = 'v' + (params.recenter ? ' neg' : '');
+  $('s-out2').textContent = params.recenter ? 'nunca con recentrado' : nf(s.belowPct, 0) + ' % debajo · ' + nf(s.abovePct, 0) + ' % encima';
+}
+function renderAlerts(){
+  const s = res.stats, n = s.validBars, p = x => nf(x / n * 100, 1) + ' %';
+  const box = (v, t) => '<div><b>' + v + '</b><span>' + t + '</span></div>';
+  $('kv').innerHTML = box(s.detected, 'velas marcadas «Level Crossed» (' + p(s.detected) + ')')
+    + box(s.real, 'velas que cruzan de verdad una línea de la rejilla (' + p(s.real) + ')')
+    + box(s.both, 'coinciden')
+    + box(s.falseAlerts, 'alertas falsas: marcadas sin cruzar ninguna línea' + (s.byRecenter ? ' (' + s.byRecenter + ' por recentrado)' : ''))
+    + box(s.missed, 'cruces reales que no se marcan')
+    + box(s.outside, 'velas con «Outside Grid» (' + s.above + ' «Above» · ' + s.below + ' «Below»)');
+  $('anote').innerHTML = 'Se compara <code>crossed_level</code> del script (con <code>math.round</code>) con el cruce real de una línea <code>centro + k·paso</code> entre el cierre anterior y el actual, con la rejilla de la vela actual. En el gráfico, las velas marcadas se pintan de amarillo (como el <code>barcolor</code> del script); las alertas falsas llevan además un punto rojo arriba; los cruces perdidos llevan un punto gris.'
+    + (params.recenter ? ' Con el recentrado activado, el precio nunca queda fuera: desactívalo para ver las alertas «Outside Grid».' : '');
+}
+function renderRecenters(){
+  const R = res.recenters;
+  $('rbody').innerHTML = R.length ? R.map((r, k) => '<tr data-i="' + r.i + '"><td>' + (k + 1) + '</td><td>' + r.i + '</td><td>' + fmtDate(data.t[r.i]) + '</td><td>' + fmtP(r.from) + '</td><td>' + fmtP(r.to) + '</td><td class="' + (r.dir > 0 ? 'pos' : 'neg') + '">' + (r.dir > 0 ? '+' : '') + nf((r.to - r.from) / r.from * 100, 2) + ' %</td></tr>').join('')
+    : '<tr><td colspan="6" class="empty">' + (params.recenter ? 'El precio no ha salido nunca de la rejilla.' : 'Recentrado desactivado: el centro es el cierre de la primera vela.') + '</td></tr>';
+}
+$('rbody').addEventListener('click', ev => { const r = ev.target.closest('tr[data-i]'); if (r) { setAt(+r.dataset.i, true); $('chart-box').scrollIntoView({block:'nearest'}); } });
+function renderDash(){
+  const D = $('dash');
+  if (!params.showDash || !grid){ D.hidden = true; return; }
+  D.hidden = false;
+  const g = grid, d = g.dash;
+  const row = (k, v, cls) => '<dt>' + k + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</dd>';
+  D.innerHTML = '<div class="ttl">Dynamic Grid Engine <span>AleksDU · ' + fmtDate(data.t[g.i]) + '</span></div>'
+    + row('Grid Step', nf(g.step, 4) + ' (' + nf(d.stepPct, 2) + '%)')
+    + row('Total Range', nf(d.totalRangePct, 1) + '% each side')
+    + row('Upper Bound', nf(d.upper, 2), 'neg') + row('Lower Bound', nf(d.lower, 2), 'pos')
+    + row('Grid Center', nf(g.center, 2))
+    + row('Price in Grid', d.inGrid ? 'Yes' : 'Outside!', d.inGrid ? 'pos' : 'neg')
+    + row('Position Size', '$' + nf(d.positionUsd, 2)) + row('Profit / Grid', '+$' + nf(d.profitPerGrid, 4), 'pos')
+    + row('Total if Full', '+$' + nf(d.totalIfFull, 2), 'pos') + row('Levels', res.L + ' Buy + ' + res.L + ' Sell');
+}
+function renderLevels(){
+  if (!grid){ $('lbody').innerHTML = '<tr><td colspan="5" class="empty">Todavía no hay ATR en esta vela.</td></tr>'; $('lnote').textContent = ''; return; }
+  const g = grid, rows = g.levels.filter(x => x.side === 'S').reverse().concat(g.levels.filter(x => x.side === 'B'));
+  const tr = x => '<tr' + (x.near ? ' class="sel"' : '') + '><td><span class="pill ' + (x.side === 'S' ? 's' : 'b') + '">' + x.side + x.k + '</span>' + (x.near ? ' ← más cercano' : '') + '</td><td>' + fmtP(x.price) + '</td><td>' + nf((x.price - g.close) / g.close * 100, 2) + ' %</td><td>$' + nf(x.profit, 2) + '</td><td class="txt">' + esc(x.label) + '</td></tr>';
+  const mid = '<tr><td><span class="pill n">MID</span></td><td>' + fmtP(g.center) + '</td><td>' + nf((g.center - g.close) / g.close * 100, 2) + ' %</td><td>–</td><td class="txt">◆ MID · cierre ' + fmtP(g.close) + '</td></tr>';
+  const S = rows.filter(x => x.side === 'S'), B = rows.filter(x => x.side === 'B');
+  $('lbody').innerHTML = S.map(tr).join('') + mid + B.map(tr).join('');
+  const dbl = g.levels.filter(x => (x.side === 'S' && x.price < g.close) || (x.side === 'B' && x.price > g.close)).length;
+  $('lnote').innerHTML = 'Distancia con signo real respecto al cierre. «Beneficio del paso» es lo que muestra el script: $' + params.positionUsd + ' × paso / nivel, sin comisiones. Con una comisión típica del 0,1 % por lado, el ciclo cuesta 0,2 % y el paso es de ' + nf(g.dash.stepPct, 2) + ' %.'
+    + (dbl ? ' <b>' + dbl + ' etiquetas</b> salen con doble signo porque el nivel está al otro lado del precio.' : '');
+}
+
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(90, Math.min(220, Math.floor(cv.clientWidth / 4.5)));
+const maxEnd = () => res.n + params.extendBars + Math.ceil(210 / Math.max(2, ((cv.clientWidth || 800) - 76) / Math.max(1, view.count || defaultCount())));
+function clampView(){
+  const n = res.n;
+  view.count = Math.max(30, Math.min(n + 60, view.count));
+  view.start = Math.max(0, Math.min(maxEnd() - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, maxEnd() - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),grid:g('--grid'),buy:g('--buy'),sell:g('--sell'),surface:g('--surface'),accent:g('--accent'),mono:g('--mono'),candle:g('--candle'),hit:g('--hit'),zone:g('--zone'),mid:g('--mid')};
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = data, n = res.n, g = grid;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 76, timeH = 22, plotW = W - axisW, priceH = H - timeH;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = s; i < e; i++){ lo = Math.min(lo, d.l[i]); hi = Math.max(hi, d.h[i]); }
+  if (g && g.i >= s - params.extendBars && g.i < s + view.count){
+    lo = Math.min(lo, g.center - g.step * res.L); hi = Math.max(hi, g.center + g.step * res.L);
+  }
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  const padY = (hi - lo) * 0.05 || 1; lo -= padY; hi += padY;
+  const Y = p => 10 + (hi - p) / (hi - lo) * (priceH - 20);
+  geo = {bw, plotW};
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const stepY = niceStep((hi - lo) / 7), pdec = stepY < 1 ? Math.min(dec, Math.ceil(-Math.log10(stepY))) : 0;
+  for (let p = Math.ceil(lo / stepY) * stepY; p <= hi; p += stepY){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(p.toFixed(pdec), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line; ctx.beginPath(); ctx.moveTo(plotW + 0.5, 0); ctx.lineTo(plotW + 0.5, priceH); ctx.stroke();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw)); let lastDay = -1;
+  for (let i = s; i < e; i++){
+    if ((i - s) % every) continue;
+    const day = new Date(d.t[i]).getUTCDate();
+    ctx.fillStyle = T.muted; ctx.fillText(day !== lastDay ? fmtDay(d.t[i]) : fmtHM(d.t[i]), Math.min(Math.max(X(i), 24), plotW - 24), H - 6);
+    lastDay = day;
+  }
+  ctx.textAlign = 'left';
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  // historical center and bounds (not drawn by the script; shown for reference)
+  const hist = (arr, color, dash, width, alpha) => {
+    ctx.strokeStyle = color; ctx.setLineDash(dash); ctx.lineWidth = width; ctx.globalAlpha = alpha; ctx.beginPath(); let on = false;
+    for (let i = s; i < e; i++){ const v = arr[i]; if (!isFinite(v)) { on = false; continue; } if (!on) { ctx.moveTo(X(i) - bw/2, Y(v)); on = true; } else ctx.lineTo(X(i) - bw/2, Y(v)); ctx.lineTo(X(i) + bw/2, Y(v)); }
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  };
+  hist(res.center, T.mid, [], 1, 0.35); hist(res.upper, T.muted, [3,3], 1, 0.6); hist(res.lower, T.muted, [3,3], 1, 0.6);
+  // candles
+  const bodyW = Math.max(1, Math.min(10, bw * 0.66));
+  for (let i = s; i < e; i++){
+    const up = d.c[i] >= d.o[i], x = X(i), hitBar = res.crossed[i];
+    ctx.strokeStyle = ctx.fillStyle = hitBar ? T.hit : T.candle; ctx.globalAlpha = hitBar ? 1 : up ? 0.55 : 0.95;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, Y(d.h[i])); ctx.lineTo(Math.round(x) + 0.5, Y(d.l[i])); ctx.stroke();
+    const y1 = Y(Math.max(d.o[i], d.c[i])), y2 = Y(Math.min(d.o[i], d.c[i]));
+    if (up) ctx.strokeRect(x - bodyW/2 + 0.5, y1 + 0.5, Math.max(1, bodyW - 1), Math.max(1, y2 - y1)); else ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+  ctx.globalAlpha = 1;
+  // alert diagnostics markers
+  for (let i = s; i < e; i++){
+    const k = res.kind[i]; if (k !== 2 && k !== 3) continue;
+    ctx.fillStyle = k === 2 ? T.sell : T.muted; ctx.beginPath(); ctx.arc(X(i), Y(d.h[i]) - 6, 2.2, 0, Math.PI*2); ctx.fill();
+  }
+  // recenter markers
+  res.recenters.forEach(r => {
+    if (r.i < s || r.i >= e) return;
+    const x = X(r.i), y = Y(r.to); ctx.fillStyle = T.accent; ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill();
+  });
+  // the grid as drawn on barstate.islast
+  if (g){
+    const ri = g.i, re = g.i + params.extendBars;
+    if (params.showZone){
+      ctx.fillStyle = T.zone; ctx.fillRect(X(ri - 3), Y(g.zoneTop), X(re) - X(ri - 3), Y(g.zoneBottom) - Y(g.zoneTop));
+      ctx.strokeStyle = T.muted; ctx.setLineDash([4,3]); ctx.globalAlpha = 0.6; ctx.strokeRect(X(ri - 3) + 0.5, Y(g.zoneTop) + 0.5, X(re) - X(ri - 3), Y(g.zoneBottom) - Y(g.zoneTop)); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    ctx.font = '10px ' + T.mono; ctx.textBaseline = 'middle';
+    const drawn = [];
+    const order = g.levels.filter(x => x.near).concat(g.levels.filter(x => !x.near));
+    for (const L of order){
+      const y = Math.round(Y(L.price)) + 0.5, col = L.side === 'S' ? T.sell : T.buy, alpha = 1 - L.transp / 100;
+      ctx.strokeStyle = col; ctx.globalAlpha = Math.max(0.25, alpha); ctx.lineWidth = L.near ? 2 : 1; ctx.setLineDash([5,3]);
+      ctx.beginPath(); ctx.moveTo(X(ri - 3), y); ctx.lineTo(X(re), y); ctx.stroke(); ctx.setLineDash([]);
+      if (drawn.some(v => Math.abs(v - y) < 14)) continue;
+      drawn.push(y);
+      const tw = ctx.measureText(L.label).width + 10;
+      ctx.globalAlpha = Math.max(0.3, 1 - (L.transp + 10) / 100); ctx.fillStyle = col; ctx.fillRect(X(re) + 2, y - 7, tw, 14);
+      ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillText(L.label, X(re) + 7, y);
+    }
+    ctx.globalAlpha = 1;
+    const ym = Math.round(Y(g.center)) + 0.5;
+    ctx.strokeStyle = T.mid; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(ri - 5), ym); ctx.lineTo(X(re), ym); ctx.stroke();
+    ctx.font = '11px ' + T.mono; const mw = ctx.measureText('◆ MID').width + 10;
+    ctx.fillStyle = T.mid; ctx.fillRect(X(ri - 5) - mw - 2, ym - 8, mw, 16); ctx.fillStyle = T.surface; ctx.fillText('◆ MID', X(ri - 5) - mw + 3, ym);
+    if (params.showNearest){
+      const tag = (price, up, text, col) => {
+        const x = X(ri), y = up ? Y(price + g.atr * 0.2) : Y(price - g.atr * 0.2), w = ctx.measureText(text).width + 12;
+        ctx.fillStyle = col; const top = up ? y - 18 : y + 4;
+        ctx.fillRect(x - w/2, top, w, 16); ctx.fillStyle = '#fff'; ctx.fillText(text, x - w/2 + 6, top + 8);
+      };
+      if (isFinite(g.nearestSell)) tag(g.nearestSell, true, '▲ SELL here', T.sell);
+      if (isFinite(g.nearestBuy)) tag(g.nearestBuy, false, '▼ BUY here', T.buy);
+    }
+    ctx.strokeStyle = T.accent; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.beginPath(); ctx.moveTo(Math.round(X(ri)) + 0.5, 0); ctx.lineTo(Math.round(X(ri)) + 0.5, priceH); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.restore();
+  if (hover >= s && hover < e){
+    const x = Math.round(X(hover)) + 0.5;
+    ctx.strokeStyle = T.muted; ctx.globalAlpha = 0.5; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, priceH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const n = res.n, e = Math.min(n, view.start + view.count);
+  const i = hover >= view.start && hover < e ? hover : Math.min(at, n - 1);
+  if (i < 0) { $('readout').innerHTML = ''; return; }
+  const d = data, k = res.kind[i];
+  $('readout').innerHTML = fmtDate(d.t[i]) + ' UTC  O <b>' + fmtP(d.o[i]) + '</b> H <b>' + fmtP(d.h[i]) + '</b> L <b>' + fmtP(d.l[i]) + '</b> C <b>' + fmtP(d.c[i]) + '</b>'
+    + '<br>centro <b>' + fmtP(res.center[i]) + '</b> paso <b>' + fmtP(res.step[i]) + '</b> · Level Crossed <b>' + (res.crossed[i] ? 'sí' : 'no') + '</b>' + (k === 2 ? ' (falsa)' : k === 3 ? ' (cruce real perdido)' : '');
+}
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start, moved: false}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const mx = ev.clientX - cv.getBoundingClientRect().left;
+  if (drag){ if (Math.abs(ev.clientX - drag.x) > 4) drag.moved = true; view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView(); }
+  hover = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  draw();
+});
+cv.addEventListener('pointerup', ev => {
+  if (drag && !drag.moved && geo){ const mx = ev.clientX - cv.getBoundingClientRect().left; const i = view.start + Math.floor(mx / geo.bw); if (mx < geo.plotW && i >= 0 && i < res.n) setAt(i, false); }
+  drag = null;
+});
+cv.addEventListener('pointercancel', () => { drag = null; });
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const frac = Math.min(1, (ev.clientX - cv.getBoundingClientRect().left) / geo.plotW), anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) view.start += Math.round(ev.deltaX / geo.bw);
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = maxEnd(); clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+}));
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (ch === '"') inStr = !inStr; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code).replace(/("[^"]*")/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na|for|to|bool|float|int|string)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+new ResizeObserver(() => { if (res) { clampView(); draw(); } }).observe($('chart-box'));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+new MutationObserver(draw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+loadSample();
+runNow(true);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// TikiTrade v3 · bot autónomo de MenteColmena
+//
+// Idea: seguir la tendencia y entrar en el retroceso. Cada herramienta es un jugador que tiene que
+// pasar el balón al siguiente; si uno lo pierde, no hay remate.
+//   #1 El Muro (portero)           sin posición, sin descanso por racha de pérdidas, lado permitido
+//   #4 La Roca (central)           tendencia: EMA 50 > EMA 200, cierre > EMA 200, EMA 200 subiendo
+//   #3 El Motor (lateral)          fuerza: ADX >= mínimo de la táctica
+//   #8 El Cerebro (mediocentro)    pausa: el RSI retrocedió en las últimas 5 velas (si la táctica la usa)
+//   #10 El Termómetro (mediapunta) volatilidad: percentil del ATR% entre 10 y 90
+//   #7 La Chispa (extremo)         volumen >= 0,9 × media de 20
+//   #9 El Killer (delantero)       gatillo: cierre > máximo anterior, > EMA 20 y vela alcista
+//                                  (en el Juego directo: cierre > máximo de las 48 velas anteriores)
+// Remate: entrada a mercado con el stop (2 ATR) ya colocado en la misma vela. La posición entera corre
+// con el trailing chandelier (3 ATR) hasta que salta o se rompe la tendencia de fondo. Hay un TP1
+// parcial opcional (apagado: en el estudio v3 recortaba las jugadas que pagan el partido).
+//
+// EL ENTRENADOR decide solo, vela a vela y con datos pasados:
+//   · ojea al rival: volátil (ATR% en el percentil >= 80 de 500 velas), tendencia alcista/bajista
+//     (EMA 50 a >= 2,5 ATR de la EMA 200 y eficiencia de Kaufman(100) >= 0,08), lateral o transición;
+//   · elige el lado: tendencia alcista → solo largos, bajista → solo cortos, lateral → banquillo;
+//   · elige la táctica: juega en la sombra Tiki-Taka, Contraataque, Catenaccio y Juego directo y
+//     alinea la que más R ha sumado en los últimos 30 días (720 velas de 1 h); si ninguna está en
+//     positivo, no juega;
+//   · el lado también se gana en la sombra: si con esa táctica los largos (o los cortos) van en
+//     negativo en la ventana, ese lado no juega.
+// Tamaño por riesgo: 1 % del capital por operación. Cortos en espejo. Deslizamiento: en Propiedades.
+//@version=6
+strategy("TikiTrade v3", shorttitle="TikiTrade", overlay=true, initial_capital=10000,
+     commission_type=strategy.commission.percent, commission_value=0.05, pyramiding=0,
+     default_qty_type=strategy.fixed, process_orders_on_close=false, calc_on_order_fills=false,
+     max_labels_count=500, max_bars_back=1000)
+
+// ── El Entrenador ────────────────────────────────────────────────────────────
+G0 = "🧑‍🏫 El Entrenador"
+coachOn    = input.bool(true, "Entrenador automático (elige táctica y lado)", group=G0)
+manualTac  = input.string("Tiki-Taka", "Táctica si está en manual", options=["Tiki-Taka", "Contraataque", "Catenaccio", "Juego directo"], group=G0)
+manualSide = input.string("Ambos", "Lado si está en manual", options=["Ambos", "Solo largos", "Solo cortos"], group=G0)
+windowBars = input.int(720, "Ventana de evaluación (velas)", minval=50, group=G0)
+minTrades  = input.int(3, "Jugadas mínimas para evaluar una táctica", minval=1, group=G0)
+needPos    = input.bool(true, "Solo alinear tácticas en positivo", group=G0)
+benchLat   = input.bool(true, "No jugar en mercado lateral", group=G0)
+sideShadow = input.bool(true, "El lado también se gana en la sombra", group=G0)
+erLen      = input.int(100, "Ojeador: eficiencia (velas)", minval=10, group=G0)
+erTrend    = input.float(0.08, "Ojeador: eficiencia mínima de tendencia", step=0.01, group=G0)
+spreadTr   = input.float(2.5, "Ojeador: distancia EMA 50–200 de tendencia (ATR)", step=0.1, group=G0)
+spreadRg   = input.float(1.5, "Ojeador: distancia máxima en lateral (ATR)", step=0.1, group=G0)
+volHigh    = input.float(80, "Ojeador: percentil de ATR% volátil", group=G0)
+riskPct    = input.float(1.0, "Riesgo por operación (%)", minval=0.1, maxval=5, step=0.1, group=G0)
+maxExpo    = input.float(1.0, "Exposición máxima (× capital)", minval=0.1, maxval=10, step=0.1, group=G0)
+slipPct    = input.float(0.02, "Deslizamiento para los partidos en la sombra (%)", minval=0, step=0.01, group=G0)
+
+// ── #1 El Muro (portero) ─────────────────────────────────────────────────────
+G1 = "🧤 #1 El Muro — riesgo"
+atrLen     = input.int(14, "ATR", minval=1, group=G1)
+stopAtr    = input.float(2.0, "Stop (× ATR)", minval=0.5, step=0.25, group=G1)
+useCool    = input.bool(true, "Descanso tras racha de pérdidas", group=G1)
+lossLimit  = input.int(2, "Pérdidas seguidas", minval=1, group=G1)
+restBars   = input.int(10, "Velas de descanso", minval=1, group=G1)
+
+// ── Resto del equipo ─────────────────────────────────────────────────────────
+G2 = "🛡️ #4 La Roca — tendencia"
+useTrend   = input.bool(true, "Activar", group=G2)
+emaFastLen = input.int(20, "EMA rápida", minval=1, group=G2)
+emaMidLen  = input.int(50, "EMA media", minval=1, group=G2)
+emaSlowLen = input.int(200, "EMA lenta", minval=1, group=G2)
+slopeLen   = input.int(20, "Pendiente de la EMA lenta (velas)", minval=1, group=G2)
+G3 = "⚙️ #3 El Motor — fuerza"
+useStrength = input.bool(true, "Activar", group=G3)
+adxLen     = input.int(14, "ADX", minval=2, group=G3)
+G4 = "🧭 #8 El Cerebro — pausa"
+rsiLen     = input.int(14, "RSI", minval=2, group=G4)
+pullLook   = input.int(5, "Ventana (velas)", minval=1, group=G4)
+G5 = "🌡️ #10 El Termómetro — volatilidad"
+useVolat   = input.bool(true, "Activar", group=G5)
+volLook    = input.int(100, "Ventana del percentil", minval=10, group=G5)
+volPctMin  = input.float(10, "Percentil mínimo", group=G5)
+volPctMax  = input.float(90, "Percentil máximo", group=G5)
+G6 = "⚡ #7 La Chispa — volumen"
+useVolume  = input.bool(true, "Activar", group=G6)
+volMult    = input.float(0.9, "Volumen ≥ media 20 ×", minval=0, step=0.1, group=G6)
+G7 = "⚽ #9 El Killer — definición"
+donLen     = input.int(48, "Juego directo: ruptura de N velas", minval=2, group=G7)
+tp1Pct     = input.float(0, "TP1 parcial (% de la posición, 0 = sin TP)", minval=0, maxval=100, group=G7)
+tp1R       = input.float(1.5, "TP1 (R)", minval=0.25, step=0.25, group=G7)
+trailAtr   = input.float(3.0, "Trailing chandelier (× ATR)", minval=0.5, step=0.25, group=G7)
+useTrendExit = input.bool(true, "Salir si se rompe la tendencia de fondo", group=G7)
+
+// Tácticas: [usar pausa, ADX mínimo, RSI de retroceso, gatillo de ruptura larga]
+TAC_NAMES = array.from("Tiki-Taka", "Contraataque", "Catenaccio", "Juego directo")
+TAC_PULL  = array.from(true, false, true, false)
+TAC_ADX   = array.from(25.0, 20.0, 30.0, 20.0)
+TAC_RSI   = array.from(45.0, 45.0, 40.0, 45.0)
+TAC_DON   = array.from(false, false, false, true)
+
+// ── Indicadores (todos fuera de and/or: en v6 se evalúan de forma perezosa) ──
+emaF  = ta.ema(close, emaFastLen)
+emaM  = ta.ema(close, emaMidLen)
+emaS  = ta.ema(close, emaSlowLen)
+atr   = ta.atr(atrLen)
+[_, _, adx] = ta.dmi(adxLen, adxLen)
+rsi   = ta.rsi(close, rsiLen)
+rank  = ta.percentrank(atr / close, volLook)
+volSma = ta.sma(volume, 20)
+rsiLo = ta.lowest(rsi, pullLook)
+rsiHi = ta.highest(rsi, pullLook)
+slopeUp = emaS > emaS[slopeLen]
+slopeDn = emaS < emaS[slopeLen]
+pathLen = math.sum(math.abs(ta.change(close)), erLen)
+er      = pathLen > 0 ? math.abs(close - close[erLen]) / pathLen : 0.0
+spread  = (emaM - emaS) / atr
+volRank500 = ta.percentrank(atr / close, 500)
+donHi   = ta.highest(high, donLen)[1]
+donLo   = ta.lowest(low, donLen)[1]
+
+// Condiciones comunes (sin la del portero ni las de la táctica)
+volOk  = not useVolume or na(volume) or volume == 0 or na(volSma) ? true : volume >= volSma * volMult
+rankOk = not useVolat or (rank >= volPctMin and rank <= volPctMax)
+cbL = not useTrend or (emaM > emaS and close > emaS and slopeUp)
+cbS = not useTrend or (emaM < emaS and close < emaS and slopeDn)
+fwL = close > high[1] and close > emaF and close > open
+fwS = close < low[1] and close < emaF and close < open
+dnL = bar_index > donLen and close > donHi
+dnS = bar_index > donLen and close < donLo
+
+sigLong(int k) =>
+    cbL and (not useStrength or adx >= TAC_ADX.get(k)) and (not TAC_PULL.get(k) or rsiLo <= TAC_RSI.get(k)) and rankOk and volOk and (TAC_DON.get(k) ? dnL : fwL) and atr > 0
+sigShort(int k) =>
+    cbS and (not useStrength or adx >= TAC_ADX.get(k)) and (not TAC_PULL.get(k) or rsiHi >= 100 - TAC_RSI.get(k)) and rankOk and volOk and (TAC_DON.get(k) ? dnS : fwS) and atr > 0
+
+// ── Partidos en la sombra (una táctica cada uno, sin dinero, en R) ───────────
+type Shadow
+    int   dir = 0
+    float entry = na
+    float stop = na
+    float tp1 = na
+    float ref = na
+    float ext = na
+    float risk = na
+    bool  tp1Done = false
+    float rem = 1.0
+    float rAcc = 0.0
+    int   pend = 0
+    float pStop = na
+    float pTp1 = na
+    float pRef = na
+    float pRisk = na
+    bool  exitNext = false
+    int   restUntil = -1
+    int   streak = 0
+    array<float> rs
+    array<int> rbar
+    array<int> rdir
+
+method finish(Shadow s, float px) =>
+    s.rAcc += s.rem * s.dir * (px - s.entry) / s.risk
+    s.rAcc -= (0.1 / 100) * s.entry / s.risk   // comisión de entrada y salida (0,05 % × 2)
+    s.rs.push(s.rAcc)
+    s.rbar.push(bar_index)
+    s.rdir.push(s.dir)
+    if useCool
+        s.streak := s.rAcc < 0 ? s.streak + 1 : 0
+        if s.streak >= lossLimit
+            s.restUntil := bar_index + restBars
+            s.streak := 0
+    s.dir := 0
+    s.rem := 1.0
+    s.rAcc := 0.0
+    s.tp1Done := false
+    s.exitNext := false
+
+method takeTp1(Shadow s, float px) =>
+    p = tp1Pct / 100
+    s.rAcc += p * s.dir * (px - s.entry) / s.risk
+    s.rem -= p
+    s.tp1Done := true
+
+method step(Shadow s, bool goL, bool goS) =>
+    slip = slipPct / 100
+    // apertura: salida pendiente y entrada pendiente
+    if s.exitNext and s.dir != 0
+        s.finish(open * (1 - s.dir * slip))
+    if s.pend != 0
+        s.dir := s.pend
+        s.entry := open * (1 + s.pend * slip)
+        s.stop := s.pStop
+        s.tp1 := s.pTp1
+        s.ref := s.pRef
+        s.risk := s.pRisk
+        s.ext := s.pend > 0 ? high : low
+        s.pend := 0
+    // durante la vela: stop y TP1 (recorrido apertura → extremo más cercano → otro extremo → cierre)
+    if s.dir != 0
+        op = open
+        if (s.dir > 0 and op <= s.stop) or (s.dir < 0 and op >= s.stop)
+            s.finish(op * (1 - s.dir * slip))
+        else
+            if not s.tp1Done and tp1Pct > 0 and ((s.dir > 0 and op >= s.tp1) or (s.dir < 0 and op <= s.tp1))
+                s.takeTp1(op)
+            highFirst = (high - op) < (op - low)
+            path = highFirst ? array.from(op, high, low, close) : array.from(op, low, high, close)
+            for k = 0 to 2
+                if s.dir == 0
+                    break
+                a = path.get(k)
+                b = path.get(k + 1)
+                if a != b
+                    up = b > a
+                    stopSide = s.dir > 0 ? not up : up
+                    crossStop = up ? (s.stop > a and s.stop <= b) : (s.stop < a and s.stop >= b)
+                    crossTp = up ? (s.tp1 > a and s.tp1 <= b) : (s.tp1 < a and s.tp1 >= b)
+                    if stopSide and crossStop
+                        s.finish(s.stop * (1 - s.dir * slip))
+                    else if not stopSide and not s.tp1Done and tp1Pct > 0 and crossTp
+                        s.takeTp1(s.tp1)
+    // cierre: gestión y nueva señal
+    if s.dir != 0
+        s.ext := s.dir > 0 ? math.max(s.ext, high) : math.min(s.ext, low)
+        chand = s.dir > 0 ? s.ext - trailAtr * atr : s.ext + trailAtr * atr
+        s.stop := s.dir > 0 ? math.max(s.stop, chand) : math.min(s.stop, chand)
+        if s.tp1Done
+            s.stop := s.dir > 0 ? math.max(s.stop, s.ref) : math.min(s.stop, s.ref)
+        broken = s.dir > 0 ? (emaM < emaS or close < emaS) : (emaM > emaS or close > emaS)
+        if useTrendExit and broken
+            s.exitNext := true
+    else if s.pend == 0 and not (useCool and bar_index <= s.restUntil) and (goL or goS)
+        d = goL ? 1 : -1
+        dist = atr * stopAtr
+        s.pend := d
+        s.pStop := close - d * dist
+        s.pTp1 := close + d * tp1R * dist
+        s.pRef := close
+        s.pRisk := dist
+
+method score(Shadow s) =>
+    // R de las jugadas cerradas en la ventana (antes de esta vela): total, largos y cortos
+    while s.rbar.size() > 0 and s.rbar.get(0) < bar_index - windowBars
+        s.rbar.shift()
+        s.rs.shift()
+        s.rdir.shift()
+    float tot = 0.0
+    float lng = 0.0
+    for [j, r] in s.rs
+        tot += r
+        if s.rdir.get(j) > 0
+            lng += r
+    [tot, lng, tot - lng]
+
+newShadow() =>
+    Shadow.new(rs = array.new<float>(), rbar = array.new<int>(), rdir = array.new<int>())
+var Shadow sh0 = newShadow()
+var Shadow sh1 = newShadow()
+var Shadow sh2 = newShadow()
+var Shadow sh3 = newShadow()
+
+// Puntuación con lo que ya había cerrado antes de esta vela; después juegan la vela actual
+[sc0, scL0, scS0] = sh0.score()
+[sc1, scL1, scS1] = sh1.score()
+[sc2, scL2, scS2] = sh2.score()
+[sc3, scL3, scS3] = sh3.score()
+n0 = sh0.rs.size()
+n1 = sh1.rs.size()
+n2 = sh2.rs.size()
+n3 = sh3.rs.size()
+sL0 = sigLong(0)
+sS0 = sigShort(0)
+sL1 = sigLong(1)
+sS1 = sigShort(1)
+sL2 = sigLong(2)
+sS2 = sigShort(2)
+sL3 = sigLong(3)
+sS3 = sigShort(3)
+sh0.step(sL0, not sL0 and sS0)
+sh1.step(sL1, not sL1 and sS1)
+sh2.step(sL2, not sL2 and sS2)
+sh3.step(sL3, not sL3 and sS3)
+
+// ── Ojeador y decisión ───────────────────────────────────────────────────────
+string rival = "Transición"
+if na(er) or na(spread) or na(volRank500)
+    rival := "Transición"
+else if volRank500 >= volHigh
+    rival := "Volátil"
+else if er >= erTrend and spread >= spreadTr and close > emaS
+    rival := "Tendencia alcista"
+else if er >= erTrend and spread <= -spreadTr and close < emaS
+    rival := "Tendencia bajista"
+else if math.abs(spread) < spreadRg and er < erTrend
+    rival := "Lateral"
+
+int tactic = manualTac == "Contraataque" ? 1 : manualTac == "Catenaccio" ? 2 : manualTac == "Juego directo" ? 3 : 0
+bool allowL = manualSide != "Solo cortos"
+bool allowS = manualSide != "Solo largos"
+if coachOn
+    allowL := rival == "Tendencia alcista" or rival == "Volátil" or rival == "Transición" or (rival == "Lateral" and not benchLat)
+    allowS := rival == "Tendencia bajista" or rival == "Volátil" or rival == "Transición" or (rival == "Lateral" and not benchLat)
+    best = -1
+    bestSc = -1e9
+    if n0 >= minTrades and sc0 > bestSc
+        best := 0
+        bestSc := sc0
+    if n1 >= minTrades and sc1 > bestSc
+        best := 1
+        bestSc := sc1
+    if n2 >= minTrades and sc2 > bestSc
+        best := 2
+        bestSc := sc2
+    if n3 >= minTrades and sc3 > bestSc
+        best := 3
+        bestSc := sc3
+    if best >= 0 and (bestSc > 0 or not needPos)
+        tactic := best
+    else if needPos and best >= 0
+        allowL := false
+        allowS := false
+    else
+        tactic := 0
+    if sideShadow
+        allowL := allowL and (tactic == 0 ? scL0 : tactic == 1 ? scL1 : tactic == 2 ? scL2 : scL3) >= 0
+        allowS := allowS and (tactic == 0 ? scS0 : tactic == 1 ? scS1 : tactic == 2 ? scS2 : scS3) >= 0
+
+// ── Estado del equipo real ───────────────────────────────────────────────────
+var float stopLvl = na
+var float tp1Lvl  = na
+var float entryRef = na
+var float stop0 = na
+var float ext = na
+var float qty0 = 0.0
+var int   restUntil = -1
+var int   streak = 0
+var float netMark = 0.0
+var int   goals = 0
+var int   conceded = 0
+
+if strategy.position_size == 0 and strategy.netprofit != netMark
+    pnl = strategy.netprofit - netMark
+    netMark := strategy.netprofit
+    if pnl > 0
+        goals += 1
+        streak := 0
+        label.new(bar_index, high, "⚽ GOL", style=label.style_label_down, color=color.new(#F2B705, 0), textcolor=color.black, size=size.small)
+    else
+        conceded += 1
+        streak += 1
+        label.new(bar_index, low, "🥅", style=label.style_label_up, color=color.new(color.red, 20), textcolor=color.white, size=size.small)
+        if useCool and streak >= lossLimit
+            restUntil := bar_index + restBars
+            streak := 0
+
+flat    = strategy.position_size == 0
+resting = useCool and bar_index <= restUntil
+realL = tactic == 0 ? sL0 : tactic == 1 ? sL1 : tactic == 2 ? sL2 : sL3
+realS = tactic == 0 ? sS0 : tactic == 1 ? sS1 : tactic == 2 ? sS2 : sS3
+goLong  = flat and not resting and allowL and realL
+goShort = not goLong and flat and not resting and allowS and realS
+
+// ── Remate: entrada con el stop (y el TP1, si está activo) ya colocados ─────
+if goLong or goShort
+    dir      = goLong ? 1 : -1
+    stopDist = atr * stopAtr
+    qty      = math.min(strategy.equity * riskPct / 100 / stopDist, strategy.equity * maxExpo / close)
+    stopLvl  := close - dir * stopDist
+    tp1Lvl   := tp1Pct > 0 ? close + dir * tp1R * stopDist : na
+    entryRef := close
+    stop0    := stopLvl
+    ext      := na
+    qty0     := qty
+    id = goLong ? "L" : "S"
+    tname = TAC_NAMES.get(tactic)
+    strategy.entry(id, goLong ? strategy.long : strategy.short, qty=qty, comment=(goLong ? "⚽ Largo · " : "⚽ Corto · ") + tname)
+    if tp1Pct > 0
+        strategy.exit(id + "-TP1", id, qty_percent=tp1Pct, limit=tp1Lvl, stop=stopLvl, comment_profit="TP1", comment_loss="Stop")
+    strategy.exit(id + "-RUN", id, stop=stopLvl, comment="Stop")
+    alert('{"bot":"TikiTrade","side":"' + (goLong ? "long" : "short") + '","symbol":"' + syminfo.ticker + '","tactic":"' + tname + '","rival":"' + rival +
+         '","price":' + str.tostring(close) + ',"stop":' + str.tostring(stopLvl) + ',"tp1":' + (tp1Pct > 0 ? str.tostring(tp1Lvl) : "null") + ',"qty":' + str.tostring(qty) + '}', alert.freq_once_per_bar_close)
+
+// ── Gestión de la posición abierta (los niveles cambian al cierre) ───────────
+if strategy.position_size != 0
+    long   = strategy.position_size > 0
+    id     = long ? "L" : "S"
+    ext    := na(ext) ? (long ? high : low) : (long ? math.max(ext, high) : math.min(ext, low))
+    chand  = long ? ext - trailAtr * atr : ext + trailAtr * atr
+    tp1Done = math.abs(strategy.position_size) < qty0 * 0.999
+    stopLvl := long ? math.max(stopLvl, chand) : math.min(stopLvl, chand)
+    if tp1Done
+        stopLvl := long ? math.max(stopLvl, entryRef) : math.min(stopLvl, entryRef)
+    if not tp1Done and tp1Pct > 0
+        strategy.exit(id + "-TP1", id, qty_percent=tp1Pct, limit=tp1Lvl, stop=stopLvl, comment_profit="TP1", comment_loss="Stop")
+    trailing = long ? stopLvl > stop0 : stopLvl < stop0
+    strategy.exit(id + "-RUN", id, stop=stopLvl, comment=tp1Done or trailing ? "Trailing" : "Stop")
+    trendBroken = long ? (emaM < emaS or close < emaS) : (emaM > emaS or close > emaS)
+    if useTrendExit and trendBroken
+        strategy.close(id, comment="Cambio de sistema")
+
+// ── Visual ───────────────────────────────────────────────────────────────────
+plot(emaF, "EMA 20", color=color.new(#F2B705, 30))
+plot(emaM, "EMA 50", color=color.new(color.orange, 0))
+plot(emaS, "EMA 200", color=color.new(color.gray, 0), linewidth=2)
+plot(strategy.position_size != 0 ? stopLvl : na, "Stop", color=color.red, style=plot.style_linebr)
+plot(tp1Pct > 0 and strategy.position_size != 0 and math.abs(strategy.position_size) >= qty0 * 0.999 ? tp1Lvl : na, "TP1", color=color.green, style=plot.style_linebr)
+plotshape(goLong, "Remate largo", shape.triangleup, location.belowbar, color.new(#F2B705, 0), size=size.small)
+plotshape(goShort, "Remate corto", shape.triangledown, location.abovebar, color.new(#F2B705, 0), size=size.small)
+benchNow = coachOn and not allowL and not allowS
+bgcolor(resting or benchNow ? color.new(color.gray, 88) : na, title="Banquillo")
+
+var table board = table.new(position.top_right, 3, 4, bgcolor=color.new(#111111, 10), border_width=1)
+if barstate.islast
+    table.cell(board, 0, 0, "TIKITRADE", text_color=#F2B705, text_size=size.small)
+    table.cell(board, 1, 0, str.tostring(goals) + " : " + str.tostring(conceded), text_color=color.white, text_size=size.large)
+    table.cell(board, 2, 0, "MERCADO", text_color=color.silver, text_size=size.small)
+    table.cell(board, 0, 1, "Rival", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 1, 1, rival, text_color=color.white, text_size=size.small)
+    table.cell(board, 2, 1, benchNow ? "banquillo" : allowL and allowS ? "ambos lados" : allowL ? "solo largos" : "solo cortos", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 0, 2, "Táctica", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 1, 2, TAC_NAMES.get(tactic), text_color=#F2B705, text_size=size.small)
+    table.cell(board, 2, 2, "sombra R: " + str.tostring(sc0, "#.#") + " / " + str.tostring(sc1, "#.#") + " / " + str.tostring(sc2, "#.#") + " / " + str.tostring(sc3, "#.#"), text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 0, 3, "Neto", text_color=color.silver, text_size=size.tiny)
+    table.cell(board, 1, 3, str.tostring(strategy.netprofit, "#.##"), text_color=strategy.netprofit >= 0 ? color.lime : color.red, text_size=size.small)
+    table.cell(board, 2, 3, resting ? "descanso" : flat ? "esperando" : "en juego", text_color=color.silver, text_size=size.tiny)

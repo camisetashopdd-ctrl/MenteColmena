@@ -1,0 +1,779 @@
+//@version=5
+
+indicator(title='UT Bot Stochastic RSI', overlay=true)
+
+
+// ========================= Frama Channel logic starts here =========================
+
+// courtsey: BigBeluga
+// https://in.tradingview.com/script/hskyfPWP-FRAMA-Channel-BigBeluga/
+
+
+// ＩＮＰＵＴＳ --------------------------------------------------------------------------------------------------------{
+// User Inputs for FRAMA Channel
+int    N          = input.int   (26, title="Length", minval=2, step = 2, group = "Channel") // Length for FRAMA calculation
+float  distance   = input.float (1.5, "Bands Distance", step = 0.01, minval = 0.3, group = "Channel") // Distance for channel bands
+string price_vol  = input.string("Average Volume", "Signals Data", ["Price", "Average Volume"]) // Source data for signals
+string labl_size  = input.string("Small", "Lables Size", ["Small", "Normal", "Large"])
+
+// Colors
+group = "Colors"
+color color1     = input.color(#27e27b, "Momentum Up", group = group, inline = "1") // Color for upward momentum
+color color2     = input.color(color.rgb(39, 114, 226), "Down", group = group, inline = "1") // Color for downward momentum
+color color3     = input.color(#a2b5ca, "Neutral", group = group) // Color for neutral state
+var color color  = color(na) // Variable to hold the current color
+
+bool candles    = input.bool  (false, "Color Candles") // Toggle for coloring candles based on momentum
+bool showFramaChannel    = input.bool  (false, "Show Frama Channel") // Toggle for coloring candles based on momentum
+
+// Source for FRAMA calculation
+series float price = hl2 // Use hl2 as the default source
+
+// Variables for FRAMA calculation
+var float Filt   = na
+var float Filt1  = na
+var float Filt2  = na
+// }
+
+// UDTs----------------------------------------------------------------------------------------------------------------{
+// Define a user-defined type (UDT) to store variables used in FRAMA calculation
+type vars
+    float N1
+    float N2
+    float N3
+    float HH
+    float LL
+    float Dimen
+    float alpha
+
+// Initialize UDT instance
+v = vars.new(0., 0., 0., 0., 0., 0., 0.)
+// }
+
+
+// ＣＡＬＣＵＬＡＴＩＯＮＳ----------------------------------------------------------------------------------------------{
+// Perform calculations for the FRAMA Channel
+series float volatility = ta.sma(high - low, 200) // Calculate volatility using the average true range
+series float p_vol      = switch price_vol // Select the data source for signals (Price or Average Volume)
+    "Price"             => close
+    "Average Volume"    => math.round(math.sum(volume, 10) / 100000, 2)
+
+// Calculate N3 for the fractal dimension
+v.N3 := (ta.highest(high, N) - ta.lowest(low, N)) / N
+
+// Loop to calculate N1
+v.HH := high
+v.LL := low
+
+for count = 0 to N / 2 - 1
+    if high[count] > v.HH
+        v.HH := high[count]
+    if low[count] < v.LL
+        v.LL := low[count]
+
+v.N1 := (v.HH - v.LL) / (N / 2)
+
+// Loop to calculate N2
+v.HH := high[N / 2]
+v.LL := low[N / 2]
+
+for count = N / 2 to N - 1
+    if high[count] > v.HH
+        v.HH := high[count]
+    if low[count] < v.LL
+        v.LL := low[count]
+
+v.N2 := (v.HH - v.LL) / (N / 2)
+
+// Calculate the fractal dimension
+if (v.N1 > 0 and v.N2 > 0 and v.N3 > 0)
+    v.Dimen := (math.log(v.N1 + v.N2) - math.log(v.N3)) / math.log(2)
+
+// Calculate alpha for FRAMA
+v.alpha := math.exp(-4.6 * (v.Dimen - 1))
+v.alpha := math.max(math.min(v.alpha, 1), 0.01) // Clamp alpha between 0.01 and 1
+
+// Calculate the FRAMA filtered value
+Filt  := na(Filt)
+          ? price
+          : v.alpha * price + (1 - v.alpha) * Filt[1]
+
+Filt  := ta.sma((bar_index < N + 1) ? price : Filt, 5) // Apply SMA for smoothing
+
+// Calculate the channel bands
+Filt1 := Filt + volatility * distance
+Filt2 := Filt - volatility * distance
+
+
+// ＰＬＯＴ-------------------------------------------------------------------------------------------------------------{
+// Define conditions for plotting and coloring
+break_up = ta.crossover(hlc3, Filt1) and barstate.isconfirmed
+break_dn = ta.crossunder(hlc3, Filt2) and barstate.isconfirmed
+
+if ta.cross(close, Filt)
+    color := color3 // Neutral color
+
+// Determine the color based on breakout conditions
+switch
+    break_up => color := color1 // Upward breakout
+    break_dn => color := color2 // Downward breakout
+
+// Set candle color if enabled
+color color_c = candles ? color : na
+
+// Plot the FRAMA and bands
+p0 = plot(showFramaChannel ? Filt : na,  color = color.new(color,color == color3 ? 100 : 50),  editable = false)
+p1 = plot(showFramaChannel ? Filt1 : na, color = color.new(color,20), linewidth = 1, editable = false)
+p2 = plot(showFramaChannel ? Filt2 : na, color = color.new(color,20), linewidth = 1, editable = false)
+
+// Fill the area between the bands and FRAMA
+fill(p1, p0, showFramaChannel ? Filt1 : na, showFramaChannel ? Filt : na, color.new(color, candles ? 95 : 85), na, editable = false)
+fill(p0, p2, showFramaChannel ? Filt : na, showFramaChannel ? Filt2 : na, na, color.new(color, candles ? 95 : 85), editable = false)
+
+size = switch labl_size
+    "Small"  => size.small
+    "Normal" => size.normal
+    "Large"  => size.large
+
+// Plot candles with the calculated colors
+plotcandle(
+             open, high, low, close,
+             "Candles",
+             color_c,
+             color_c,
+             bordercolor = color_c,
+             editable    = false
+             )
+
+
+// ===================================== UtBotStochasticRsi logic starts here =========================
+
+// =================== Inputs starts here ===================
+
+optimizationMetric = input.string("Profit", title="Optimization Metric", options=["Profit", "Winrate"])
+atrSensitivity = input(2, title='Atr sensitivity')
+atrPeriod = input(3, title='ATR Period')
+emaFastPeriod = input(10, title='Fast EMA Period')
+emaSlowPeriod = input(20, title='Slow EMA Period')
+showBacktest = input(true, title='Show backtest result')
+showCheckpoints = input(false, title='Show checkpoints results')
+showBuySell = input(false, title='Show Buy/Sell signal')
+lowRiskEntry = input(false, title='Low-Risk Entry')
+
+backtestDateStart = input.time(title="Backtest Start Date", defval=timestamp("2021-07-28"))
+checkpointDate1 = input.time(title="First Checkpoint Date", defval=timestamp("2022-07-28"))
+checkpointDate2 = input.time(title="Second Checkpoint Date", defval=timestamp("2023-07-28"))
+backtestDateEnd = input.time(title="Backtest End Date", defval=timestamp("2050-07-28"))
+
+// =================== Inputs ends here ===================
+
+
+// Courtsey: https://www.tradingview.com/script/tsHCuCEi-Backtest-Strategy-Optimizer-Adapter/
+// Library: Backtest Strategy Optimizer Adapter
+// Author: DinGrogu
+f_backtest_table_margin(int margin) =>
+    margin_string = ''
+    for i = 1 to margin
+        margin_string := margin_string + ' '
+    margin_string
+
+// Courtsey: https://www.tradingview.com/script/tsHCuCEi-Backtest-Strategy-Optimizer-Adapter/
+// Library: Backtest Strategy Optimizer Adapter
+// Author: DinGrogu
+f_backtest_table(_initial_capital, _profit_perc_total, _open_balance, _winrate, _entries, _exits, _wins, _losses, stockGrowth, _table_position='RIGHT', _table_margin=15, _table_transparency=20, _table_cell_color=color.purple, _table_title_cell_color=color.gray, _table_text_color=color.white) =>
+    green = #26A69A
+    red = #FF5252
+
+    table_width = 0
+    table_margin_right = _table_margin > 0 ? str.tostring(f_backtest_table_margin(_table_margin)) : ''
+    table_position = _table_position == 'LEFT' ? position.bottom_left : position.bottom_right
+
+    table_titles = _table_position == 'LEFT' ? 1 : 0
+    table_values = _table_position == 'LEFT' ? 2 : 1
+    table_offset = _table_position == 'LEFT' ? 0 : 2
+
+    backtesting_table = table.new(table_position, columns=3, rows=8, border_width=3)
+    profit_color = _open_balance > _initial_capital ? green : red
+
+    // Headers
+    table.cell(backtesting_table, table_titles, 0, text='    Investment per trade    ', bgcolor=_table_title_cell_color, text_color=_table_text_color,  text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 1, text='    Close Balance    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 2, text='    Profit ($)    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 3, text='    Total Profit    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 4, text='    Stock Growth    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 5, text='    Entries / Exits    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 6, text='    Wins / Losses   ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 7, text='    Winrate    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+
+    // Values
+    table.cell(backtesting_table, table_values, 0, text='    ' + str.tostring(_initial_capital, '###,###.##') + '   ', width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 1, text='    ' + str.tostring(_open_balance, '###,###.##') + '   ', width=table_width, bgcolor=color.new(profit_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 2, text='    ' + str.tostring(_open_balance - _initial_capital, '###,###.##') + '   ', width=table_width, bgcolor=color.new(profit_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 3, text='    ' + str.tostring(_profit_perc_total, format.percent) + '   ', width=table_width, bgcolor=color.new(_profit_perc_total >= 0 ? green : red, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 4, text='    ' + str.tostring(stockGrowth, '#.##') + '%' + '   ', width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 5, text='    ' + str.tostring(_entries, '###,###.##') + ' / ' + str.tostring(_exits, '###,###.##') + '   ', width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 6, text='    ' + str.tostring(_wins, '###,###.##') + ' / ' + str.tostring(_losses, '###,###.##') + '   ', width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 7, text='    ' + str.tostring(_winrate, '#.##') + '%' + '   ', width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+
+    table.cell(backtesting_table, table_offset, 0, table_margin_right, bgcolor=color.new(color.white, 100), text_color=color.white, text_size=size.small)
+
+
+f_checkpoint_table(_profit_perc_checkpoint_1, _profit_perc_checkpoint_2, _profit_perc_checkpoint_3, _wins_checkpoint_1, _wins_checkpoint_2, _wins_checkpoint_3, _losses_checkpoint_1, _losses_checkpoint_2, _losses_checkpoint_3, _stock_growth_checkpoint_1, _stock_growth_checkpoint_2, _stock_growth_checkpoint_3, _table_position='LEFT', _table_margin=15, _table_transparency=20, _table_cell_color=color.purple, _table_title_cell_color=color.gray, _table_text_color=color.white) =>
+    green = #26A69A
+    red = #FF5252
+
+    table_width = 0
+    table_margin_right = _table_margin > 0 ? str.tostring(f_backtest_table_margin(_table_margin)) : ''
+    table_position = _table_position == 'LEFT' ? position.bottom_left : position.bottom_right
+
+    table_titles = _table_position == 'LEFT' ? 1 : 0
+    table_values = _table_position == 'LEFT' ? 2 : 1
+    table_offset = _table_position == 'LEFT' ? 0 : 2
+
+    backtesting_table = table.new(position.bottom_left, columns=3, rows=9, border_width=3)
+
+    // Headers
+    table.cell(backtesting_table, table_titles, 0, text='    Checkpoint 1 Profit    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 1, text='    Checkpoint 1 Wins / Losses    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 2, text='    Checkpoint 1 Stock Growth    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+
+    table.cell(backtesting_table, table_titles, 3, text='    Checkpoint 2 Profit    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 4, text='    Checkpoint 2 Wins / Losses    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 5, text='    Checkpoint 2 Stock Growth    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+
+    table.cell(backtesting_table, table_titles, 6, text='    Checkpoint 3 Profit    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 7, text='    Checkpoint 3 Wins / Losses    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+    table.cell(backtesting_table, table_titles, 8, text='    Checkpoint 3 Stock Growth    ', bgcolor=_table_title_cell_color, text_color=_table_text_color, text_halign=text.align_left, text_size=size.small)
+
+    // Values
+    table.cell(backtesting_table, table_values, 0, text='    ' + str.tostring(_profit_perc_checkpoint_1, format.percent), width=table_width, bgcolor=color.new(_profit_perc_checkpoint_1 >= 0 ? green : red, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 1, text='    ' + str.tostring(_wins_checkpoint_1) + '/' + str.tostring(_losses_checkpoint_1), width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 2, text='    ' + str.tostring(_stock_growth_checkpoint_1, format.percent), width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+
+    table.cell(backtesting_table, table_values, 3, text='    ' + str.tostring(_profit_perc_checkpoint_2, format.percent), width=table_width, bgcolor=color.new(_profit_perc_checkpoint_2 >= 0 ? green : red, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 4, text='    ' + str.tostring(_wins_checkpoint_2) + '/' + str.tostring(_losses_checkpoint_2), width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 5, text='    ' + str.tostring(_stock_growth_checkpoint_2, format.percent), width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+
+    table.cell(backtesting_table, table_values, 6, text='    ' + str.tostring(_profit_perc_checkpoint_3, format.percent), width=table_width, bgcolor=color.new(_profit_perc_checkpoint_3 >= 0 ? green : red, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 7, text='    ' + str.tostring(_wins_checkpoint_3) + '/' + str.tostring(_losses_checkpoint_3), width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+    table.cell(backtesting_table, table_values, 8, text='    ' + str.tostring(_stock_growth_checkpoint_3, format.percent), width=table_width, bgcolor=color.new(_table_cell_color, _table_transparency), text_color=color.new(color.white, 0), text_halign=text.align_right, text_size=size.small)
+
+    table.cell(backtesting_table, table_offset, 0, table_margin_right, bgcolor=color.new(color.white, 100), text_color=color.white, text_size=size.small)
+
+// Courtsey: https://www.tradingview.com/script/tsHCuCEi-Backtest-Strategy-Optimizer-Adapter/
+// Library: Backtest Strategy Optimizer Adapter
+// Author: DinGrogu
+// @function - Main backtesting function.
+f_backtest_main(_date_start, _date_end, _entry_signal, _exit_signal, _take_profit_percentage=0.0, _stop_loss_percentage=0.0, _atr_length=0, _initial_capital=1000.00, _order_size=100, _commission=0.0, _on_bar_close=false, _high=high, _low=low, _src=close, _chart=false) =>
+    var entries = 0
+    var exits = 0
+    var wins = 0
+    var losses = 0
+
+    var float quantity_purchased = 0.0
+    var float winrate = 0.0
+    var float global_profit = 0.0
+    var float profit_perc = 0.0
+
+    var open_trade = false
+
+    initial_capital = _initial_capital
+
+    var float close_balance_till_curr_bar = na
+
+    // Here, we store the 'last_bar_index' value that is known from the beginning of the script's calculation.
+    // The 'last_bar_index' will change when new real-time bars appear, so we declare 'last_bar' with the 'var' keyword.
+    var last_bar = last_bar_index
+
+    // Check if the current bar_index is '_date_start' removed from the last bar on the chart, or the chart is traded in real-time.
+    // Or if the _date start is bigger than 476928000 it's probably a date and we use the date time.
+    date_in_range = _date_start < 476928000 ? (last_bar - bar_index <= _date_start) : (time >= _date_start and time < _date_end)
+
+    if (date_in_range)
+        var last_entry_signal_bar_index = 0
+
+        var entry_price = 0.0
+        var exit_price = 0.0
+        var exit_profit = 0.0
+        var exit_comment = ''
+
+        entry_signal = _entry_signal
+        entry_condition = not open_trade and entry_signal
+
+        if (entry_condition)
+            open_trade := true
+            entry_price := _src
+
+            // Only show labels on chart when using the full backtest function.
+            if (_chart)
+                last_entry_signal_bar_index := bar_index
+
+                entry_label_bar_index = _on_bar_close ? last_entry_signal_bar_index : last_entry_signal_bar_index + 1
+                entry_label_text = str.tostring(math.round_to_mintick(entry_price))
+                label.new(entry_label_bar_index, na, entry_label_text, color=color.green, textcolor=color.white, size=size.normal, style=label.style_label_up, yloc=yloc.belowbar)
+
+            quantity_purchased := initial_capital / entry_price
+
+            // Increase the entries count.
+            entries += 1
+
+            // Reset the exit price
+            exit_price := na
+
+        exit_signal = _exit_signal
+
+        exit_condition = open_trade and exit_signal
+        exit_signal_value = ta.valuewhen(exit_condition, _src, 0)
+
+        if (exit_condition)
+            open_trade := false
+            exit_price := _src
+
+            // Only show labels on chart when using the full backtest function.
+            if (_chart)
+                //if (last_entry_signal_bar_index != bar_index)
+                line_profit_color = entry_price < exit_price ? color.green : color.red
+                label_profit_color = entry_price < exit_price ? color.blue : color.red
+
+                // Draw a line between exit and entry.
+                line_bar_index = _on_bar_close ? last_entry_signal_bar_index : last_entry_signal_bar_index + 1
+                line.new(line_bar_index, exit_price, bar_index, exit_price, extend=extend.none, color=color.new(line_profit_color, 20))
+                //line_bar_price = line.get_x2(order_line)
+
+                exit_profit := (((exit_price - entry_price) / entry_price) * 100)
+
+                // The exit label.
+                bar_index_exit_label = _on_bar_close ? bar_index : bar_index + 1
+                label.new(bar_index_exit_label, na, exit_comment + str.tostring(math.round_to_mintick(exit_price)) + ' (' + str.tostring(exit_profit, '#.##') + '%)', color=label_profit_color, textcolor=color.white, size=size.normal, style=label.style_label_down, yloc=yloc.abovebar)
+
+                // Reset the bar_index of the entry_signal.
+                last_entry_signal_bar_index := 0
+
+            // Calculate the total Wins / Losses and Winrate (%)
+            if (exit_price > entry_price)
+                wins += 1
+            else
+                losses += 1
+
+            winrate := nz(math.round((wins / (wins + losses) * 100), 2))
+
+            // Reset the entry price.
+            entry_price := na
+            exit_profit := 0
+
+            // Calculate profit and loss.
+            closing_balance = quantity_purchased * exit_signal_value
+            curr_trade_profit = closing_balance - initial_capital
+
+            global_profit := global_profit + curr_trade_profit
+            profit_perc := (global_profit/ (initial_capital)) * 100
+
+            close_balance_till_curr_bar := initial_capital + global_profit
+
+            // Increase the exits count.
+            exits += 1
+
+    [profit_perc, close_balance_till_curr_bar, winrate, entries, exits, wins, losses]
+
+// Courtsey: https://www.tradingview.com/script/tsHCuCEi-Backtest-Strategy-Optimizer-Adapter/
+// Library: Backtest Strategy Optimizer Adapter
+// Author: DinGrogu
+do_transaction(int _date_start, int _date_end, bool _entry_signal, bool _exit_signal, simple float _take_profit_percentage=0.0, simple float _stop_loss_percentage=0.0, simple int _atr_length=0, float _initial_capital=1000.00, float _order_size=100, float _commission=0.0, bool _on_bar_close=true, series float _high=high, series float _low=low, series float _src=close, simple bool _chart=true) =>
+    [profit_perc, open_balance, winrate, entries, exits, wins, losses] = f_backtest_main(_date_start, _date_end, _entry_signal, _exit_signal, _take_profit_percentage, _stop_loss_percentage, _atr_length, _initial_capital, _order_size, _commission, _on_bar_close, _high, _low, _src, _chart)
+
+
+backtest_profit(int _date_start, int _date_end, bool _entry_signal, bool _exit_signal, simple float _take_profit_percentage=0.0, simple float _stop_loss_percentage=0.0, simple int _atr_length=0, float _initial_capital=1000.00, float _order_size=100, float _commission=0.0, bool _on_bar_close=true, series float _high=high, series float _low=low, series float _src=close, simple bool _chart=false) =>
+    [profit_perc, open_balance, winrate, entries, exits, wins, losses] = f_backtest_main(_date_start, _date_end, _entry_signal, _exit_signal, _take_profit_percentage, _stop_loss_percentage, _atr_length, _initial_capital, _order_size, _commission, _on_bar_close, _high, _low, _src, _chart)
+    [profit_perc, winrate]
+
+// =================== Calculate ATR Trailing Stop starts here ===================
+
+calculateATRTrailingStop(src, atrSensitivity, atrPeriod) =>
+    xATR = ta.atr(atrPeriod)
+    nLoss = atrSensitivity * xATR
+
+    xATRTrailingStop = 0.0
+    iff_1 = src > nz(xATRTrailingStop[1], 0) ? src - nLoss : src + nLoss
+    iff_2 = src < nz(xATRTrailingStop[1], 0) and src[1] < nz(xATRTrailingStop[1], 0) ? math.min(nz(xATRTrailingStop[1]), src + nLoss) : iff_1
+    xATRTrailingStop := src > nz(xATRTrailingStop[1], 0) and src[1] > nz(xATRTrailingStop[1], 0) ? math.max(nz(xATRTrailingStop[1]), src - nLoss) : iff_2
+    xATRTrailingStop
+
+// =================== Calculate Price Growth starts here ===================
+
+calculatePriceGrowth(backtestDateStart, backtestDateEnd) =>
+    var float firstPrice = na
+    var float lastPrice = na
+    var float priceGrowth = na
+
+    // Check if current bar is within the backtest period
+    if (time >= backtestDateStart and time <= backtestDateEnd)
+        // Update firstPrice at the start of the period
+        if na(firstPrice)
+            firstPrice := close
+        // Always update lastPrice to the current close within the period
+        lastPrice := close
+
+    // Calculate growth only after the period has ended
+    if (not na(firstPrice) and not na(lastPrice))
+        priceGrowth := (lastPrice - firstPrice) / firstPrice * 100
+
+    priceGrowth
+
+// =================== Buy Sell signals starts here ===================
+
+getStochasticBuySignal(src, periodK, smoothK, periodD) =>
+    var globalKCrossD = false
+    // Create stochastic
+    // k = green or up, d = red or down
+    k = ta.sma(ta.stoch(close, high, low, periodK), smoothK)
+    d = ta.sma(k, periodD)
+
+    // k crosses d below 20
+    if ta.crossover(k, d) and d <= 20
+        globalKCrossD := true
+
+    // If k crosses d below then set globalKCrossD = false
+    if ta.crossover(d, k) and d>40
+        globalKCrossD := false
+
+    // stochasticBuySignal = k>d and d<60 and globalKCrossD
+    stochasticBuySignal = k>d and d<60
+
+getRsiBuySignal(src, rsiPeriod, emaPeriod) =>
+    rsi = ta.rsi(src, rsiPeriod)
+    emaRSI = ta.ema(rsi, emaPeriod)
+    rsiBuySignal = rsi>=50 and rsi>emaRSI and emaRSI > 40
+
+getEmaBuySignal(src, emaPeriod) =>
+    ema = ta.ema(src, emaPeriod)
+    emaBuySignal = src>ema
+
+getEmaCrossEmaBuySignal(src, emaFastPeriod, emaSlowPeriod) =>
+    emaFast = ta.ema(src, emaFastPeriod)
+    emaSlow = ta.ema(src, emaSlowPeriod)
+    emaCrossEmaBuySignal = emaFast>emaSlow
+
+getFramaBuySignal() =>
+    framaBuySignal = hlc3 > Filt1 and barstate.isconfirmed
+
+calculateBuySellSignal(src, xATRTrailingStop, useRSI, useStochastic, useEma200, useEma50Cross200, useFrama,sellSignalType) =>
+    ema = ta.ema(src, 1)
+
+    // Store the low of buy signal bar
+    var float buySignalLow = na
+    // Add a flag to track if we're in a trade during current green ATR phase
+    var bool inGreenPhase = false
+
+    buySignal = true
+
+    if useRSI
+        buySignal := buySignal and getRsiBuySignal(src, 14, 14)
+
+    if useStochastic
+        buySignal := buySignal and getStochasticBuySignal(src, 14, 3, 3)
+
+    if useEma200
+        buySignal := buySignal and getEmaBuySignal(src, 200)
+
+    if useEma50Cross200
+        buySignal := buySignal and getEmaCrossEmaBuySignal(src, 50, 200)
+
+    if not useRSI and not useStochastic and not useEma200 and not useEma50Cross200
+        buySignal := ta.crossover(ema, xATRTrailingStop)
+
+    if useFrama
+        buySignal := buySignal and getFramaBuySignal()
+
+    // Reset inGreenPhase when ATR line turns red
+    if src <= xATRTrailingStop
+        inGreenPhase := false
+
+    // Only allow buy if we're not already in green phase
+    buy = src > xATRTrailingStop and buySignal and not inGreenPhase
+
+    // Store the low when we get a buy signal and set green phase flag
+    if buy
+        buySignalLow := low
+        inGreenPhase := true
+
+    // Different sell signal types
+    sell = switch sellSignalType
+        "ATR_CROSS" => ta.crossover(xATRTrailingStop, ema)  // Always included
+        "CLOSE_BELOW" => ta.crossover(xATRTrailingStop, ema) or (not na(buySignalLow) and close < buySignalLow)
+        "LOW_BELOW" => ta.crossover(xATRTrailingStop, ema) or (not na(buySignalLow) and low < buySignalLow)
+        => ta.crossover(xATRTrailingStop, ema)  // Default case
+
+    // Reset buySignalLow after selling
+    if sell
+        buySignalLow := na
+
+    [buy, sell]
+
+calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, useRSI, useStochastic, useFrama, useEma200=false, useEma50Cross200=false, sellSignalType="ATR_CROSS") =>
+    [buy, sell] = calculateBuySellSignal(src, xATRTrailingStop, useRSI, useStochastic, useEma200, useEma50Cross200, useFrama, sellSignalType)
+    [profit, winrate] = backtest_profit(backtestDateStart, backtestDateEnd, buy, sell)
+    [buy, sell, profit, winrate]
+
+isBetter(newProfit, newWinrate, bestProfit, bestWinrate, optimizationMetric) =>
+    optimizationMetric == "Profit" ? newProfit > bestProfit : newWinrate > bestWinrate
+
+// ============================= Function declarations ends here =============================
+
+src = close
+xATRTrailingStop = calculateATRTrailingStop(src, atrSensitivity, atrPeriod)
+
+// Placeholders
+bool bestBuy = na
+bool bestSell = na
+float bestProfit = -100000
+bestWinrate = 0.0
+bestUseRSI = false
+bestUseStochastic = false
+bestUseFrama = false
+bestUseEma200 = false
+bestUseEma50Cross200 = false
+
+// "ATR_CROSS", "CLOSE_BELOW", "LOW_BELOW"
+// Calculate and backtest buy sell signals given all combination of useRsi and useStochastic
+// buy, sell means today buy or sell signal is generated or not
+// profit means profit made till tioday using the strategy
+// The var keyword in Pine Script retains values across bars, NOT across multiple function calls.
+
+// ============================= Best buy sell logic starts here =============================
+
+// Vanilla buy
+sellType = "ATR_CROSS"
+[buyVanillaAtrCross, sellVanillaAtrCross, profitVanillaAtrCross, winrateVanillaAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, false, false, false, sellSignalType=sellType)
+if isBetter(profitVanillaAtrCross, winrateVanillaAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitVanillaAtrCross
+    bestWinrate := winrateVanillaAtrCross
+    bestBuy := buyVanillaAtrCross
+    bestSell := sellVanillaAtrCross
+    bestUseRSI := false
+    bestUseStochastic := false
+    bestUseFrama := false
+    log.info("The largest profit was obtained when useRSI and useStochastic are false false. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(bestWinrate, "#.##"))
+
+// Frama buy
+sellType := "ATR_CROSS"
+[buyFramaAtrCross, sellFramaAtrCross, profitFramaAtrCross, winrateFramaAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, false, false, true, sellSignalType=sellType)
+if isBetter(profitFramaAtrCross, winrateFramaAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitFramaAtrCross
+    bestWinrate := winrateFramaAtrCross
+    bestBuy := buyFramaAtrCross
+    bestSell := sellFramaAtrCross
+    bestUseRSI := false
+    bestUseStochastic := false
+    bestUseFrama := true
+    log.info("The largest profit was obtained when useRSI and useStochastic are false false. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(bestWinrate, "#.##"))
+
+// Stochastic buy
+sellType := "ATR_CROSS"
+[buyStochasticAtrCross, sellStochasticAtrCross, profitStochasticAtrCross, winrateStochasticAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, false, true, false,  sellSignalType=sellType)
+if isBetter(profitStochasticAtrCross, winrateStochasticAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitStochasticAtrCross
+    bestWinrate := winrateStochasticAtrCross
+    bestBuy := buyStochasticAtrCross
+    bestSell := sellStochasticAtrCross
+    bestUseRSI := false
+    bestUseStochastic := true
+    bestUseFrama := false
+    log.info("The largest profit was obtained when useRSI and useStochastic are false true. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateStochasticAtrCross, "#.##"))
+
+// Stochastic Frama buy
+sellType := "ATR_CROSS"
+[buyStochasticFramaAtrCross, sellStochasticFramaAtrCross, profitStochasticFramaAtrCross, winrateStochasticFramaAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, false, true, true, sellSignalType=sellType)
+if isBetter(profitStochasticFramaAtrCross, winrateStochasticFramaAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitStochasticFramaAtrCross
+    bestWinrate := winrateStochasticFramaAtrCross
+    bestBuy := buyStochasticFramaAtrCross
+    bestSell := sellStochasticFramaAtrCross
+    bestUseRSI := false
+    bestUseStochastic := true
+    bestUseFrama := true
+    log.info("The largest profit was obtained when useRSI and useStochastic are false true. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateStochasticAtrCross, "#.##"))
+
+// RSI buy signal
+sellType := "ATR_CROSS"
+[buyRSIAtrCross, sellRSIAtrCross, profitRSIAtrCross, winrateRSIAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, true, false, false, sellSignalType=sellType)
+if isBetter(profitRSIAtrCross, winrateRSIAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitRSIAtrCross
+    bestWinrate := winrateRSIAtrCross
+    bestBuy := buyRSIAtrCross
+    bestSell := sellRSIAtrCross
+    bestUseRSI := true
+    bestUseStochastic := false
+    bestUseFrama := false
+    log.info("The largest profit was obtained when useRSI and useStochastic are true false. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateStochasticAtrCross, "#.##"))
+
+// RSI Frama buy signal
+sellType := "ATR_CROSS"
+[buyRSIFramaAtrCross, sellRSIFramaAtrCross, profitRSIFramaAtrCross, winrateRSIFramaAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, true, false, true, sellSignalType=sellType)
+if isBetter(profitRSIFramaAtrCross, winrateRSIFramaAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitRSIFramaAtrCross
+    bestWinrate := winrateRSIFramaAtrCross
+    bestBuy := buyRSIFramaAtrCross
+    bestSell := sellRSIFramaAtrCross
+    bestUseRSI := true
+    bestUseStochastic := false
+    bestUseFrama := true
+    log.info("The largest profit was obtained when useRSI and useStochastic are true false. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateStochasticAtrCross, "#.##"))
+
+// RSIStochastic buy signal
+sellType := "ATR_CROSS"
+[buyRSIStochasticAtrCross, sellRSIStochasticAtrCross, profitRSIStochasticAtrCross, winrateRSIStochasticAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, true, true, false, sellSignalType=sellType)
+if isBetter(profitRSIStochasticAtrCross, winrateRSIStochasticAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitRSIStochasticAtrCross
+    bestWinrate := winrateRSIStochasticAtrCross
+    bestBuy := buyRSIStochasticAtrCross
+    bestSell := sellRSIStochasticAtrCross
+    bestUseRSI := true
+    bestUseStochastic := true
+    bestUseFrama := false
+    log.info("The largest profit was obtained when useRSI and useStochastic are true true. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateRSIStochasticAtrCross, "#.##"))
+
+// RSIStochastic Frama buy signal
+sellType := "ATR_CROSS"
+[buyRSIStochasticFramaAtrCross, sellRSIStochasticFramaAtrCross, profitRSIStochasticFramaAtrCross, winrateRSIStochasticFramaAtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, true, true, true, sellSignalType=sellType)
+if isBetter(profitRSIStochasticFramaAtrCross, winrateRSIStochasticFramaAtrCross, bestProfit, bestWinrate, optimizationMetric)
+    bestProfit := profitRSIStochasticFramaAtrCross
+    bestWinrate := winrateRSIStochasticFramaAtrCross
+    bestBuy := buyRSIStochasticFramaAtrCross
+    bestSell := sellRSIStochasticFramaAtrCross
+    bestUseRSI := true
+    bestUseStochastic := true
+    bestUseFrama := true
+    log.info("The largest profit was obtained when useRSI and useStochastic are true true. bestProfit, bestBuy, bestSell, sellType, winrate: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateRSIStochasticAtrCross, "#.##"))
+
+// LowRiskEntry buy signal
+useEma50Cross200 = lowRiskEntry
+if useEma50Cross200
+    sellType := "ATR_CROSS"
+    [buyEma50Cross200AtrCross, sellEma50Cross200AtrCross, profitEma50Cross200AtrCross, winrateEma50Cross200AtrCross] = calculateAndBacktestBuySellSignal(src, xATRTrailingStop, backtestDateStart, backtestDateEnd, bestUseRSI, bestUseStochastic, bestUseFrama, bestUseEma200, useEma50Cross200, sellSignalType=sellType)
+
+    if isBetter(profitEma50Cross200AtrCross, winrateEma50Cross200AtrCross, bestProfit, bestWinrate, optimizationMetric)
+        bestBuy := buyEma50Cross200AtrCross
+        bestSell := sellEma50Cross200AtrCross
+        bestProfit := profitEma50Cross200AtrCross
+        bestWinrate := winrateEma50Cross200AtrCross
+        bestUseEma50Cross200 := true
+        log.info("bestProfit, bestBuy, bestSell, sellType, winrateEma50Cross200: {0}, {1}, {2}, {3}, {4}", str.tostring(bestProfit, "#.##"), str.tostring(bestBuy),  str.tostring(bestSell), sellType, str.tostring(winrateEma50Cross200AtrCross, "#.##"))
+
+
+// ============================= Best buy sell logic ends here =============================
+
+// Add alerts
+alertcondition(bestBuy, title="UTBot Stochastic RSI Buy  Signal", message="UTBot Stochastic RSI Buy Signal")
+alertcondition(bestSell, title="UTBot Stochastic RSI Sell Signal", message="UTBot Stochastic RSI Sell Signal")
+
+
+// ---------------------------------------------------------------- Plots ----------------------------------------------------------------
+// It plots the trailing stop
+plot(xATRTrailingStop, color = src>xATRTrailingStop ? color.green : color.red)
+
+// It makes sure that the buy and sell signals are not set more than once
+var buyCanBeSet = true
+var sellCanBeSet = true
+
+// It plots buy sell signal
+plotshape(series=bestBuy and buyCanBeSet and showBuySell, location=location.belowbar, color=color.green, text="buy", textcolor=color.white, style=shape.labelup)
+plotshape(series=bestSell and sellCanBeSet and showBuySell, location=location.abovebar, color=color.red, text="exit", textcolor=color.white, style=shape.labeldown)
+
+if bestBuy and buyCanBeSet
+    buyCanBeSet := false
+    sellCanBeSet := true
+
+if bestSell and sellCanBeSet
+    sellCanBeSet := false
+    buyCanBeSet := true
+
+// Add fast ema
+emaFast = ta.ema(src, emaFastPeriod)
+plot(emaFast, color=color.purple, title="EMA Fast")
+
+// Add slow ema
+emaSlow = ta.ema(src, emaSlowPeriod)
+plot(emaSlow, color=color.blue, title="EMA Slow")
+
+// It plots the enclosed area (vertical area between the two bars)
+enclosedArea = src > xATRTrailingStop ? (src < emaFast ? true : false) : (src > emaFast ? true : false)
+bgcolor(enclosedArea ? (src > emaFast ? color.new(color.green, 90) : color.new(color.red, 90)) : na)
+
+stockGrowth = calculatePriceGrowth(backtestDateStart, backtestDateEnd)
+initialCapital = 1000.00
+
+[profitPerc, openBalance, winrate, entries, exits, wins, losses] = do_transaction(backtestDateStart, backtestDateEnd, bestBuy, bestSell, _initial_capital=initialCapital)
+
+// It plots the profit table
+if showBacktest
+    f_backtest_table(initialCapital, profitPerc, openBalance, winrate, entries, exits, wins, losses, stockGrowth)
+
+// It plots checkpoint table
+if showCheckpoints
+    var float profitPercCheckpoint1 = na
+    var float profitPercCheckpoint2 = na
+    var float profitPercCheckpoint3 = na
+
+    var int winsCheckpoint1 = na
+    var int winsCheckpoint2 = na
+    var int winsCheckpoint3 = na
+
+    var int lossesCheckpoint1 = na
+    var int lossesCheckpoint2 = na
+    var int lossesCheckpoint3 = na
+
+    var float stockGrowthCheckpoint1 = na
+    var float stockGrowthCheckpoint2 = na
+    var float stockGrowthCheckpoint3 = na
+
+    var float stockGrowthOpenPrice = na
+    var float stockGrowthClosePrice = na
+
+    var sgCheckpoint1Done = false
+    var sgCheckpoint2Done = false
+    var sgCheckpoint3Done = false
+    var sgCheckpoint4Done = false
+
+    // Checkpoint Stock growth %
+    if time >= backtestDateStart and time < checkpointDate1
+        if(sgCheckpoint1Done == false)
+            sgCheckpoint1Done := true
+            stockGrowthOpenPrice := close
+
+    else if time >= checkpointDate1 and time < checkpointDate2
+        if(sgCheckpoint2Done == false)
+            sgCheckpoint2Done := true
+            stockGrowthClosePrice := close
+            stockGrowthCheckpoint1 := ((stockGrowthClosePrice-stockGrowthOpenPrice)/stockGrowthOpenPrice)*100
+            stockGrowthOpenPrice := close
+
+    else if time >= checkpointDate2 and time < backtestDateEnd and barstate.islast == false
+        if(sgCheckpoint3Done == false)
+            sgCheckpoint3Done := true
+            stockGrowthClosePrice := close
+            stockGrowthCheckpoint2 := ((stockGrowthClosePrice-stockGrowthOpenPrice)/stockGrowthOpenPrice)*100
+            stockGrowthOpenPrice := close
+
+    else if time >= backtestDateEnd or barstate.islast
+        if(sgCheckpoint4Done == false)
+            sgCheckpoint4Done := true
+            stockGrowthClosePrice := close
+            stockGrowthCheckpoint3 := ((stockGrowthClosePrice-stockGrowthOpenPrice)/stockGrowthOpenPrice)*100
+
+    // Checkpoint Indicator profit %, wins and losses count
+    if time >= backtestDateStart and time < checkpointDate1
+        profitPercCheckpoint1 := profitPerc
+        winsCheckpoint1 := wins
+        lossesCheckpoint1 := losses
+
+    else if time >= checkpointDate1 and time < checkpointDate2
+        profitPercCheckpoint2 := profitPerc - profitPercCheckpoint1
+        winsCheckpoint2 := wins - winsCheckpoint1
+        lossesCheckpoint2 := losses - lossesCheckpoint1
+
+    else if time >= checkpointDate2 and time < backtestDateEnd
+        profitPercCheckpoint3 := profitPerc - profitPercCheckpoint1 - profitPercCheckpoint2
+        winsCheckpoint3 := wins - winsCheckpoint1 - winsCheckpoint2
+        lossesCheckpoint3 := losses - lossesCheckpoint1 - lossesCheckpoint2
+
+    f_checkpoint_table(profitPercCheckpoint1, profitPercCheckpoint2, profitPercCheckpoint3, winsCheckpoint1, winsCheckpoint2, winsCheckpoint3, lossesCheckpoint1, lossesCheckpoint2, lossesCheckpoint3, stockGrowthCheckpoint1, stockGrowthCheckpoint2, stockGrowthCheckpoint3)

@@ -1,0 +1,1589 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bot Webhook SOL Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEEFEC; --surface:#FAFAF8; --surface-2:#E4E6E1; --ink:#181C1A; --muted:#5C6460; --line:#D4D8D2;
+  --accent:#6B3FC9; --accent-ink:#F7F3FE; --buy:#1E7F4E; --sell:#B8352D; --sl:#B8352D; --tp:#1E7F4E; --entry:#2B4A8C;
+  --ut-up:#1E7F4E; --ut-dn:#B8352D; --bb:#8B918D; --ema:#7A4FB5; --trail:#C77A12; --held:#C79A3A; --e200:#2F5FB8; --e21:#D2761C; --e15:#8A4FC0; --adx:#1F6F8B; --off:rgba(184,53,45,.07); --sq:#B58A00; --fuch:#B0339B; --weak:rgba(214,120,0,.09); --upbg:rgba(30,127,78,.045); --dnbg:rgba(184,53,45,.045); --bb:#3A6FC4; --kc:#D2761C; --e50:#D2761C; --e20:#7A4FB5; --e200:#707872; --candle:#3E4540; --grid:rgba(24,28,26,.07); --dd:rgba(184,53,45,.10);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+    --accent:#B69CF5; --accent-ink:#1A0B3A; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+    --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --sq:#F2C94C; --fuch:#E77BD6; --weak:rgba(240,160,78,.09); --upbg:rgba(70,192,127,.05); --dnbg:rgba(238,107,96,.05); --bb:#7FA4F0; --kc:#F0A04E; --e50:#F0A04E; --e20:#B494E6; --e200:#9AA39E; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+  --accent:#B69CF5; --accent-ink:#1A0B3A; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+  --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --sq:#F2C94C; --fuch:#E77BD6; --weak:rgba(240,160,78,.09); --upbg:rgba(70,192,127,.05); --dnbg:rgba(238,107,96,.05); --bb:#7FA4F0; --kc:#F0A04E; --e50:#F0A04E; --e20:#B494E6; --e200:#9AA39E; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input,.seed select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.seed input{width:72px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.msg{font-size:13px;color:var(--sl)}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+.pos{color:var(--tp)} .neg{color:var(--sl)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px)}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{flex:1;min-width:0}
+.field input[type=number]{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--sl)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.ind-row{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;margin-bottom:10px;font-family:var(--mono);color:var(--muted)}
+.ind-row b{color:var(--ink);font-weight:500}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.b{background:color-mix(in srgb,var(--buy) 16%,transparent);color:var(--buy)}
+.pill.s{background:color-mix(in srgb,var(--sell) 16%,transparent);color:var(--sell)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.funnel h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.frow{display:grid;grid-template-columns:180px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12.5px;max-width:78ch;margin:12px 0 0}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--tp)} pre.code .nu{color:var(--entry)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:82ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.mode button{border:0;background:none;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.mode button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.diag{border:1px solid var(--line);border-left:4px solid var(--sl);border-radius:8px;background:var(--surface);padding:14px 16px;display:grid;gap:8px}
+.diag.ok{border-left-color:var(--accent)}
+.diag h2{font-size:15px;font-weight:700}
+.diag p{margin:0;max-width:90ch;color:var(--ink)}
+.diag p.m{color:var(--muted);font-size:13px}
+.diag code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.diag .nums{display:flex;flex-wrap:wrap;gap:6px 22px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.diag .nums b{color:var(--ink);font-weight:500}
+.field select{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+
+.chips .btn{padding:3px 10px;font-size:12px}
+.legend i.tri{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;margin-right:5px}
+.legend i.tri.up{border-bottom:8px solid var(--buy)}
+.legend i.tri.dn{border-top:8px solid var(--sell)}
+#ltable td,#ltable th{text-align:right}
+#ltable td:last-child,#ltable th:last-child{text-align:left}
+#ltable tbody tr{cursor:default}
+.txt{font-family:var(--sans)}
+
+.frow{grid-template-columns:200px minmax(0,1fr) 44px}
+@media (max-width:480px){.frow{grid-template-columns:130px minmax(0,1fr) 40px}}
+.legend i.dot{width:8px;height:8px;border:1.5px solid var(--muted);border-radius:50%}
+.legend i.box{width:12px;height:10px;border:0;background:var(--off);outline:1px solid var(--line)}
+.reasons{display:flex;flex-wrap:wrap;gap:4px 10px}
+#ttable td:nth-child(n+4),#ttable th:nth-child(n+4){text-align:right}
+#ttable td:nth-child(9),#ttable th:nth-child(9){text-align:left}
+.seed select{font-family:var(--sans)}
+.info{margin:0;padding:10px 14px 12px;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;border-bottom:1px solid var(--line)}
+.info dt{color:var(--muted)}
+.info dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.info .ttl{grid-column:1/-1;display:flex;justify-content:space-between;font-weight:600;color:var(--accent);margin-bottom:2px}
+.info .ttl span{color:var(--muted);font-weight:500;font-size:11px}
+.info .sep{grid-column:1/-1;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px}
+.warn{color:var(--sq)}
+.fuch{color:var(--fuch)}
+pre.json{margin:12px 0 0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto}
+#stable td:nth-child(n+4),#stable th:nth-child(n+4){text-align:right}
+#stable td:nth-child(3),#stable th:nth-child(3){text-align:left}
+#ctable td,#ctable th{text-align:right}
+#ctable td:first-child,#ctable th:first-child{text-align:left}
+#ctable tbody tr{cursor:pointer}
+#ctable tr.cur{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.field .fixed{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.legend i.dia{width:8px;height:8px;border:0;background:var(--fuch);transform:rotate(45deg)}
+.legend i.hol{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--muted);opacity:.6}
+.legend i.bgw{width:12px;height:10px;border:0;background:var(--weak);outline:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Bot Webhook <span>v8.4</span> SOL</h1>
+      <p>Probador del indicador de alertas «Bot Webhook v8.4 [SOL]» · Pine v5 portado a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="tf">Marco</label><select id="tf"></select></span>
+      <span class="seed"><label for="days">Días</label><select id="days"><option>10</option><option>20</option><option>30</option></select></span>
+      <span class="seed"><label for="seed">Semilla</label><input id="seed" type="number" value="7" min="1" step="1"></span>
+      <button class="btn" id="reseed" type="button">Nuevos datos</button>
+      <label class="btn primary" for="csv">Cargar CSV…</label>
+      <input id="csv" type="file" accept=".csv,.txt,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="chips">
+    <span class="chip" id="src-chip"></span>
+    <span class="chip" id="tf-chip"></span>
+    <span class="msg" id="msg" hidden></span>
+  </div>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Alertas enviadas</span><span class="v" id="s-al">–</span><span class="s" id="s-al2">–</span></div>
+    <div class="stat"><span class="k">LONG v7.3</span><span class="v" id="s-l">–</span><span class="s" id="s-l2">–</span></div>
+    <div class="stat"><span class="k">SHORT v7.3</span><span class="v" id="s-s">–</span><span class="s" id="s-s2">–</span></div>
+    <div class="stat"><span class="k">Squeeze SHORT</span><span class="v" id="s-q">–</span><span class="s" id="s-q2">–</span></div>
+    <div class="stat"><span class="k">Resultado medio</span><span class="v" id="s-r">–</span><span class="s" id="s-r2">–</span></div>
+    <div class="stat"><span class="k">WR que anuncia el script</span><span class="v" id="s-wr">–</span><span class="s" id="s-wr2">–</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <span><i style="border-color:var(--e200)"></i>EMA 200</span>
+          <span><i style="border-color:var(--e50)"></i>EMA 50</span>
+          <span><i style="border-color:var(--e20)"></i>EMA 20</span>
+          <span><i style="border-color:var(--bb)"></i>BB</span>
+          <span><i class="dash" style="border-color:var(--kc)"></i>Keltner</span>
+          <span><i class="tri up"></i>LONG</span>
+          <span><i class="tri dn"></i>SHORT</span>
+          <span><i class="dia"></i>Squeeze SHORT</span>
+          <span><i class="hol"></i>Señal sin alerta</span>
+          <span><i class="bgw"></i>WEAK_TREND_UP (bloqueo)</span>
+        </div>
+        <div class="zoom">
+          <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+          <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+          <button class="btn sm" id="zend" type="button">Final</button>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Gráfico de precio con EMA, bandas, señales, RSI y Stoch K"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="scroller">
+        <input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico">
+        <span id="scroll-lbl"></span>
+      </div>
+    </section>
+
+    <aside class="panel settings">
+      <dl class="info" id="info"></dl>
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="sig" type="button">Alertas</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="funnel" type="button">Filtros</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="cmp" type="button">Todos los marcos</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="sig">
+      <div class="table-scroll">
+        <table id="stable">
+          <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Entrada</th><th>SL</th><th>TP</th><th>Conf.</th><th>Resultado</th><th>Velas</th><th>R</th></tr></thead>
+          <tbody id="sbody"></tbody>
+        </table>
+      </div>
+      <pre class="json" id="json">Haz clic en una alerta para ver el JSON que el script envía al bot.</pre>
+      <p class="note" id="snote"></p>
+    </div>
+    <div class="tabpanel" data-panel="funnel" hidden>
+      <div class="funnel" id="funnel"></div>
+      <p class="note">Cada vela que cumple la primera condición (RSI, o el disparo del squeeze) se cuenta en el primer paso que no cumple. La última fila son las alertas que llegan al bot.</p>
+    </div>
+    <div class="tabpanel" data-panel="cmp" hidden>
+      <div class="table-scroll">
+        <table id="ctable">
+          <thead><tr><th>Marco</th><th>Velas</th><th>LONG</th><th>TP primero</th><th>WR anunciado</th><th>SHORT</th><th>TP primero</th><th>WR anunciado</th><th>Squeeze</th><th>TP primero</th><th>Repetidas</th><th>R medio</th></tr></thead>
+          <tbody id="cbody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="cnote"></p>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>Los «100 % WR» salen de muestras muy pequeñas.</b> Hay 176 umbrales ajustados a mano: 22 marcos × 2 lados × RSI/K/pendiente/ADX. Según los comentarios del propio script, se ajustaron con 136 señales, unas 3 por marco y lado. Con tan pocos casos, un 100 % no dice casi nada. En la pestaña «Todos los marcos» se ve cuántas alertas da cada marco.</li>
+        <li><b>El bloqueo WEAK_TREND_UP también quita los cortos.</b> <code>isWeakUpBlocked</code> anula LONG y SHORT cuando el precio está sobre la EMA 200 pero las EMA no están ordenadas. En cambio, con STRONG_TREND_UP sí se permiten cortos, aunque con −0,10 de confianza.</li>
+        <li><b>Marcas que no son alertas.</b> El rombo del Squeeze SHORT no comprueba el bloqueo WEAK_UP y usa la confianza guardada de la última señal (<code>var float</code>), así que puede aparecer en el gráfico sin que se envíe ninguna alerta.</li>
+        <li><b>Si LONG y SHORT coinciden en la misma vela,</b> la confianza del corto sobrescribe la del largo y las dos alertas salen con ese valor. Además, <code>signalType</code> dice LONG_V73 también en la alerta corta.</li>
+        <li><b>Alertas repetidas.</b> La condición suele cumplirse varias velas seguidas y cada vela envía otra alerta (<code>alert.freq_once_per_bar</code>). El bot tiene que filtrar los duplicados.</li>
+        <li><b>El filtro ADX casi nunca actúa.</b> Pide ADX por debajo de 35–60, y el ADX pocas veces supera 50.</li>
+        <li><b>En marcos que no están en la lista</b> (25 min, 30 min, 1 h…) no hay señales base, solo el Squeeze SHORT. La tabla muestra entonces los umbrales de 20 min.</li>
+        <li><b>30S y 45S</b> necesitan un plan de TradingView con marcos de segundos. Los datos de ejemplo son de 15 s, así que se pueden probar todos los marcos.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+// This Pine Script(R) code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// Bot Integration v8.4 - SOL/USD (21.02.2026)
+// Symbol-spezifisch fuer SOLUSD - Kraken Futures
+// Basiert auf: v7.3 TF-spezifische Filter (bewaehrt) + v8.0 Keltner/Regime (nur SHORT Squeeze)
+//
+// AENDERUNGEN gegenueber v8.0 (basierend auf 2102 Signal-Analyse):
+// =================================================================
+// [21.02.2026] v8.4: Daten-getriebene Optimierung aus 136 Signalen + 9406 1m-Candles
+//   1. TF-SPEZIFISCHE SCHWELLEN ZURUECK (v7.3) - v8.0 hatte nur globale = schlechter
+//   2. SQUEEZE LONG DEAKTIVIERT - 21.7% $20-Rate, R/R 0.44x = katastrophal
+//   3. SQUEEZE SHORT BEHALTEN - 53.8% $20-Rate, R/R 1.39x = gut
+//   4. SHORT RSI DIFFERENZIERT pro TF - v8.0 global RSI>78 blockierte profitable Shorts
+//   5. WEAK_UP REGIME BLOCK - 0% Erfolgsrate in Analyse, alle Signale blockieren
+//   6. ADX-FILTER GELOCKERT - 2/3 ADX-Blocks waren falsch-positiv
+//   7. KELTNER + REGIME als Info-Overlay behalten (kein Trade-Impact auf Basis-Signale)
+//
+// SIGNAL-LOGIK:
+// =================================================
+// Basis: v7.3 TF-spezifische RSI + StochK + Slope + ADX (30S-20m)
+// Add-on: Squeeze SHORT (Keltner) wenn squeezeFired + Momentum bearish
+// Regime: Overlay-Info + WEAK_UP Block + Confidence-Modifier
+//
+// BEWIESENE PERFORMANCE (2102 Analyse):
+//   v7.3 Basis LONG:     68.2% $20-Rate, R/R 1.48x
+//   Squeeze SHORT:       53.8% $20-Rate, R/R 1.39x
+//   Akzeptiert gesamt:   50.0% $20-Rate, R/R 1.35x
+//   Beste TFs: 30S (47.1%), 45S (34.8%), 12m+ (33%+)
+
+//@version=5
+indicator("Bot Webhook v8.4 [SOL]", overlay=true, max_labels_count=50)
+
+// ============================================================================
+// INPUTS - Trend Settings
+// ============================================================================
+emaFilter = input.int(200, "Trend Filter EMA", group="Trend Settings")
+ema50 = input.int(50, "Medium EMA", group="Trend Settings")
+ema20 = input.int(20, "Short EMA", group="Trend Settings")
+
+// RSI Settings
+rsiLength = input.int(14, "RSI Length", group="RSI Settings")
+rsiSlopeLength = input.int(5, "RSI Slope Length", group="RSI Settings")
+
+// ============================================================================
+// INPUTS - LONG Settings: 30S-5m (v7.3 bewaehrt, RSI 35->30)
+// ============================================================================
+longRsi30S = input.int(30, "LONG RSI (30S)", group="LONG 30S-5m", tooltip="v7.3: 35->30 (nur echte Oversold)")
+longRsi45S = input.int(30, "LONG RSI (45S)", group="LONG 30S-5m", tooltip="v7.3: 35->30")
+longRsi1m = input.int(30, "LONG RSI (1m)", group="LONG 30S-5m", tooltip="v7.3: 35->30")
+longRsi2m = input.int(30, "LONG RSI (2m)", group="LONG 30S-5m", tooltip="v7.3: 35->30")
+longRsi3m = input.int(32, "LONG RSI (3m)", group="LONG 30S-5m", tooltip="v7.2: 28->32")
+longRsi4m = input.int(30, "LONG RSI (4m)", group="LONG 30S-5m")
+longRsi5m = input.int(28, "LONG RSI (5m)", group="LONG 30S-5m", tooltip="v7.2: 25->28")
+
+longK30S = input.int(10, "LONG K (30S)", group="LONG 30S-5m", tooltip="v7.2: 15->10")
+longK45S = input.int(12, "LONG K (45S)", group="LONG 30S-5m", tooltip="v7.2: 18->12")
+longK1m = input.int(12, "LONG K (1m)", group="LONG 30S-5m", tooltip="v7.2: 18->12")
+longK2m = input.int(10, "LONG K (2m)", group="LONG 30S-5m", tooltip="v7.2: 15->10")
+longK3m = input.int(10, "LONG K (3m)", group="LONG 30S-5m", tooltip="v7.2: 15->10")
+longK4m = input.int(15, "LONG K (4m)", group="LONG 30S-5m")
+longK5m = input.int(8, "LONG K (5m)", group="LONG 30S-5m", tooltip="v7.2: 10->8")
+
+longSlope30S = input.float(-3.0, "LONG Slope (30S)", group="LONG 30S-5m")
+longSlope45S = input.float(-3.0, "LONG Slope (45S)", group="LONG 30S-5m")
+longSlope1m = input.float(-3.0, "LONG Slope (1m)", group="LONG 30S-5m")
+longSlope2m = input.float(-5.0, "LONG Slope (2m)", group="LONG 30S-5m")
+longSlope3m = input.float(-5.0, "LONG Slope (3m)", group="LONG 30S-5m")
+longSlope4m = input.float(-5.0, "LONG Slope (4m)", group="LONG 30S-5m")
+longSlope5m = input.float(-5.0, "LONG Slope (5m)", group="LONG 30S-5m")
+
+longAdx30S = input.int(35, "LONG ADX (30S)", group="LONG 30S-5m", tooltip="v7.3")
+longAdx45S = input.int(45, "LONG ADX (45S)", group="LONG 30S-5m", tooltip="v8.4: 40->45 (ADX-Block war zu aggressiv)")
+longAdx1m = input.int(50, "LONG ADX (1m)", group="LONG 30S-5m", tooltip="v8.4: 45->50")
+longAdx2m = input.int(55, "LONG ADX (2m)", group="LONG 30S-5m", tooltip="v8.4: 50->55")
+longAdx3m = input.int(60, "LONG ADX (3m)", group="LONG 30S-5m")
+longAdx4m = input.int(50, "LONG ADX (4m)", group="LONG 30S-5m")
+longAdx5m = input.int(60, "LONG ADX (5m)", group="LONG 30S-5m")
+
+enable4mLong = input.bool(false, "LONG auf 4m aktivieren", group="LONG 30S-5m", tooltip="Keine Daten - DEAKTIVIERT!")
+
+// ============================================================================
+// INPUTS - LONG Settings: 6m-10m (v7.3 bewaehrt)
+// ============================================================================
+longRsi6m = input.int(18, "LONG RSI (6m)", group="LONG 6m-10m")
+longRsi7m = input.int(22, "LONG RSI (7m)", group="LONG 6m-10m")
+longRsi8m = input.int(18, "LONG RSI (8m)", group="LONG 6m-10m")
+longRsi9m = input.int(28, "LONG RSI (9m)", group="LONG 6m-10m")
+longRsi10m = input.int(18, "LONG RSI (10m)", group="LONG 6m-10m")
+
+longK6m = input.int(20, "LONG K (6m)", group="LONG 6m-10m")
+longK7m = input.int(15, "LONG K (7m)", group="LONG 6m-10m")
+longK8m = input.int(8, "LONG K (8m)", group="LONG 6m-10m")
+longK9m = input.int(15, "LONG K (9m)", group="LONG 6m-10m")
+longK10m = input.int(3, "LONG K (10m)", group="LONG 6m-10m", tooltip="EXTREM oversold!")
+
+longSlope6m = input.float(-1.0, "LONG Slope (6m)", group="LONG 6m-10m")
+longSlope7m = input.float(0.0, "LONG Slope (7m)", group="LONG 6m-10m")
+longSlope8m = input.float(-5.0, "LONG Slope (8m)", group="LONG 6m-10m")
+longSlope9m = input.float(2.0, "LONG Slope (9m)", group="LONG 6m-10m")
+longSlope10m = input.float(-5.0, "LONG Slope (10m)", group="LONG 6m-10m")
+
+longAdx6m = input.int(60, "LONG ADX (6m)", group="LONG 6m-10m")
+longAdx7m = input.int(60, "LONG ADX (7m)", group="LONG 6m-10m")
+longAdx8m = input.int(60, "LONG ADX (8m)", group="LONG 6m-10m")
+longAdx9m = input.int(50, "LONG ADX (9m)", group="LONG 6m-10m")
+longAdx10m = input.int(50, "LONG ADX (10m)", group="LONG 6m-10m")
+
+enable6mLong = input.bool(true, "LONG auf 6m aktivieren", group="LONG 6m-10m", tooltip="80% WR")
+enable7mLong = input.bool(true, "LONG auf 7m aktivieren", group="LONG 6m-10m", tooltip="100% WR")
+enable8mLong = input.bool(true, "LONG auf 8m aktivieren", group="LONG 6m-10m", tooltip="100% WR")
+enable9mLong = input.bool(true, "LONG auf 9m aktivieren", group="LONG 6m-10m", tooltip="67% WR")
+enable10mLong = input.bool(true, "LONG auf 10m aktivieren", group="LONG 6m-10m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - LONG Settings: 11m-15m (v7.3 bewaehrt)
+// ============================================================================
+longRsi11m = input.int(28, "LONG RSI (11m)", group="LONG 11m-15m")
+longRsi12m = input.int(18, "LONG RSI (12m)", group="LONG 11m-15m")
+longRsi13m = input.int(20, "LONG RSI (13m)", group="LONG 11m-15m")
+longRsi14m = input.int(20, "LONG RSI (14m)", group="LONG 11m-15m")
+longRsi15m = input.int(20, "LONG RSI (15m)", group="LONG 11m-15m")
+
+longK11m = input.int(20, "LONG K (11m)", group="LONG 11m-15m")
+longK12m = input.int(10, "LONG K (12m)", group="LONG 11m-15m")
+longK13m = input.int(5, "LONG K (13m)", group="LONG 11m-15m")
+longK14m = input.int(8, "LONG K (14m)", group="LONG 11m-15m")
+longK15m = input.int(5, "LONG K (15m)", group="LONG 11m-15m")
+
+longSlope11m = input.float(2.0, "LONG Slope (11m)", group="LONG 11m-15m")
+longSlope12m = input.float(1.0, "LONG Slope (12m)", group="LONG 11m-15m")
+longSlope13m = input.float(-5.0, "LONG Slope (13m)", group="LONG 11m-15m")
+longSlope14m = input.float(-3.0, "LONG Slope (14m)", group="LONG 11m-15m")
+longSlope15m = input.float(-2.0, "LONG Slope (15m)", group="LONG 11m-15m")
+
+longAdx11m = input.int(40, "LONG ADX (11m)", group="LONG 11m-15m")
+longAdx12m = input.int(60, "LONG ADX (12m)", group="LONG 11m-15m")
+longAdx13m = input.int(40, "LONG ADX (13m)", group="LONG 11m-15m")
+longAdx14m = input.int(60, "LONG ADX (14m)", group="LONG 11m-15m")
+longAdx15m = input.int(60, "LONG ADX (15m)", group="LONG 11m-15m")
+
+enable11mLong = input.bool(true, "LONG auf 11m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable12mLong = input.bool(true, "LONG auf 12m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable13mLong = input.bool(true, "LONG auf 13m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable14mLong = input.bool(true, "LONG auf 14m aktivieren", group="LONG 11m-15m", tooltip="100% WR")
+enable15mLong = input.bool(true, "LONG auf 15m aktivieren", group="LONG 11m-15m", tooltip="75% WR")
+
+// ============================================================================
+// INPUTS - LONG Settings: 16m-20m (v7.3 bewaehrt)
+// ============================================================================
+longRsi16m = input.int(22, "LONG RSI (16m)", group="LONG 16m-20m")
+longRsi17m = input.int(22, "LONG RSI (17m)", group="LONG 16m-20m")
+longRsi18m = input.int(22, "LONG RSI (18m)", group="LONG 16m-20m")
+longRsi19m = input.int(15, "LONG RSI (19m)", group="LONG 16m-20m")
+longRsi20m = input.int(20, "LONG RSI (20m)", group="LONG 16m-20m")
+
+longK16m = input.int(3, "LONG K (16m)", group="LONG 16m-20m", tooltip="EXTREM oversold!")
+longK17m = input.int(10, "LONG K (17m)", group="LONG 16m-20m")
+longK18m = input.int(5, "LONG K (18m)", group="LONG 16m-20m")
+longK19m = input.int(8, "LONG K (19m)", group="LONG 16m-20m")
+longK20m = input.int(5, "LONG K (20m)", group="LONG 16m-20m")
+
+longSlope16m = input.float(-5.0, "LONG Slope (16m)", group="LONG 16m-20m")
+longSlope17m = input.float(-5.0, "LONG Slope (17m)", group="LONG 16m-20m")
+longSlope18m = input.float(-3.0, "LONG Slope (18m)", group="LONG 16m-20m")
+longSlope19m = input.float(-3.0, "LONG Slope (19m)", group="LONG 16m-20m")
+longSlope20m = input.float(-3.0, "LONG Slope (20m)", group="LONG 16m-20m")
+
+longAdx16m = input.int(40, "LONG ADX (16m)", group="LONG 16m-20m")
+longAdx17m = input.int(40, "LONG ADX (17m)", group="LONG 16m-20m")
+longAdx18m = input.int(50, "LONG ADX (18m)", group="LONG 16m-20m")
+longAdx19m = input.int(60, "LONG ADX (19m)", group="LONG 16m-20m")
+longAdx20m = input.int(60, "LONG ADX (20m)", group="LONG 16m-20m")
+
+enable16mLong = input.bool(true, "LONG auf 16m aktivieren", group="LONG 16m-20m", tooltip="80% WR")
+enable17mLong = input.bool(true, "LONG auf 17m aktivieren", group="LONG 16m-20m", tooltip="100% WR")
+enable18mLong = input.bool(true, "LONG auf 18m aktivieren", group="LONG 16m-20m", tooltip="100% WR")
+enable19mLong = input.bool(true, "LONG auf 19m aktivieren", group="LONG 16m-20m", tooltip="86% WR")
+enable20mLong = input.bool(true, "LONG auf 20m aktivieren", group="LONG 16m-20m", tooltip="75% WR")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 30S-5m (v7.3 TF-spezifisch)
+// ============================================================================
+enableShort30S = input.bool(true, "SHORT auf 30S aktivieren", group="SHORT 30S-5m")
+enableShort1m = input.bool(true, "SHORT auf 1m aktivieren", group="SHORT 30S-5m")
+enable4mShort = input.bool(false, "SHORT auf 4m aktivieren", group="SHORT 30S-5m", tooltip="Keine Daten - DEAKTIVIERT!")
+
+shortRsi30S = input.int(78, "SHORT RSI (30S)", group="SHORT 30S-5m", tooltip="v7.3: 65->78")
+shortRsi45S = input.int(78, "SHORT RSI (45S)", group="SHORT 30S-5m")
+shortRsi1m = input.int(78, "SHORT RSI (1m)", group="SHORT 30S-5m", tooltip="v7.3: 70->78")
+shortRsi2m = input.int(65, "SHORT RSI (2m)", group="SHORT 30S-5m", tooltip="v7.3 bewaehrt: 65 (100% WR)")
+shortRsi3m = input.int(65, "SHORT RSI (3m)", group="SHORT 30S-5m", tooltip="v7.3 bewaehrt: 65 (100% WR)")
+shortRsi4m = input.int(72, "SHORT RSI (4m)", group="SHORT 30S-5m")
+shortRsi5m = input.int(75, "SHORT RSI (5m)", group="SHORT 30S-5m", tooltip="v7.3 bewaehrt: 75 (100% WR)")
+
+shortK30S = input.int(80, "SHORT K (30S)", group="SHORT 30S-5m")
+shortK45S = input.int(80, "SHORT K (45S)", group="SHORT 30S-5m")
+shortK1m = input.int(80, "SHORT K (1m)", group="SHORT 30S-5m")
+shortK2m = input.int(88, "SHORT K (2m)", group="SHORT 30S-5m")
+shortK3m = input.int(70, "SHORT K (3m)", group="SHORT 30S-5m")
+shortK4m = input.int(80, "SHORT K (4m)", group="SHORT 30S-5m")
+shortK5m = input.int(70, "SHORT K (5m)", group="SHORT 30S-5m")
+
+shortSlope30S = input.float(0.0, "SHORT Slope (30S)", group="SHORT 30S-5m")
+shortSlope45S = input.float(-2.0, "SHORT Slope (45S)", group="SHORT 30S-5m")
+shortSlope1m = input.float(0.0, "SHORT Slope (1m)", group="SHORT 30S-5m")
+shortSlope2m = input.float(-3.0, "SHORT Slope (2m)", group="SHORT 30S-5m")
+shortSlope3m = input.float(-5.0, "SHORT Slope (3m)", group="SHORT 30S-5m")
+shortSlope4m = input.float(-1.0, "SHORT Slope (4m)", group="SHORT 30S-5m")
+shortSlope5m = input.float(2.0, "SHORT Slope (5m)", group="SHORT 30S-5m")
+
+shortAdx30S = input.int(50, "SHORT ADX (30S)", group="SHORT 30S-5m")
+shortAdx45S = input.int(60, "SHORT ADX (45S)", group="SHORT 30S-5m")
+shortAdx1m = input.int(50, "SHORT ADX (1m)", group="SHORT 30S-5m")
+shortAdx2m = input.int(50, "SHORT ADX (2m)", group="SHORT 30S-5m")
+shortAdx3m = input.int(30, "SHORT ADX (3m)", group="SHORT 30S-5m")
+shortAdx4m = input.int(50, "SHORT ADX (4m)", group="SHORT 30S-5m")
+shortAdx5m = input.int(40, "SHORT ADX (5m)", group="SHORT 30S-5m")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 6m-10m (v7.3 bewaehrt)
+// ============================================================================
+shortRsi6m = input.int(72, "SHORT RSI (6m)", group="SHORT 6m-10m")
+shortRsi7m = input.int(65, "SHORT RSI (7m)", group="SHORT 6m-10m")
+shortRsi8m = input.int(65, "SHORT RSI (8m)", group="SHORT 6m-10m")
+shortRsi9m = input.int(75, "SHORT RSI (9m)", group="SHORT 6m-10m")
+shortRsi10m = input.int(78, "SHORT RSI (10m)", group="SHORT 6m-10m")
+
+shortK6m = input.int(85, "SHORT K (6m)", group="SHORT 6m-10m")
+shortK7m = input.int(88, "SHORT K (7m)", group="SHORT 6m-10m")
+shortK8m = input.int(70, "SHORT K (8m)", group="SHORT 6m-10m")
+shortK9m = input.int(95, "SHORT K (9m)", group="SHORT 6m-10m")
+shortK10m = input.int(92, "SHORT K (10m)", group="SHORT 6m-10m")
+
+shortSlope6m = input.float(1.0, "SHORT Slope (6m)", group="SHORT 6m-10m")
+shortSlope7m = input.float(1.0, "SHORT Slope (7m)", group="SHORT 6m-10m")
+shortSlope8m = input.float(-3.0, "SHORT Slope (8m)", group="SHORT 6m-10m")
+shortSlope9m = input.float(1.0, "SHORT Slope (9m)", group="SHORT 6m-10m")
+shortSlope10m = input.float(2.0, "SHORT Slope (10m)", group="SHORT 6m-10m")
+
+shortAdx6m = input.int(50, "SHORT ADX (6m)", group="SHORT 6m-10m")
+shortAdx7m = input.int(30, "SHORT ADX (7m)", group="SHORT 6m-10m")
+shortAdx8m = input.int(30, "SHORT ADX (8m)", group="SHORT 6m-10m")
+shortAdx9m = input.int(100, "SHORT ADX (9m)", group="SHORT 6m-10m", tooltip="100 = kein ADX-Filter")
+shortAdx10m = input.int(60, "SHORT ADX (10m)", group="SHORT 6m-10m")
+
+enable6mShort = input.bool(true, "SHORT auf 6m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable7mShort = input.bool(true, "SHORT auf 7m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable8mShort = input.bool(true, "SHORT auf 8m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable9mShort = input.bool(true, "SHORT auf 9m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+enable10mShort = input.bool(true, "SHORT auf 10m aktivieren", group="SHORT 6m-10m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 11m-15m (v7.3 bewaehrt)
+// ============================================================================
+shortRsi11m = input.int(68, "SHORT RSI (11m)", group="SHORT 11m-15m")
+shortRsi12m = input.int(78, "SHORT RSI (12m)", group="SHORT 11m-15m")
+shortRsi13m = input.int(68, "SHORT RSI (13m)", group="SHORT 11m-15m")
+shortRsi14m = input.int(80, "SHORT RSI (14m)", group="SHORT 11m-15m")
+shortRsi15m = input.int(68, "SHORT RSI (15m)", group="SHORT 11m-15m")
+
+shortK11m = input.int(70, "SHORT K (11m)", group="SHORT 11m-15m")
+shortK12m = input.int(70, "SHORT K (12m)", group="SHORT 11m-15m")
+shortK13m = input.int(95, "SHORT K (13m)", group="SHORT 11m-15m")
+shortK14m = input.int(75, "SHORT K (14m)", group="SHORT 11m-15m")
+shortK15m = input.int(88, "SHORT K (15m)", group="SHORT 11m-15m")
+
+shortSlope11m = input.float(0.0, "SHORT Slope (11m)", group="SHORT 11m-15m")
+shortSlope12m = input.float(-5.0, "SHORT Slope (12m)", group="SHORT 11m-15m")
+shortSlope13m = input.float(1.0, "SHORT Slope (13m)", group="SHORT 11m-15m")
+shortSlope14m = input.float(-3.0, "SHORT Slope (14m)", group="SHORT 11m-15m")
+shortSlope15m = input.float(2.0, "SHORT Slope (15m)", group="SHORT 11m-15m")
+
+shortAdx11m = input.int(30, "SHORT ADX (11m)", group="SHORT 11m-15m")
+shortAdx12m = input.int(100, "SHORT ADX (12m)", group="SHORT 11m-15m", tooltip="100 = kein ADX-Filter")
+shortAdx13m = input.int(60, "SHORT ADX (13m)", group="SHORT 11m-15m")
+shortAdx14m = input.int(100, "SHORT ADX (14m)", group="SHORT 11m-15m", tooltip="100 = kein ADX-Filter")
+shortAdx15m = input.int(30, "SHORT ADX (15m)", group="SHORT 11m-15m")
+
+enable11mShort = input.bool(true, "SHORT auf 11m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable12mShort = input.bool(true, "SHORT auf 12m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable13mShort = input.bool(true, "SHORT auf 13m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable14mShort = input.bool(true, "SHORT auf 14m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+enable15mShort = input.bool(true, "SHORT auf 15m aktivieren", group="SHORT 11m-15m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - SHORT Settings: 16m-20m (v7.3 bewaehrt)
+// ============================================================================
+shortRsi16m = input.int(85, "SHORT RSI (16m)", group="SHORT 16m-20m")
+shortRsi17m = input.int(78, "SHORT RSI (17m)", group="SHORT 16m-20m")
+shortRsi18m = input.int(80, "SHORT RSI (18m)", group="SHORT 16m-20m")
+shortRsi19m = input.int(70, "SHORT RSI (19m)", group="SHORT 16m-20m")
+shortRsi20m = input.int(85, "SHORT RSI (20m)", group="SHORT 16m-20m")
+
+shortK16m = input.int(70, "SHORT K (16m)", group="SHORT 16m-20m")
+shortK17m = input.int(85, "SHORT K (17m)", group="SHORT 16m-20m")
+shortK18m = input.int(92, "SHORT K (18m)", group="SHORT 16m-20m")
+shortK19m = input.int(85, "SHORT K (19m)", group="SHORT 16m-20m")
+shortK20m = input.int(90, "SHORT K (20m)", group="SHORT 16m-20m")
+
+shortSlope16m = input.float(1.0, "SHORT Slope (16m)", group="SHORT 16m-20m")
+shortSlope17m = input.float(-2.0, "SHORT Slope (17m)", group="SHORT 16m-20m")
+shortSlope18m = input.float(2.0, "SHORT Slope (18m)", group="SHORT 16m-20m")
+shortSlope19m = input.float(0.0, "SHORT Slope (19m)", group="SHORT 16m-20m")
+shortSlope20m = input.float(2.0, "SHORT Slope (20m)", group="SHORT 16m-20m")
+
+shortAdx16m = input.int(50, "SHORT ADX (16m)", group="SHORT 16m-20m")
+shortAdx17m = input.int(100, "SHORT ADX (17m)", group="SHORT 16m-20m", tooltip="100 = kein ADX-Filter")
+shortAdx18m = input.int(60, "SHORT ADX (18m)", group="SHORT 16m-20m")
+shortAdx19m = input.int(30, "SHORT ADX (19m)", group="SHORT 16m-20m")
+shortAdx20m = input.int(50, "SHORT ADX (20m)", group="SHORT 16m-20m")
+
+enable16mShort = input.bool(true, "SHORT auf 16m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable17mShort = input.bool(true, "SHORT auf 17m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable18mShort = input.bool(true, "SHORT auf 18m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable19mShort = input.bool(true, "SHORT auf 19m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+enable20mShort = input.bool(true, "SHORT auf 20m aktivieren", group="SHORT 16m-20m", tooltip="100% WR")
+
+// ============================================================================
+// INPUTS - Stochastic / MACD / BB / ATR / ADX
+// ============================================================================
+stochRsiLength = input.int(14, "Stoch RSI Length", group="Stochastic RSI")
+stochRsiSmooth = input.int(3, "Stoch RSI Smooth K", group="Stochastic RSI")
+stochRsiSmoothD = input.int(3, "Stoch RSI Smooth D", group="Stochastic RSI")
+
+macdFast = input.int(12, "MACD Fast", group="MACD")
+macdSlow = input.int(26, "MACD Slow", group="MACD")
+macdSignal = input.int(9, "MACD Signal", group="MACD")
+
+bbLength = input.int(20, "BB Length", group="Bollinger Bands")
+bbMult = input.float(2.0, "BB Multiplier", group="Bollinger Bands")
+
+atrLength = input.int(14, "ATR Length", group="ATR Filter")
+atrMultSL = input.float(1.5, "ATR Multiplier SL", group="ATR Filter")
+atrMultTP = input.float(2.5, "ATR Multiplier TP", group="ATR Filter")
+
+adxLength = input.int(14, "ADX Length", group="ADX Settings")
+
+// ============================================================================
+// INPUTS - KELTNER CHANNEL (von v8.0, fuer Squeeze SHORT)
+// ============================================================================
+kcEmaLength = input.int(20, "KC EMA Length", group="Keltner Channel")
+kcAtrLength = input.int(14, "KC ATR Length", group="Keltner Channel")
+kcAtrMult = input.float(1.5, "KC ATR Multiplier", group="Keltner Channel")
+showKC = input.bool(true, "Keltner Channel anzeigen", group="Keltner Channel")
+
+// ============================================================================
+// INPUTS - SQUEEZE DETECTION (v8.4: NUR SHORT!)
+// ============================================================================
+minSqueezeBars = input.int(3, "Min Squeeze Bars", group="Squeeze Detection")
+squeezeVolMin = input.float(1.2, "Squeeze Vol Spike Min", group="Squeeze Detection")
+squeezeMomMin = input.float(0.1, "Squeeze Momentum Min %", group="Squeeze Detection")
+enableSqueezeShort = input.bool(true, "Squeeze SHORT aktivieren", group="Squeeze Detection", tooltip="v8.4: NUR SHORT! LONG deaktiviert (21.7% Rate = schlecht)")
+// v8.4: SQUEEZE LONG bewusst entfernt - nur 21.7% $20-Rate, R/R 0.44x
+
+// ============================================================================
+// INPUTS - VOLATILITY REGIME (v8.0, als Info + WEAK_UP Block)
+// ============================================================================
+adxTrendThreshold = input.int(25, "ADX Trend Threshold", group="Volatility Regime")
+adxRangeThreshold = input.int(20, "ADX Range Threshold", group="Volatility Regime")
+atrPercLookback = input.int(50, "ATR Percentile Lookback", group="Volatility Regime")
+atrHighPercentile = input.float(70.0, "ATR High Percentile", group="Volatility Regime")
+atrLowPercentile = input.float(40.0, "ATR Low Percentile", group="Volatility Regime")
+showRegime = input.bool(true, "Regime anzeigen", group="Volatility Regime")
+blockWeakUp = input.bool(true, "WEAK_TREND_UP Regime blockieren", group="Volatility Regime", tooltip="v8.4: 0% Erfolgsrate im WEAK_TREND_UP Regime!")
+
+// ============================================================================
+// INPUTS - Signal Filter
+// ============================================================================
+minConfidenceForAlert = input.float(0.70, "Min Confidence for Alert", minval=0.0, maxval=1.0, step=0.05, group="Signal Filter")
+
+// ============================================================================
+// TIMEFRAME DETECTION
+// ============================================================================
+is30S = timeframe.period == "30S"
+is45S = timeframe.period == "45S"
+is1m = timeframe.period == "1"
+is2m = timeframe.period == "2"
+is3m = timeframe.period == "3"
+is4m = timeframe.period == "4"
+is5m = timeframe.period == "5"
+is6m = timeframe.period == "6"
+is7m = timeframe.period == "7"
+is8m = timeframe.period == "8"
+is9m = timeframe.period == "9"
+is10m = timeframe.period == "10"
+is11m = timeframe.period == "11"
+is12m = timeframe.period == "12"
+is13m = timeframe.period == "13"
+is14m = timeframe.period == "14"
+is15m = timeframe.period == "15"
+is16m = timeframe.period == "16"
+is17m = timeframe.period == "17"
+is18m = timeframe.period == "18"
+is19m = timeframe.period == "19"
+is20m = timeframe.period == "20"
+
+isKnownTF = is30S or is45S or is1m or is2m or is3m or is4m or is5m or is6m or is7m or is8m or is9m or is10m or is11m or is12m or is13m or is14m or is15m or is16m or is17m or is18m or is19m or is20m
+
+tfDisplay = is30S ? "30S" : is45S ? "45S" : is1m ? "1m" : is2m ? "2m" : is3m ? "3m" : is4m ? "4m" : is5m ? "5m" : is6m ? "6m" : is7m ? "7m" : is8m ? "8m" : is9m ? "9m" : is10m ? "10m" : is11m ? "11m" : is12m ? "12m" : is13m ? "13m" : is14m ? "14m" : is15m ? "15m" : is16m ? "16m" : is17m ? "17m" : is18m ? "18m" : is19m ? "19m" : is20m ? "20m" : timeframe.period
+
+// ============================================================================
+// CALCULATIONS - Basis-Indikatoren
+// ============================================================================
+filterMA = ta.ema(close, emaFilter)
+mediumMA = ta.ema(close, ema50)
+shortMA = ta.ema(close, ema20)
+
+priceAbove200 = close > filterMA
+priceBelow200 = close < filterMA
+strongDowntrend = priceBelow200 and shortMA < mediumMA and mediumMA < filterMA
+strongUptrend = priceAbove200 and shortMA > mediumMA and mediumMA > filterMA
+
+rsi = ta.rsi(close, rsiLength)
+rsiSlope = rsi - rsi[rsiSlopeLength]
+
+stochRsi = ta.rsi(close, stochRsiLength)
+stochK = ta.sma(ta.stoch(stochRsi, stochRsi, stochRsi, stochRsiLength), stochRsiSmooth)
+stochD = ta.sma(stochK, stochRsiSmoothD)
+
+[macdLine, signalLine, histLine] = ta.macd(close, macdFast, macdSlow, macdSignal)
+
+bbBasis = ta.sma(close, bbLength)
+bbDev = bbMult * ta.stdev(close, bbLength)
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+
+atr = ta.atr(atrLength)
+atrPct = atr / close * 100
+
+[diPlus, diMinus, adxValue] = ta.dmi(adxLength, adxLength)
+
+volSma = ta.sma(volume, 20)
+volRatio = volume / volSma
+isLowVolume = volume < (volSma - 2 * ta.stdev(volume, 20))
+
+// ============================================================================
+// KELTNER CHANNEL (von v8.0)
+// ============================================================================
+kcMiddle = ta.ema(close, kcEmaLength)
+kcAtr = ta.atr(kcAtrLength)
+kcUpper = kcMiddle + kcAtr * kcAtrMult
+kcLower = kcMiddle - kcAtr * kcAtrMult
+kcWidth = (kcUpper - kcLower) / kcMiddle * 100
+kcPosition = (close - kcLower) / (kcUpper - kcLower)
+
+// ============================================================================
+// SQUEEZE DETECTION (von v8.0, v8.4: NUR fuer SHORT)
+// ============================================================================
+squeezeOn = bbUpper < kcUpper and bbLower > kcLower
+squeezeOff = not squeezeOn
+
+var int squeezeBarsCount = 0
+if squeezeOn
+    squeezeBarsCount += 1
+else
+    squeezeBarsCount := 0
+
+squeezeFired = squeezeOff and squeezeOn[1]
+
+momDirection = histLine > 0 ? 1 : histLine < 0 ? -1 : 0
+momRising = histLine > histLine[1]
+momFalling = histLine < histLine[1]
+momPct = math.abs(close - close[3]) / close[3] * 100
+
+// ============================================================================
+// VOLATILITY REGIME (von v8.0)
+// ============================================================================
+var float[] atrHistory = array.new_float(0)
+if barstate.isconfirmed
+    array.push(atrHistory, atr)
+    if array.size(atrHistory) > atrPercLookback
+        array.shift(atrHistory)
+
+atrPercentile = 50.0
+if array.size(atrHistory) >= 10
+    below = 0
+    for i = 0 to array.size(atrHistory) - 1
+        if array.get(atrHistory, i) <= atr
+            below += 1
+    atrPercentile := below / array.size(atrHistory) * 100
+
+isTrending = adxValue >= adxTrendThreshold
+isRanging = adxValue < adxRangeThreshold
+isHighVol = atrPercentile >= atrHighPercentile
+isLowVol = atrPercentile <= atrLowPercentile
+
+string volatilityRegime = "UNKNOWN"
+if squeezeOn and squeezeBarsCount >= minSqueezeBars
+    volatilityRegime := "SQUEEZE_BUILDING"
+else if squeezeFired
+    volatilityRegime := "BREAKOUT_IMMINENT"
+else if isTrending and isHighVol
+    volatilityRegime := "TRENDING_HIGH_VOL"
+else if isTrending and not isHighVol
+    volatilityRegime := "TRENDING_LOW_VOL"
+else if isRanging and isHighVol
+    volatilityRegime := "RANGING_HIGH_VOL"
+else if isRanging
+    volatilityRegime := "RANGING_LOW_VOL"
+else
+    volatilityRegime := "TRANSITIONAL"
+
+// ============================================================================
+// REGIME DETECTION (v8.4 - Bot-kompatible Naming: STRONG_TREND_UP etc.)
+// ============================================================================
+// [21.02.2026] FIX: Pine sendete "STRONG_UP" aber Bot erwartet "STRONG_TREND_UP"
+// → Sicherheits-Blocks in bot.py (Zeile 2035/2050) griffen NIE!
+// → Regime-Bonus wurde NIE angewendet
+string regime = "NEUTRAL"
+if strongUptrend
+    regime := "STRONG_TREND_UP"
+else if strongDowntrend
+    regime := "STRONG_TREND_DOWN"
+else if priceAbove200
+    regime := "WEAK_TREND_UP"
+else if priceBelow200
+    regime := "WEAK_TREND_DOWN"
+
+// v8.4: WEAK_TREND_UP Block - 0% Erfolgsrate in 2102 Analyse!
+isWeakUpBlocked = blockWeakUp and regime == "WEAK_TREND_UP"
+
+// ============================================================================
+// ADAPTIVE THRESHOLDS (v7.3 TF-spezifisch)
+// ============================================================================
+longRsiThresh = is30S ? longRsi30S : is45S ? longRsi45S : is1m ? longRsi1m : is2m ? longRsi2m : is3m ? longRsi3m : is4m ? longRsi4m : is5m ? longRsi5m : is6m ? longRsi6m : is7m ? longRsi7m : is8m ? longRsi8m : is9m ? longRsi9m : is10m ? longRsi10m : is11m ? longRsi11m : is12m ? longRsi12m : is13m ? longRsi13m : is14m ? longRsi14m : is15m ? longRsi15m : is16m ? longRsi16m : is17m ? longRsi17m : is18m ? longRsi18m : is19m ? longRsi19m : longRsi20m
+
+longKThresh = is30S ? longK30S : is45S ? longK45S : is1m ? longK1m : is2m ? longK2m : is3m ? longK3m : is4m ? longK4m : is5m ? longK5m : is6m ? longK6m : is7m ? longK7m : is8m ? longK8m : is9m ? longK9m : is10m ? longK10m : is11m ? longK11m : is12m ? longK12m : is13m ? longK13m : is14m ? longK14m : is15m ? longK15m : is16m ? longK16m : is17m ? longK17m : is18m ? longK18m : is19m ? longK19m : longK20m
+
+longSlopeThresh = is30S ? longSlope30S : is45S ? longSlope45S : is1m ? longSlope1m : is2m ? longSlope2m : is3m ? longSlope3m : is4m ? longSlope4m : is5m ? longSlope5m : is6m ? longSlope6m : is7m ? longSlope7m : is8m ? longSlope8m : is9m ? longSlope9m : is10m ? longSlope10m : is11m ? longSlope11m : is12m ? longSlope12m : is13m ? longSlope13m : is14m ? longSlope14m : is15m ? longSlope15m : is16m ? longSlope16m : is17m ? longSlope17m : is18m ? longSlope18m : is19m ? longSlope19m : longSlope20m
+
+longAdxThresh = is30S ? longAdx30S : is45S ? longAdx45S : is1m ? longAdx1m : is2m ? longAdx2m : is3m ? longAdx3m : is4m ? longAdx4m : is5m ? longAdx5m : is6m ? longAdx6m : is7m ? longAdx7m : is8m ? longAdx8m : is9m ? longAdx9m : is10m ? longAdx10m : is11m ? longAdx11m : is12m ? longAdx12m : is13m ? longAdx13m : is14m ? longAdx14m : is15m ? longAdx15m : is16m ? longAdx16m : is17m ? longAdx17m : is18m ? longAdx18m : is19m ? longAdx19m : longAdx20m
+
+shortRsiThresh = is30S ? shortRsi30S : is45S ? shortRsi45S : is1m ? shortRsi1m : is2m ? shortRsi2m : is3m ? shortRsi3m : is4m ? shortRsi4m : is5m ? shortRsi5m : is6m ? shortRsi6m : is7m ? shortRsi7m : is8m ? shortRsi8m : is9m ? shortRsi9m : is10m ? shortRsi10m : is11m ? shortRsi11m : is12m ? shortRsi12m : is13m ? shortRsi13m : is14m ? shortRsi14m : is15m ? shortRsi15m : is16m ? shortRsi16m : is17m ? shortRsi17m : is18m ? shortRsi18m : is19m ? shortRsi19m : shortRsi20m
+
+shortKThresh = is30S ? shortK30S : is45S ? shortK45S : is1m ? shortK1m : is2m ? shortK2m : is3m ? shortK3m : is4m ? shortK4m : is5m ? shortK5m : is6m ? shortK6m : is7m ? shortK7m : is8m ? shortK8m : is9m ? shortK9m : is10m ? shortK10m : is11m ? shortK11m : is12m ? shortK12m : is13m ? shortK13m : is14m ? shortK14m : is15m ? shortK15m : is16m ? shortK16m : is17m ? shortK17m : is18m ? shortK18m : is19m ? shortK19m : shortK20m
+
+shortSlopeThresh = is30S ? shortSlope30S : is45S ? shortSlope45S : is1m ? shortSlope1m : is2m ? shortSlope2m : is3m ? shortSlope3m : is4m ? shortSlope4m : is5m ? shortSlope5m : is6m ? shortSlope6m : is7m ? shortSlope7m : is8m ? shortSlope8m : is9m ? shortSlope9m : is10m ? shortSlope10m : is11m ? shortSlope11m : is12m ? shortSlope12m : is13m ? shortSlope13m : is14m ? shortSlope14m : is15m ? shortSlope15m : is16m ? shortSlope16m : is17m ? shortSlope17m : is18m ? shortSlope18m : is19m ? shortSlope19m : shortSlope20m
+
+shortAdxThresh = is30S ? shortAdx30S : is45S ? shortAdx45S : is1m ? shortAdx1m : is2m ? shortAdx2m : is3m ? shortAdx3m : is4m ? shortAdx4m : is5m ? shortAdx5m : is6m ? shortAdx6m : is7m ? shortAdx7m : is8m ? shortAdx8m : is9m ? shortAdx9m : is10m ? shortAdx10m : is11m ? shortAdx11m : is12m ? shortAdx12m : is13m ? shortAdx13m : is14m ? shortAdx14m : is15m ? shortAdx15m : is16m ? shortAdx16m : is17m ? shortAdx17m : is18m ? shortAdx18m : is19m ? shortAdx19m : shortAdx20m
+
+longAdxOK = longAdxThresh >= 100 or adxValue < longAdxThresh
+shortAdxOK = shortAdxThresh >= 100 or adxValue < shortAdxThresh
+
+// Expected Win Rate (v7.3 bewaehrt)
+longWR = is30S ? "100%" : is45S ? "100%" : is1m ? "100%" : is2m ? "80%" : is3m ? "100%" : is4m ? "0%" : is5m ? "100%" : is6m ? "80%" : is7m ? "100%" : is8m ? "100%" : is9m ? "67%" : is10m ? "100%" : is11m ? "100%" : is12m ? "100%" : is13m ? "100%" : is14m ? "100%" : is15m ? "75%" : is16m ? "80%" : is17m ? "100%" : is18m ? "100%" : is19m ? "86%" : is20m ? "75%" : "N/A"
+shortWR = is30S ? "~80%" : is45S ? "100%" : is1m ? "~80%" : is2m ? "100%" : is3m ? "100%" : is4m ? "0%" : is5m ? "100%" : is6m ? "100%" : is7m ? "100%" : is8m ? "100%" : is9m ? "100%" : is10m ? "100%" : is11m ? "100%" : is12m ? "100%" : is13m ? "100%" : is14m ? "100%" : is15m ? "100%" : is16m ? "100%" : is17m ? "100%" : is18m ? "100%" : is19m ? "100%" : is20m ? "100%" : "N/A"
+
+// Disable-Flags
+long4mDisabled = is4m and not enable4mLong
+short4mDisabled = is4m and not enable4mShort
+
+longDisabledNew = (is6m and not enable6mLong) or (is7m and not enable7mLong) or (is8m and not enable8mLong) or (is9m and not enable9mLong) or (is10m and not enable10mLong) or (is11m and not enable11mLong) or (is12m and not enable12mLong) or (is13m and not enable13mLong) or (is14m and not enable14mLong) or (is15m and not enable15mLong) or (is16m and not enable16mLong) or (is17m and not enable17mLong) or (is18m and not enable18mLong) or (is19m and not enable19mLong) or (is20m and not enable20mLong)
+
+shortDisabled30S1m = (is30S and not enableShort30S) or (is1m and not enableShort1m)
+shortDisabledNew = (is6m and not enable6mShort) or (is7m and not enable7mShort) or (is8m and not enable8mShort) or (is9m and not enable9mShort) or (is10m and not enable10mShort) or (is11m and not enable11mShort) or (is12m and not enable12mShort) or (is13m and not enable13mShort) or (is14m and not enable14mShort) or (is15m and not enable15mShort) or (is16m and not enable16mShort) or (is17m and not enable17mShort) or (is18m and not enable18mShort) or (is19m and not enable19mShort) or (is20m and not enable20mShort)
+
+// ============================================================================
+// SIGNAL DETECTION - v7.3 Basis + Squeeze SHORT
+// ============================================================================
+// === LONG SIGNALS (v7.3 TF-spezifisch) ===
+longCondition30S = is30S and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition45S = is45S and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition1m = is1m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition2m = is2m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition3m = is3m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition4m = enable4mLong and is4m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition5m = is5m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition6m = enable6mLong and is6m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition7m = enable7mLong and is7m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition8m = enable8mLong and is8m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition9m = enable9mLong and is9m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition10m = enable10mLong and is10m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition11m = enable11mLong and is11m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition12m = enable12mLong and is12m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition13m = enable13mLong and is13m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition14m = enable14mLong and is14m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition15m = enable15mLong and is15m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition16m = enable16mLong and is16m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition17m = enable17mLong and is17m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition18m = enable18mLong and is18m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition19m = enable19mLong and is19m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+longCondition20m = enable20mLong and is20m and (rsi < longRsiThresh) and (rsiSlope > longSlopeThresh) and (stochK < longKThresh) and longAdxOK
+
+longBaseSignal = (longCondition30S or longCondition45S or longCondition1m or longCondition2m or longCondition3m or longCondition4m or longCondition5m or longCondition6m or longCondition7m or longCondition8m or longCondition9m or longCondition10m or longCondition11m or longCondition12m or longCondition13m or longCondition14m or longCondition15m or longCondition16m or longCondition17m or longCondition18m or longCondition19m or longCondition20m) and barstate.isconfirmed
+
+// === SHORT SIGNALS (v7.3 TF-spezifisch) ===
+shortCondition30S = enableShort30S and is30S and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition45S = is45S and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition1m = enableShort1m and is1m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition2m = is2m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition3m = is3m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition4m = enable4mShort and is4m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition5m = is5m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition6m = enable6mShort and is6m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition7m = enable7mShort and is7m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition8m = enable8mShort and is8m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition9m = enable9mShort and is9m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition10m = enable10mShort and is10m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition11m = enable11mShort and is11m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition12m = enable12mShort and is12m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition13m = enable13mShort and is13m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition14m = enable14mShort and is14m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition15m = enable15mShort and is15m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition16m = enable16mShort and is16m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition17m = enable17mShort and is17m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition18m = enable18mShort and is18m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition19m = enable19mShort and is19m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+shortCondition20m = enable20mShort and is20m and (rsi > shortRsiThresh) and (rsiSlope < shortSlopeThresh) and (stochK > shortKThresh) and shortAdxOK
+
+shortBaseSignal = (shortCondition30S or shortCondition45S or shortCondition1m or shortCondition2m or shortCondition3m or shortCondition4m or shortCondition5m or shortCondition6m or shortCondition7m or shortCondition8m or shortCondition9m or shortCondition10m or shortCondition11m or shortCondition12m or shortCondition13m or shortCondition14m or shortCondition15m or shortCondition16m or shortCondition17m or shortCondition18m or shortCondition19m or shortCondition20m) and barstate.isconfirmed
+
+// === SQUEEZE SHORT Signal (v8.4: NUR SHORT, kein LONG!) ===
+squeezeShortSignal = enableSqueezeShort and squeezeFired and momDirection < 0 and momPct > squeezeMomMin and volRatio > squeezeVolMin and rsi > 25 and barstate.isconfirmed
+
+// v8.4: SQUEEZE LONG bewusst ENTFERNT!
+// Grund: 21.7% $20-Rate, R/R 0.44x in 2102 Analyse = katastrophal
+
+// Kombinierte Signale
+longSignal = longBaseSignal and not isWeakUpBlocked
+shortSignal = (shortBaseSignal or squeezeShortSignal) and not isWeakUpBlocked
+
+// Signal-Typ Bestimmung
+string signalType = "NONE"
+string signalStrategy = "NONE"
+if squeezeShortSignal and not shortBaseSignal
+    signalType := "SHORT_SQUEEZE"
+    signalStrategy := "KELTNER_SQUEEZE"
+else if shortBaseSignal
+    signalType := "SHORT_V73"
+    signalStrategy := "RSI_STOCH_V73"
+if longBaseSignal and not isWeakUpBlocked
+    signalType := "LONG_V73"
+    signalStrategy := "RSI_STOCH_V73"
+
+// ============================================================================
+// CONFIDENCE CALCULATION (v8.4 - v7.3 Basis + Regime-Modifier)
+// ============================================================================
+var float signalConfidence = 0.0
+
+if longSignal
+    // v7.3 Basis-Confidence basierend auf verifizierten WRs
+    signalConfidence := is9m ? 0.72 : (is15m or is20m) ? 0.78 : (is2m or is6m or is16m) ? 0.82 : is19m ? 0.85 : 0.92
+
+    if rsi < 20
+        signalConfidence += 0.05
+    else if rsi < 25
+        signalConfidence += 0.03
+    if stochK < 3
+        signalConfidence += 0.04
+    else if stochK < 5
+        signalConfidence += 0.03
+    if rsiSlope > 2
+        signalConfidence += 0.02
+
+    // v8.4 Regime-Modifier (von v8.0 uebernommen)
+    if volatilityRegime == "RANGING_HIGH_VOL"
+        signalConfidence -= 0.08
+    else if volatilityRegime == "TRENDING_HIGH_VOL" and not strongDowntrend
+        signalConfidence += 0.04
+    else if volatilityRegime == "SQUEEZE_BUILDING"
+        signalConfidence -= 0.03
+
+    if strongDowntrend
+        signalConfidence -= 0.10
+    if isLowVolume
+        signalConfidence -= 0.05
+
+    signalConfidence := math.min(signalConfidence, 0.98)
+
+if shortSignal
+    if squeezeShortSignal and not shortBaseSignal
+        // Squeeze SHORT: Basis 0.85
+        signalConfidence := 0.85
+        if momPct > 0.3
+            signalConfidence += 0.05
+        if squeezeBarsCount > 5
+            signalConfidence += 0.03
+        if volRatio > 2.0
+            signalConfidence += 0.04
+    else
+        // v7.3 Basis SHORT
+        signalConfidence := (is30S or is1m) ? 0.85 : 0.92
+        if rsi > 80
+            signalConfidence += 0.04
+        if stochK > 95
+            signalConfidence += 0.03
+        if rsiSlope < -4
+            signalConfidence += 0.02
+
+    // v8.4 Regime-Modifier
+    if volatilityRegime == "RANGING_HIGH_VOL"
+        signalConfidence -= 0.08
+    else if volatilityRegime == "TRENDING_HIGH_VOL" and not strongUptrend
+        signalConfidence += 0.04
+
+    if strongUptrend
+        signalConfidence -= 0.10
+    if isLowVolume
+        signalConfidence -= 0.05
+
+    signalConfidence := math.min(signalConfidence, 0.98)
+
+// ============================================================================
+// STOP LOSS / TAKE PROFIT
+// ============================================================================
+squeezeAtrMultSL = 1.2
+squeezeAtrMultTP = 3.0
+
+isSqueezeTrade = squeezeShortSignal and not shortBaseSignal
+longSL = close - atr * atrMultSL
+longTP = close + atr * atrMultTP
+shortSL = close + atr * (isSqueezeTrade ? squeezeAtrMultSL : atrMultSL)
+shortTP = close - atr * (isSqueezeTrade ? squeezeAtrMultTP : atrMultTP)
+
+// ============================================================================
+// ALERTS (v8.4 - mit v8.0 Metadata-Format)
+// ============================================================================
+if longSignal and signalConfidence >= minConfidenceForAlert
+    alert('{"signal":"long","symbol":"SOLUSD","timeframe":"' + timeframe.period + '","price":' + str.tostring(close, "#.##") + ',"source":"Bot_Webhook_v84","confidence":' + str.tostring(signalConfidence, "#.##") + ',"metadata":{"entry":' + str.tostring(close, "#.##") + ',"stop_loss":' + str.tostring(longSL, "#.##") + ',"take_profit":' + str.tostring(longTP, "#.##") + ',"atr":' + str.tostring(atr, "#.##") + ',"atr_pct":' + str.tostring(atrPct, "#.###") + ',"adx":' + str.tostring(adxValue, "#.##") + ',"rsi":' + str.tostring(rsi, "#.##") + ',"rsi_slope":' + str.tostring(rsiSlope, "#.##") + ',"stoch_k":' + str.tostring(stochK, "#.##") + ',"macd_hist":' + str.tostring(histLine, "#.##") + ',"signal_type":"' + signalType + '","strategy":"' + signalStrategy + '","regime":"' + regime + '","vol_regime":"' + volatilityRegime + '","squeeze_on":' + str.tostring(squeezeOn ? 1 : 0) + ',"squeeze_bars":' + str.tostring(squeezeBarsCount) + ',"kc_position":' + str.tostring(kcPosition, "#.###") + ',"atr_percentile":' + str.tostring(atrPercentile, "#.#") + ',"expected_wr":"' + longWR + '"}}', alert.freq_once_per_bar)
+
+if shortSignal and signalConfidence >= minConfidenceForAlert
+    alert('{"signal":"short","symbol":"SOLUSD","timeframe":"' + timeframe.period + '","price":' + str.tostring(close, "#.##") + ',"source":"Bot_Webhook_v84","confidence":' + str.tostring(signalConfidence, "#.##") + ',"metadata":{"entry":' + str.tostring(close, "#.##") + ',"stop_loss":' + str.tostring(shortSL, "#.##") + ',"take_profit":' + str.tostring(shortTP, "#.##") + ',"atr":' + str.tostring(atr, "#.##") + ',"atr_pct":' + str.tostring(atrPct, "#.###") + ',"adx":' + str.tostring(adxValue, "#.##") + ',"rsi":' + str.tostring(rsi, "#.##") + ',"rsi_slope":' + str.tostring(rsiSlope, "#.##") + ',"stoch_k":' + str.tostring(stochK, "#.##") + ',"macd_hist":' + str.tostring(histLine, "#.##") + ',"signal_type":"' + signalType + '","strategy":"' + signalStrategy + '","regime":"' + regime + '","vol_regime":"' + volatilityRegime + '","squeeze_on":' + str.tostring(squeezeOn ? 1 : 0) + ',"squeeze_bars":' + str.tostring(squeezeBarsCount) + ',"squeeze_fired":' + str.tostring(squeezeFired ? 1 : 0) + ',"mom_direction":' + str.tostring(momDirection) + ',"kc_position":' + str.tostring(kcPosition, "#.###") + ',"atr_percentile":' + str.tostring(atrPercentile, "#.#") + ',"expected_wr":"' + shortWR + '"}}', alert.freq_once_per_bar)
+
+// [22.02.2026] squeeze_building Alert ENTFERNT
+// Grund: Rein informativ, kein Einfluss auf Trading-Entscheidungen
+// Bot erkennt SQUEEZE_BUILDING Regime selbststaendig via volatility_regime.py
+// Erzeugte massiven Webhook-Traffic (jeder TF, jede Bar = ~15 Alerts vs 2 Trade-Signale)
+
+// ============================================================================
+// VISUAL
+// ============================================================================
+plot(filterMA, "200 EMA", color=color.gray, linewidth=2)
+plot(mediumMA, "50 EMA", color=color.orange, linewidth=1)
+plot(shortMA, "20 EMA", color=color.purple, linewidth=1)
+plot(bbUpper, "BB Upper", color=color.blue, linewidth=1)
+plot(bbLower, "BB Lower", color=color.blue, linewidth=1)
+
+kcUpperPlot = plot(showKC ? kcUpper : na, "KC Upper", color=color.new(color.orange, 60), linewidth=1, style=plot.style_circles)
+kcLowerPlot = plot(showKC ? kcLower : na, "KC Lower", color=color.new(color.orange, 60), linewidth=1, style=plot.style_circles)
+
+// Signal Markers
+plotshape(longBaseSignal and not isWeakUpBlocked and signalConfidence >= minConfidenceForAlert, "LONG v7.3", shape.triangleup, location.belowbar, color.green, size=size.normal)
+plotshape(shortBaseSignal and not isWeakUpBlocked and signalConfidence >= minConfidenceForAlert, "SHORT v7.3", shape.triangledown, location.abovebar, color.red, size=size.normal)
+plotshape(squeezeShortSignal and not shortBaseSignal and signalConfidence >= minConfidenceForAlert, "SQUEEZE SHORT", shape.diamond, location.abovebar, color.fuchsia, size=size.large)
+
+// Squeeze + Trend Background
+plotshape(squeezeOn and squeezeBarsCount >= minSqueezeBars, "Squeeze Active", shape.circle, location.bottom, color.new(color.yellow, 30), size=size.tiny)
+
+trendColor = strongUptrend ? color.new(color.green, 90) : strongDowntrend ? color.new(color.red, 90) : isWeakUpBlocked ? color.new(color.orange, 85) : color.new(color.gray, 97)
+bgcolor(trendColor, title="Trend")
+
+squeezeColor = squeezeOn ? color.new(color.yellow, 85) : na
+bgcolor(squeezeColor, title="Squeeze Zone")
+
+squeezeFiredColor = squeezeFired ? (momDirection > 0 ? color.new(color.lime, 70) : color.new(color.fuchsia, 70)) : na
+bgcolor(squeezeFiredColor, title="Squeeze Fired")
+
+// LONG/SHORT Ready Zones
+longReady = stochK < longKThresh and rsi < longRsiThresh and longAdxOK and not long4mDisabled and not longDisabledNew and not isWeakUpBlocked
+bgcolor(longReady ? color.new(color.lime, 85) : na, title="LONG Ready")
+
+shortReady = stochK > shortKThresh and rsi > shortRsiThresh and shortAdxOK and not shortDisabled30S1m and not short4mDisabled and not shortDisabledNew and not isWeakUpBlocked
+bgcolor(shortReady ? color.new(color.red, 85) : na, title="SHORT Ready")
+
+// ============================================================================
+// INFO TABLE (v8.4 - kombiniert v7.3 + v8.0)
+// ============================================================================
+var table infoTable = table.new(position.top_right, 2, 22, bgcolor=color.new(color.black, 80))
+if barstate.islast
+    table.cell(infoTable, 0, 0, "v8.4 SOL", text_color=color.lime)
+    table.cell(infoTable, 1, 0, tfDisplay, text_color=isKnownTF ? color.yellow : color.red)
+
+    // Volatility Regime
+    regimeColor = volatilityRegime == "TRENDING_HIGH_VOL" ? color.lime : volatilityRegime == "TRENDING_LOW_VOL" ? color.green : volatilityRegime == "SQUEEZE_BUILDING" ? color.yellow : volatilityRegime == "BREAKOUT_IMMINENT" ? color.aqua : volatilityRegime == "RANGING_HIGH_VOL" ? color.orange : volatilityRegime == "RANGING_LOW_VOL" ? color.gray : color.white
+    table.cell(infoTable, 0, 1, "Vol Regime", text_color=color.white)
+    table.cell(infoTable, 1, 1, volatilityRegime, text_color=regimeColor)
+
+    // Trend Regime
+    table.cell(infoTable, 0, 2, "Trend", text_color=color.white)
+    trendRegimeColor = strongUptrend ? color.green : strongDowntrend ? color.red : isWeakUpBlocked ? color.orange : color.gray
+    table.cell(infoTable, 1, 2, regime + (isWeakUpBlocked ? " BLOCK!" : ""), text_color=trendRegimeColor)
+
+    // Squeeze Status
+    squeezeStatus = squeezeFired ? "FIRED!" : squeezeOn ? "ON (" + str.tostring(squeezeBarsCount) + ")" : "off"
+    squeezeStatusColor = squeezeFired ? color.aqua : squeezeOn ? color.yellow : color.gray
+    table.cell(infoTable, 0, 3, "Squeeze", text_color=color.white)
+    table.cell(infoTable, 1, 3, squeezeStatus + " (S only)", text_color=squeezeStatusColor)
+
+    table.cell(infoTable, 0, 4, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 4, "INDICATORS", text_color=color.gray)
+
+    // RSI
+    table.cell(infoTable, 0, 5, "RSI (<" + str.tostring(longRsiThresh) + " L)", text_color=color.white)
+    table.cell(infoTable, 1, 5, str.tostring(rsi, "#.#"), text_color=rsi < longRsiThresh ? color.green : rsi > shortRsiThresh ? color.red : color.gray)
+
+    // Slope
+    table.cell(infoTable, 0, 6, "Slope (>" + str.tostring(longSlopeThresh, "#.#") + " L)", text_color=color.white)
+    table.cell(infoTable, 1, 6, str.tostring(rsiSlope, "#.#"), text_color=rsiSlope > longSlopeThresh ? color.green : rsiSlope < shortSlopeThresh ? color.red : color.gray)
+
+    // StochK
+    table.cell(infoTable, 0, 7, "K (<" + str.tostring(longKThresh) + " L)", text_color=color.yellow)
+    kColor = stochK < longKThresh ? color.lime : stochK > shortKThresh ? color.red : color.gray
+    if stochK < 3
+        kColor := color.aqua
+    table.cell(infoTable, 1, 7, str.tostring(stochK, "#.#"), text_color=kColor)
+
+    // ADX
+    table.cell(infoTable, 0, 8, "ADX (<" + str.tostring(longAdxThresh) + ")", text_color=color.white)
+    table.cell(infoTable, 1, 8, str.tostring(adxValue, "#.#"), text_color=longAdxOK ? color.green : color.red)
+
+    // ATR Percentile
+    table.cell(infoTable, 0, 9, "ATR %ile", text_color=color.white)
+    table.cell(infoTable, 1, 9, str.tostring(atrPercentile, "#") + "%", text_color=isHighVol ? color.red : isLowVol ? color.green : color.gray)
+
+    // Volume
+    table.cell(infoTable, 0, 10, "Volume", text_color=color.white)
+    table.cell(infoTable, 1, 10, str.tostring(volRatio, "#.##") + "x", text_color=volRatio > 1.5 ? color.lime : isLowVolume ? color.red : color.gray)
+
+    table.cell(infoTable, 0, 11, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 11, "SIGNALS", text_color=color.gray)
+
+    // LONG Status
+    longIsOff = long4mDisabled or longDisabledNew or isWeakUpBlocked
+    table.cell(infoTable, 0, 12, "LONG", text_color=color.white)
+    longStatus = isWeakUpBlocked ? "WEAK_UP!" : longIsOff ? "OFF" : longReady ? "READY!" : "wait"
+    longStatusColor = isWeakUpBlocked ? color.orange : longIsOff ? color.orange : longReady ? color.lime : color.gray
+    table.cell(infoTable, 1, 12, longStatus, text_color=longStatusColor)
+
+    // SHORT Status
+    shortIsOff = shortDisabled30S1m or short4mDisabled or shortDisabledNew or isWeakUpBlocked
+    shortReadyNow = shortReady and rsiSlope < shortSlopeThresh
+    table.cell(infoTable, 0, 13, "SHORT", text_color=color.white)
+    shortStatus = isWeakUpBlocked ? "WEAK_UP!" : shortIsOff ? "OFF" : shortReadyNow ? "READY!" : "wait"
+    shortColor = isWeakUpBlocked ? color.orange : shortIsOff ? color.orange : shortReadyNow ? color.red : color.gray
+    table.cell(infoTable, 1, 13, shortStatus, text_color=shortColor)
+
+    // Signal Type
+    table.cell(infoTable, 0, 14, "Signal", text_color=color.white)
+    table.cell(infoTable, 1, 14, signalType, text_color=signalType == "NONE" ? color.gray : signalType == "SHORT_SQUEEZE" ? color.fuchsia : color.yellow)
+
+    // Confidence
+    table.cell(infoTable, 0, 15, "Confidence", text_color=color.white)
+    table.cell(infoTable, 1, 15, str.tostring(signalConfidence * 100, "#") + "%", text_color=signalConfidence >= minConfidenceForAlert ? color.green : color.red)
+
+    table.cell(infoTable, 0, 16, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 16, "EXP. WR", text_color=color.gray)
+
+    table.cell(infoTable, 0, 17, "LONG WR", text_color=color.teal)
+    table.cell(infoTable, 1, 17, longWR, text_color=longWR == "N/A" ? color.orange : color.teal)
+
+    table.cell(infoTable, 0, 18, "SHORT WR", text_color=color.orange)
+    table.cell(infoTable, 1, 18, shortWR, text_color=shortWR == "N/A" ? color.orange : color.orange)
+
+    table.cell(infoTable, 0, 19, "---", text_color=color.gray)
+    table.cell(infoTable, 1, 19, "FILTER", text_color=color.gray)
+
+    table.cell(infoTable, 0, 20, "L: RSI/K", text_color=color.teal)
+    table.cell(infoTable, 1, 20, "<" + str.tostring(longRsiThresh) + "/<" + str.tostring(longKThresh), text_color=color.teal)
+
+    table.cell(infoTable, 0, 21, "S: RSI/K", text_color=color.orange)
+    table.cell(infoTable, 1, 21, ">" + str.tostring(shortRsiThresh) + "/>" + str.tostring(shortKThresh), text_color=color.orange)
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineSolBot;
+const $ = id => document.getElementById(id);
+const STORE = 'solbot-params';
+const TF_LABEL = k => /S$/.test(k) ? k : k + ' min';
+const SCHEMA = [
+  {g:'Umbrales de este marco', open:true, tf:true, f:[
+    ['tf:longRsi','LONG: RSI <','num',{step:1}], ['tf:longK','LONG: Stoch K <','num',{step:1}], ['tf:longSlope','LONG: pendiente RSI >','num',{step:0.5}], ['tf:longAdx','LONG: ADX < (100 = sin filtro)','num',{step:1}], ['tf:longOn','LONG activado','bool',{toggle:'long'}],
+    ['tf:shortRsi','SHORT: RSI >','num',{step:1}], ['tf:shortK','SHORT: Stoch K >','num',{step:1}], ['tf:shortSlope','SHORT: pendiente RSI <','num',{step:0.5}], ['tf:shortAdx','SHORT: ADX < (100 = sin filtro)','num',{step:1}], ['tf:shortOn','SHORT activado','bool',{toggle:'short'}]]},
+  {g:'Squeeze SHORT', open:true, f:[
+    ['enableSqueezeShort','Activar Squeeze SHORT','bool'], ['minSqueezeBars','Velas mínimas de squeeze','num',{min:1,step:1,int:true}],
+    ['squeezeVolMin','Volumen mínimo (× media)','num',{min:0,step:0.1}], ['squeezeMomMin','Momentum mínimo %','num',{min:0,step:0.05}]]},
+  {g:'Régimen y confianza', open:true, f:[
+    ['blockWeakUp','Bloquear WEAK_TREND_UP','bool'], ['minConfidenceForAlert','Confianza mínima para alerta','num',{min:0,max:1,step:0.05}],
+    ['adxTrendThreshold','ADX tendencia','num',{step:1}], ['adxRangeThreshold','ADX rango','num',{step:1}],
+    ['atrPercLookback','Ventana percentil ATR','num',{min:10,step:1,int:true}], ['atrHighPercentile','Percentil ATR alto','num',{step:5}], ['atrLowPercentile','Percentil ATR bajo','num',{step:5}]]},
+  {g:'SL / TP de la alerta', open:true, f:[
+    ['atrMultSL','SL (ATR ×)','num',{min:0.1,step:0.1}], ['atrMultTP','TP (ATR ×)','num',{min:0.1,step:0.1}], ['horizon','Velas máximas para evaluar','num',{min:10,step:10,int:true}]]},
+  {g:'Indicadores', f:[
+    ['emaFilter','EMA filtro','num',{min:1,step:1,int:true}], ['ema50','EMA media','num',{min:1,step:1,int:true}], ['ema20','EMA corta','num',{min:1,step:1,int:true}],
+    ['rsiLength','RSI','num',{min:2,step:1,int:true}], ['rsiSlopeLength','Pendiente RSI (velas)','num',{min:1,step:1,int:true}],
+    ['stochRsiLength','Stoch RSI','num',{min:2,step:1,int:true}], ['stochRsiSmooth','Suavizado K','num',{min:1,step:1,int:true}],
+    ['macdFast','MACD rápida','num',{min:1,step:1,int:true}], ['macdSlow','MACD lenta','num',{min:1,step:1,int:true}], ['macdSignal','MACD señal','num',{min:1,step:1,int:true}],
+    ['bbLength','BB longitud','num',{min:2,step:1,int:true}], ['bbMult','BB desviaciones','num',{min:0.1,step:0.1}],
+    ['atrLength','ATR','num',{min:1,step:1,int:true}], ['adxLength','ADX','num',{min:2,step:1,int:true}],
+    ['kcEmaLength','Keltner EMA','num',{min:1,step:1,int:true}], ['kcAtrLength','Keltner ATR','num',{min:1,step:1,int:true}], ['kcAtrMult','Keltner ATR ×','num',{min:0.1,step:0.1}]]}
+];
+let params = JSON.parse(JSON.stringify(E.DEFAULTS));
+try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) { const tf = Object.assign(E.tfDefaults(), saved.tf || {}); params = Object.assign(params, saved, {tf}); } } catch (e) {}
+const curKey = () => (params.chartTf in params.tf) ? params.chartTf : '20';
+const getP = k => k.startsWith('tf:') ? params.tf[curKey()][k.slice(3)] : params[k];
+const defP = k => k.startsWith('tf:') ? E.tfDefaults()[curKey()][k.slice(3)] : E.DEFAULTS[k];
+const setP = (k, v) => { if (k.startsWith('tf:')) params.tf[curKey()][k.slice(3)] = v; else params[k] = v; };
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  const known = E.TFS.includes(params.chartTf);
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + (grp.tf ? ' (' + TF_LABEL(known ? params.chartTf : '20') + ')' : '') + '</summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    if (grp.tf && !known){ const p = document.createElement('p'); p.className = 'note'; p.style.margin = '0'; p.textContent = 'Este marco no está en la lista del script: no hay señales base. Se muestran los umbrales de 20 min, que es lo que usa la tabla.'; box.appendChild(p); }
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key.replace(':','_');
+      if (opt.toggle){
+        const tog = (opt.toggle === 'long' ? E.LONG_TOGGLE : E.SHORT_TOGGLE)[curKey()];
+        if (tog === undefined){ row.innerHTML = '<label>' + label + '</label><span class="fixed">siempre (sin input)</span>'; box.appendChild(row); continue; }
+      }
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + (type === 'bool' ? '<input type="checkbox" id="'+id+'">'
+        : '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">');
+      box.appendChild(row);
+      const el = row.querySelector('#'+id.replace(/([.:])/g,'\\$1'));
+      if (type === 'bool') el.checked = !!getP(key); else el.value = getP(key);
+      el.addEventListener(type === 'bool' ? 'change' : 'input', () => {
+        let val;
+        if (type === 'bool') val = el.checked;
+        else { val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.int) val = Math.round(val); }
+        row.classList.remove('bad'); setP(key, val); markChanged(); schedule();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  markChanged();
+}
+function markChanged(){
+  document.querySelectorAll('.field[data-key]').forEach(r => r.classList.toggle('changed', getP(r.dataset.key) !== defP(r.dataset.key)));
+  try { localStorage.setItem(STORE, JSON.stringify(params)); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { const tf = params.chartTf; params = JSON.parse(JSON.stringify(E.DEFAULTS)); params.chartTf = tf; buildSettings(); schedule(); cmpCache = null; });
+const TF_OPTS = E.TFS.concat(['25', '30', '60']);
+$('tf').innerHTML = TF_OPTS.map(k => '<option value="' + k + '">' + TF_LABEL(k) + (E.TFS.includes(k) ? '' : ' (fuera de lista)') + '</option>').join('');
+$('tf').value = params.chartTf;
+$('tf').addEventListener('change', () => { params.chartTf = $('tf').value; buildSettings(); runNow(true); });
+
+let data = null, dataLabel = '', res = null, cmpCache = null;
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7), days = +$('days').value;
+  data = E.makeSample(seed, days);
+  dataLabel = '<b>Datos de ejemplo sintéticos</b> · tipo SOLUSD en velas de 15 s · ' + days + ' días · semilla ' + seed + ' · no son precios reales';
+  setMsg(''); cmpCache = null;
+}
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random()*9999); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('days').addEventListener('change', () => { loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const d = E.parseCSV(String(rd.result)); data = d; cmpCache = null;
+      dataLabel = '<b>' + esc(file.name) + '</b> · ' + d.t.length.toLocaleString('es-ES') + ' velas de ' + (d.tfSec % 60 ? d.tfSec + ' s' : d.tfSec / 60 + ' min');
+      setMsg(d.hasVolume ? '' : 'El CSV no tiene volumen: el Squeeze SHORT no puede dispararse (exige volumen > 1,2 × media).');
+      runNow(true);
+    } catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+const nf = (x, d) => isFinite(x) ? x.toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d}) : '–';
+let dec = 2;
+const fmtP = x => nf(x, dec);
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + (d.getUTCSeconds() ? ':' + pad(d.getUTCSeconds()) : ''); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const fmtHM = t => { const d = new Date(t); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const rate = S => S.tp + S.sl ? nf(S.tpRate, 0) + ' %' : '–';
+
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => { cmpCache = null; runNow(false); }, 150); }
+function runNow(resetView){
+  res = E.run(data, params);
+  dec = Math.max(res.decimals, 2);
+  const B = res.bars;
+  $('src-chip').innerHTML = dataLabel + ' · ' + fmtDay(B.t[0]) + ' → ' + fmtDay(B.t[B.t.length-1]) + ' UTC';
+  $('tf-chip').innerHTML = 'Marco <b>' + TF_LABEL(res.tfKey) + '</b>' + (res.known ? '' : ' · <span class="neg">fuera de la lista: solo Squeeze SHORT</span>') + (res.tfExact ? '' : ' · <span class="neg">no se puede agregar a ' + TF_LABEL(params.chartTf) + '</span>');
+  if (!res.tfExact) setMsg('Los datos no se pueden agregar al marco elegido; se usa el marco de los datos.');
+  renderStats(); renderSignals(); renderFunnel();
+  if (!document.querySelector('[data-panel=cmp]').hidden) renderCmp();
+  if (resetView || !view.count){
+    view.count = Math.min(res.n, defaultCount());
+    const al = res.signals.filter(s => s.alert), last = al[al.length - 1];
+    view.start = (last ? Math.min(res.n, last.i + 60) : res.n) - view.count;
+  }
+  clampView(); draw();
+}
+function renderStats(){
+  const s = res.stats;
+  $('s-al').textContent = s.signals;
+  $('s-al2').textContent = s.all.repeats + ' repetidas (vela anterior también) · ' + nf(s.weakUpPct, 0) + ' % velas en WEAK_UP';
+  const side = (id, S, rr) => { $(id).textContent = S.count; $(id + '2').textContent = S.count ? 'TP antes que SL: ' + S.tp + '/' + (S.tp + S.sl) + ' (' + rate(S) + ') · R:R ' + nf(rr, 2) : 'sin alertas'; };
+  side('s-l', s.long, params.atrMultTP / params.atrMultSL);
+  side('s-s', s.short, params.atrMultTP / params.atrMultSL);
+  side('s-q', s.squeeze, 3.0 / 1.2);
+  const r = $('s-r'); r.textContent = isFinite(s.all.expR) ? (s.all.expR > 0 ? '+' : '') + nf(s.all.expR, 2) + ' R' : '–'; r.className = 'v ' + (s.all.expR > 0 ? 'pos' : s.all.expR < 0 ? 'neg' : '');
+  $('s-r2').textContent = 'por alerta resuelta · TP = +' + nf(params.atrMultTP / params.atrMultSL, 2) + ' R, SL = −1 R';
+  $('s-wr').textContent = res.expectedWR.long + ' / ' + res.expectedWR.short;
+  $('s-wr2').textContent = 'LONG / SHORT («expected_wr» del JSON)';
+}
+let selSig = -1;
+function renderSignals(){
+  const al = res.signals.map((s, k) => Object.assign({k}, s));
+  const t = res.bars.t;
+  const typeTxt = s => '<span class="pill ' + (s.dir > 0 ? 'b' : 's') + '">' + (s.dir > 0 ? 'LONG' : s.type === 'SQUEEZE' ? 'SQUEEZE' : 'SHORT') + '</span>';
+  const rows = al.map(s => {
+    const out = !s.alert ? '<span class="pill n">' + (s.blocked ? 'bloqueada WEAK_UP' : 'confianza baja') + (s.marker ? ' · con marca' : '') + '</span>'
+      : s.outcome === 'TP' ? '<span class="pill b">TP</span>' : s.outcome === 'SL' ? '<span class="pill s">SL</span>' : '<span class="pill n">' + s.outcome + '</span>';
+    return '<tr data-k="' + s.k + '"' + (s.k === selSig ? ' class="sel"' : '') + '><td>' + (s.alert ? '' : '·') + (s.repeat ? '↻' : '') + '</td><td>' + fmtDate(t[s.i]) + '</td><td>' + typeTxt(s) + '</td><td>' + fmtP(s.entry) + '</td><td>' + fmtP(s.sl) + '</td><td>' + fmtP(s.tp) + '</td><td>' + nf(s.conf * 100, 0) + ' %</td><td class="txt">' + out + '</td><td>' + (s.bars != null ? s.bars : '–') + '</td><td class="' + (s.r > 0 ? 'pos' : s.r < 0 ? 'neg' : '') + '">' + (s.alert && s.r ? (s.r > 0 ? '+' : '') + nf(s.r, 2) : '–') + '</td></tr>';
+  });
+  $('sbody').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="10" class="empty">Ninguna señal en este marco con estos datos.</td></tr>';
+  const nb = res.signals.filter(s => !s.alert).length;
+  $('snote').innerHTML = 'Se lista cada vela con condición LONG, SHORT o Squeeze SHORT. «↻» indica que la vela anterior ya envió una alerta del mismo lado. ' + (nb ? '<b>' + nb + '</b> señales no llegan al bot (bloqueo WEAK_UP o confianza baja). ' : '')
+    + 'El resultado mide si el precio toca antes el TP o el SL de la alerta a partir de la vela siguiente (máximo ' + params.horizon + ' velas). Si en una vela se tocan los dos, se decide con el recorrido apertura → extremo más cercano.';
+}
+$('sbody').addEventListener('click', ev => {
+  const row = ev.target.closest('tr[data-k]'); if (!row) return;
+  selSig = +row.dataset.k;
+  document.querySelectorAll('#sbody tr').forEach(r => r.classList.toggle('sel', r === row));
+  const s = res.signals[selSig];
+  $('json').textContent = (s.alert ? '' : '// Esta señal NO se envía (' + (s.blocked ? 'bloqueo WEAK_TREND_UP' : 'confianza por debajo del mínimo') + '). Así sería el JSON:\n') + E.alertJson(res, s);
+  view.count = Math.max(80, Math.min(260, view.count));
+  view.start = s.i - Math.floor(view.count / 3); clampView(); draw();
+});
+function renderFunnel(){
+  const F = res.funnel, row = (label, v, max, ok) => '<div class="frow' + (ok ? ' ok' : '') + '"><span>' + label + '</span><span class="bar"><i style="width:' + (max ? v / max * 100 : 0).toFixed(1) + '%"></i></span><span class="n">' + v + '</span></div>';
+  const th = res.th;
+  const col = (title, f, steps, first) => {
+    let h = '<div><h3>' + title + ' <span>' + f[first] + ' velas</span></h3><h4>Primer paso que no cumple</h4>';
+    for (const [k, label] of steps) h += row(label, f[k], f[first]);
+    h += row('Alertas enviadas', f.alerts, f[first], true);
+    return h + '</div>';
+  };
+  const L = col('LONG: RSI < ' + th.longRsi, F.long, [['slope','Pendiente RSI > ' + th.longSlope],['k','Stoch K < ' + th.longK],['adx','ADX < ' + th.longAdx],['enabled','Marco activado'],['weakUp','No WEAK_TREND_UP'],['conf','Confianza ≥ ' + params.minConfidenceForAlert]], 'rsi');
+  const S = col('SHORT: RSI > ' + th.shortRsi, F.short, [['slope','Pendiente RSI < ' + th.shortSlope],['k','Stoch K > ' + th.shortK],['adx','ADX < ' + th.shortAdx],['enabled','Marco activado'],['weakUp','No WEAK_TREND_UP'],['conf','Confianza ≥ ' + params.minConfidenceForAlert]], 'rsi');
+  const Q = col('Squeeze SHORT: squeeze disparado', F.squeeze, [['bear','Momentum MACD bajista'],['mom','Movimiento 3 velas > ' + params.squeezeMomMin + ' %'],['vol','Volumen > ' + params.squeezeVolMin + ' × media'],['rsi','RSI > 25'],['weakUp','No WEAK_TREND_UP'],['conf','Confianza ≥ ' + params.minConfidenceForAlert]], 'fired');
+  $('funnel').innerHTML = L + S + Q + (F.squeeze.markersNoAlert ? '<p class="note">' + F.squeeze.markersNoAlert + ' rombos de Squeeze SHORT se dibujan sin enviar alerta (el <code>plotshape</code> no mira el bloqueo WEAK_UP).</p>' : '');
+}
+function renderCmp(){
+  if (!cmpCache){
+    cmpCache = TF_OPTS.map(k => { const r = E.run(data, Object.assign({}, params, {chartTf: k})); return {k, r}; });
+  }
+  const pct = S => S.tp + S.sl ? rate(S) + ' <span class="txt" style="color:var(--muted)">(' + S.tp + '/' + (S.tp + S.sl) + ')</span>' : '–';
+  $('cbody').innerHTML = cmpCache.map(({k, r}) => {
+    const s = r.stats, known = E.TFS.includes(k);
+    return '<tr data-k="' + k + '"' + (k === params.chartTf ? ' class="cur"' : '') + '><td>' + TF_LABEL(k) + '</td><td>' + r.n + '</td><td>' + s.long.count + '</td><td>' + pct(s.long) + '</td><td>' + (known ? E.LONG_WR[k] : 'N/A') + '</td><td>' + s.short.count + '</td><td>' + pct(s.short) + '</td><td>' + (known ? E.SHORT_WR[k] : 'N/A') + '</td><td>' + s.squeeze.count + '</td><td>' + pct(s.squeeze) + '</td><td>' + s.all.repeats + '</td><td class="' + (s.all.expR > 0 ? 'pos' : s.all.expR < 0 ? 'neg' : '') + '">' + (isFinite(s.all.expR) ? (s.all.expR > 0 ? '+' : '') + nf(s.all.expR, 2) : '–') + '</td></tr>';
+  }).join('');
+  const tot = cmpCache.filter(x => E.TFS.includes(x.k)).reduce((a, x) => a + x.r.stats.signals, 0);
+  $('cnote').innerHTML = 'Mismo conjunto de datos agregado a cada marco, con los umbrales del script para cada uno. En total, <b>' + tot + '</b> alertas en los 22 marcos de la lista. «TP primero» es el porcentaje de alertas resueltas que tocan antes el TP que el SL. Con R:R 2,5/1,5, el punto de equilibrio está en el 37,5 %; para el Squeeze (3,0/1,2), en el 28,6 %. Haz clic en una fila para abrir ese marco.';
+}
+$('cbody').addEventListener('click', ev => { const r = ev.target.closest('tr[data-k]'); if (!r) return; params.chartTf = r.dataset.k; $('tf').value = params.chartTf; buildSettings(); runNow(true); renderCmp(); });
+
+function renderInfo(i){
+  const D = $('info'); if (!res || i < 0) { D.innerHTML = ''; return; }
+  const r = res, th = r.th, sq = r.squeezeFired[i] ? 'FIRED!' : r.squeezeOn[i] ? 'ON (' + r.squeezeBars[i] + ')' : 'off';
+  const row = (k, v, cls) => '<dt>' + k + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</dd>';
+  const blocked = r.weakUp[i], longOff = !r.known || !th.longOn || blocked, shortOff = !r.known || !th.shortOn || blocked;
+  const sigHere = r.signals.filter(s => s.i === i && s.alert);
+  const sigType = sigHere.length ? sigHere.map(s => s.dir > 0 ? 'LONG_V73' : s.type === 'SQUEEZE' ? 'SHORT_SQUEEZE' : 'SHORT_V73').join(' + ') : 'NONE';
+  D.innerHTML = '<div class="ttl">v8.4 SOL · ' + TF_LABEL(r.tfKey) + ' <span>' + fmtDate(r.bars.t[i]) + '</span></div>'
+    + row('Vol Regime', r.volRegime[i]) + row('Trend', r.regime[i] + (blocked ? ' BLOCK!' : ''), blocked ? 'warn' : r.regime[i] === 'STRONG_TREND_UP' ? 'pos' : r.regime[i] === 'STRONG_TREND_DOWN' ? 'neg' : '')
+    + row('Squeeze', sq + ' (S only)', r.squeezeFired[i] ? 'fuch' : r.squeezeOn[i] ? 'warn' : '')
+    + '<div class="sep">Indicadores</div>'
+    + row('RSI (<' + th.longRsi + ' L)', nf(r.rsi[i], 1), r.rsi[i] < th.longRsi ? 'pos' : r.rsi[i] > th.shortRsi ? 'neg' : '')
+    + row('Slope (>' + th.longSlope + ' L)', nf(r.rsiSlope[i], 1)) + row('K (<' + th.longK + ' L)', nf(r.stochK[i], 1), r.stochK[i] < th.longK ? 'pos' : r.stochK[i] > th.shortK ? 'neg' : '')
+    + row('ADX (<' + th.longAdx + ')', nf(r.adx[i], 1)) + row('ATR %ile', nf(r.atrPercentile[i], 0) + '%') + row('Volume', nf(r.volRatio[i], 2) + 'x')
+    + '<div class="sep">Señales</div>'
+    + row('LONG', blocked ? 'WEAK_UP!' : longOff ? 'OFF' : r.longReady[i] ? 'READY!' : 'wait', blocked || longOff ? 'warn' : r.longReady[i] ? 'pos' : '')
+    + row('SHORT', blocked ? 'WEAK_UP!' : shortOff ? 'OFF' : r.shortReady[i] && r.rsiSlope[i] < th.shortSlope ? 'READY!' : 'wait', blocked || shortOff ? 'warn' : '')
+    + row('Signal', sigType) + row('Confidence', nf(r.conf[i] * 100, 0) + '%' + (sigHere.length ? '' : ' (guardada)'), r.conf[i] >= params.minConfidenceForAlert ? 'pos' : 'neg')
+    + row('Exp. WR L / S', r.expectedWR.long + ' / ' + r.expectedWR.short);
+}
+
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(80, Math.min(240, Math.floor(cv.clientWidth / 4)));
+function clampView(){
+  const n = res.n;
+  view.count = Math.max(30, Math.min(n, view.count));
+  view.start = Math.max(0, Math.min(n - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, n - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  const o = {}; ['ink','muted','line','grid','buy','sell','surface','accent','mono','candle','sq','fuch','weak','upbg','dnbg','bb','kc','e50','e20','e200','tp','sl'].forEach(k => o[k] = g('--' + k)); return o;
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = res.bars, n = res.n, r = res;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 70, timeH = 22, gap = 12, plotW = W - axisW;
+  const priceH = Math.round((H - timeH - gap) * 0.7), hTop = priceH + gap, hH = H - timeH - hTop;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  let lo = Infinity, hi = -Infinity;
+  const inc = v => { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+  for (let i = s; i < e; i++){ inc(d.l[i]); inc(d.h[i]); inc(r.bbUpper[i]); inc(r.bbLower[i]); inc(r.kcUpper[i]); inc(r.kcLower[i]); }
+  const sel = selSig >= 0 ? r.signals[selSig] : null;
+  if (sel && sel.i >= s && sel.i < e) { inc(sel.sl); inc(sel.tp); }
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  const padY = (hi - lo) * 0.05 || 1; lo -= padY; hi += padY;
+  const Y = p => 10 + (hi - p) / (hi - lo) * (priceH - 20);
+  geo = {bw, plotW};
+  // trend background
+  for (let i = s; i < e; i++){
+    const g = r.regime[i], col = r.weakUp[i] ? T.weak : g === 'STRONG_TREND_UP' ? T.upbg : g === 'STRONG_TREND_DOWN' ? T.dnbg : null;
+    if (col){ ctx.fillStyle = col; ctx.fillRect(X(i) - bw/2, 0, bw + 0.5, priceH); }
+  }
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const stepY = niceStep((hi - lo) / 7), pdec = stepY < 1 ? Math.min(3, Math.ceil(-Math.log10(stepY))) : 0;
+  for (let p = Math.ceil(lo / stepY) * stepY; p <= hi; p += stepY){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(p.toFixed(pdec), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line; ctx.beginPath(); ctx.moveTo(plotW + 0.5, 0); ctx.lineTo(plotW + 0.5, H - timeH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, hTop - gap/2 + 0.5); ctx.lineTo(W, hTop - gap/2 + 0.5); ctx.stroke();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw)); let lastDay = -1;
+  for (let i = s; i < e; i++){
+    if ((i - s) % every) continue;
+    const day = new Date(d.t[i]).getUTCDate();
+    ctx.fillStyle = T.muted; ctx.fillText(day !== lastDay ? fmtDay(d.t[i]) : fmtHM(d.t[i]), Math.min(Math.max(X(i), 24), plotW - 24), H - 6);
+    lastDay = day;
+  }
+  ctx.textAlign = 'left';
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  const line = (arr, color, width, dash, Yf) => {
+    Yf = Yf || Y; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath(); let on = false;
+    for (let i = Math.max(0, s - 1); i < Math.min(n, e + 1); i++){ const v = arr[i]; if (!isFinite(v)) { on = false; continue; } on ? ctx.lineTo(X(i), Yf(v)) : ctx.moveTo(X(i), Yf(v)); on = true; }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  ctx.globalAlpha = 0.6; line(r.kcUpper, T.kc, 1, [2,3]); line(r.kcLower, T.kc, 1, [2,3]); ctx.globalAlpha = 0.7; line(r.bbUpper, T.bb, 1); line(r.bbLower, T.bb, 1); ctx.globalAlpha = 1;
+  const bodyW = Math.max(1, Math.min(10, bw * 0.66));
+  for (let i = s; i < e; i++){
+    const up = d.c[i] >= d.o[i], x = X(i);
+    ctx.strokeStyle = ctx.fillStyle = T.candle; ctx.globalAlpha = up ? 0.55 : 0.95;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, Y(d.h[i])); ctx.lineTo(Math.round(x) + 0.5, Y(d.l[i])); ctx.stroke();
+    const y1 = Y(Math.max(d.o[i], d.c[i])), y2 = Y(Math.min(d.o[i], d.c[i]));
+    if (up) ctx.strokeRect(x - bodyW/2 + 0.5, y1 + 0.5, Math.max(1, bodyW - 1), Math.max(1, y2 - y1)); else ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+  ctx.globalAlpha = 1;
+  line(r.filterMA, T.e200, 2); line(r.mediumMA, T.e50, 1); line(r.shortMA, T.e20, 1);
+  // squeeze active dots (bottom)
+  for (let i = s; i < e; i++) if (r.squeezeOn[i] && r.squeezeBars[i] >= params.minSqueezeBars){ ctx.fillStyle = T.sq; ctx.beginPath(); ctx.arc(X(i), priceH - 5, 2, 0, Math.PI*2); ctx.fill(); }
+  // selected signal SL / TP
+  if (sel && sel.i < e){
+    const end = sel.bars != null ? sel.i + sel.bars : Math.min(n - 1, sel.i + 40);
+    const seg = (p, col) => { ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(X(sel.i), Y(p)); ctx.lineTo(X(end), Y(p)); ctx.stroke(); ctx.setLineDash([]); };
+    seg(sel.tp, T.tp); seg(sel.sl, T.sl); seg(sel.entry, T.muted);
+  }
+  // markers
+  const sz = bw > 6 ? 6 : 4.5;
+  r.signals.forEach((sg, k) => {
+    if (sg.i < s || sg.i >= e) return;
+    const x = X(sg.i), filled = sg.alert || sg.marker;
+    const col = sg.type === 'SQUEEZE' ? T.fuch : sg.dir > 0 ? T.buy : T.sell;
+    ctx.fillStyle = col; ctx.strokeStyle = filled ? col : T.muted; ctx.lineWidth = 1.2; ctx.globalAlpha = filled ? 1 : 0.8;
+    ctx.beginPath();
+    if (sg.type === 'SQUEEZE'){ const y = Y(d.h[sg.i]) - 12; ctx.moveTo(x, y - sz); ctx.lineTo(x + sz, y); ctx.lineTo(x, y + sz); ctx.lineTo(x - sz, y); }
+    else if (sg.dir > 0){ const y = Y(d.l[sg.i]) + 10; ctx.moveTo(x, y - sz); ctx.lineTo(x - sz, y + sz); ctx.lineTo(x + sz, y + sz); }
+    else { const y = Y(d.h[sg.i]) - 10; ctx.moveTo(x, y + sz); ctx.lineTo(x - sz, y - sz); ctx.lineTo(x + sz, y - sz); }
+    ctx.closePath(); if (filled) ctx.fill(); else ctx.stroke(); ctx.globalAlpha = 1;
+    if (k === selSig){ ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, Y(sg.entry), 9, 0, Math.PI*2); ctx.stroke(); }
+  });
+  ctx.restore();
+  // RSI / Stoch K pane
+  const th = r.th, PY = v => hTop + 14 + (1 - v / 100) * (hH - 18);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, hTop, plotW, hH); ctx.clip();
+  for (let i = s; i < e; i++){
+    if (r.longReady[i]){ ctx.fillStyle = T.upbg; ctx.fillRect(X(i) - bw/2, hTop, bw + 0.5, hH); }
+    else if (r.shortReady[i]){ ctx.fillStyle = T.dnbg; ctx.fillRect(X(i) - bw/2, hTop, bw + 0.5, hH); }
+  }
+  const hl = (v, col) => { const y = Math.round(PY(v)) + 0.5; ctx.strokeStyle = col; ctx.setLineDash([4,4]); ctx.lineWidth = 1; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; };
+  hl(th.longRsi, T.buy); hl(th.shortRsi, T.sell);
+  ctx.globalAlpha = 0.55; line(r.stochK, T.muted, 1, null, PY); ctx.globalAlpha = 1; line(r.rsi, T.accent, 1.5, null, PY);
+  ctx.restore();
+  ctx.fillStyle = T.muted; ctx.font = '11px ' + T.mono; ctx.textBaseline = 'top';
+  ctx.fillText('RSI ' + params.rsiLength + ' (color) · Stoch K (gris) · LONG RSI < ' + th.longRsi + ' · SHORT RSI > ' + th.shortRsi, 8, hTop + 2);
+  ctx.textBaseline = 'middle'; ctx.fillText(String(th.longRsi), plotW + 8, PY(th.longRsi)); ctx.fillText(String(th.shortRsi), plotW + 8, PY(th.shortRsi));
+  if (hover >= s && hover < e){
+    const x = Math.round(X(hover)) + 0.5;
+    ctx.strokeStyle = T.muted; ctx.globalAlpha = 0.5; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - timeH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const n = res.n, e = Math.min(n, view.start + view.count);
+  const i = hover >= view.start && hover < e ? hover : n - 1;
+  const d = res.bars;
+  $('readout').innerHTML = fmtDate(d.t[i]) + ' UTC  O <b>' + fmtP(d.o[i]) + '</b> H <b>' + fmtP(d.h[i]) + '</b> L <b>' + fmtP(d.l[i]) + '</b> C <b>' + fmtP(d.c[i]) + '</b>'
+    + '<br>RSI <b>' + nf(res.rsi[i], 1) + '</b> pendiente <b>' + nf(res.rsiSlope[i], 1) + '</b> K <b>' + nf(res.stochK[i], 1) + '</b> ADX <b>' + nf(res.adx[i], 1) + '</b> · ' + res.regime[i];
+  renderInfo(i);
+}
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const mx = ev.clientX - cv.getBoundingClientRect().left;
+  if (drag){ view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView(); }
+  hover = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  draw();
+});
+const endDrag = () => { drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const frac = Math.min(1, (ev.clientX - cv.getBoundingClientRect().left) / geo.plotW), anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) view.start += Math.round(ev.deltaX / geo.bw);
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = res.n; clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+  if (b.dataset.tab === 'cmp') { $('cbody').innerHTML = '<tr><td colspan="12" class="empty">Calculando los 25 marcos…</td></tr>'; setTimeout(renderCmp, 30); }
+}));
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, q = '', ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (!inStr && (ch === '"' || ch === "'")) { inStr = true; q = ch; } else if (inStr && ch === q) inStr = false; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code).replace(/("[^"]*"|'[^']*')/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na|for|to|bool|float|int|string)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+new ResizeObserver(() => { if (res) { clampView(); draw(); } }).observe($('chart-box'));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+new MutationObserver(draw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+loadSample();
+runNow(true);
+})();
+</script>
+</body>
+</html>

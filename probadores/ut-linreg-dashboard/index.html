@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UT Bot LinReg Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEEFEC; --surface:#FAFAF8; --surface-2:#E4E6E1; --ink:#181C1A; --muted:#5C6460; --line:#D4D8D2;
+  --accent:#1F6F6A; --accent-ink:#F1FAF9; --buy:#1E7F4E; --sell:#B8352D; --sl:#B8352D; --tp:#1E7F4E; --entry:#2B4A8C;
+  --ut-up:#1E7F4E; --ut-dn:#B8352D; --bb:#8B918D; --ema:#2F5FD0; --trail:#C77A12; --zone-r:rgba(184,53,45,.13); --zone-s:rgba(30,127,78,.13); --grid:rgba(24,28,26,.07); --dd:rgba(184,53,45,.10);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+    --accent:#5CC2BA; --accent-ink:#082220; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+    --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#7EA2F2; --trail:#E9A546; --zone-r:rgba(238,107,96,.16); --zone-s:rgba(70,192,127,.15); --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+  --accent:#5CC2BA; --accent-ink:#082220; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+  --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#7EA2F2; --trail:#E9A546; --zone-r:rgba(238,107,96,.16); --zone-s:rgba(70,192,127,.15); --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input,.seed select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.seed input{width:72px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.msg{font-size:13px;color:var(--sl)}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+.pos{color:var(--tp)} .neg{color:var(--sl)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px)}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{flex:1;min-width:0}
+.field input[type=number]{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--sl)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.ind-row{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;margin-bottom:10px;font-family:var(--mono);color:var(--muted)}
+.ind-row b{color:var(--ink);font-weight:500}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.b{background:color-mix(in srgb,var(--buy) 16%,transparent);color:var(--buy)}
+.pill.s{background:color-mix(in srgb,var(--sell) 16%,transparent);color:var(--sell)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.funnel h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.frow{display:grid;grid-template-columns:180px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12.5px;max-width:78ch;margin:12px 0 0}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--tp)} pre.code .nu{color:var(--entry)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:82ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.mode button{border:0;background:none;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.mode button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.diag{border:1px solid var(--line);border-left:4px solid var(--sl);border-radius:8px;background:var(--surface);padding:14px 16px;display:grid;gap:8px}
+.diag.ok{border-left-color:var(--accent)}
+.diag h2{font-size:15px;font-weight:700}
+.diag p{margin:0;max-width:90ch;color:var(--ink)}
+.diag p.m{color:var(--muted);font-size:13px}
+.diag code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.diag .nums{display:flex;flex-wrap:wrap;gap:6px 22px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.diag .nums b{color:var(--ink);font-weight:500}
+.field select{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+
+.legend select{border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:2px 6px;font-size:12px}
+.legend label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.legend input{accent-color:var(--accent);margin:0}
+.dashp{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px 28px}
+.dcol h3{font-size:13px;font-weight:600;margin-bottom:6px}
+.dcol td{text-align:left}
+.dcol td:first-child{font-family:var(--sans);color:var(--muted);width:45%}
+.tfs{display:flex;flex-wrap:wrap;gap:8px 14px;font-family:var(--mono);font-size:12.5px}
+.tf{display:inline-flex;align-items:center;gap:4px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--muted);vertical-align:-1px}
+.dot.up{background:var(--buy)} .dot.dn{background:var(--sell)} .dot.na{background:var(--surface-2);border:1px solid var(--line)}
+#zbody tr{cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>UT Bot <span>+</span> LinReg</h1>
+      <p>Probador de «UT Bot + LinReg Candles + Longevity Zones + S/R + Dashboard» · Pine v6 portado a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="seed">Semilla</label><input id="seed" type="number" value="7" min="1" step="1"></span>
+      <button class="btn" id="reseed" type="button">Nuevos datos de ejemplo</button>
+      <label class="btn primary" for="csv">Cargar CSV…</label>
+      <input id="csv" type="file" accept=".csv,.txt,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="chips">
+    <span class="chip" id="src-chip"></span>
+    <span class="msg" id="msg" hidden></span>
+  </div>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Señales confirmadas</span><span class="v" id="s-sig">–</span><span class="s" id="s-sig2">–</span></div>
+    <div class="stat"><span class="k">Operaciones</span><span class="v" id="s-tr">–</span><span class="s" id="s-tr2">–</span></div>
+    <div class="stat"><span class="k">% ganadoras</span><span class="v" id="s-wr">–</span><span class="s" id="s-wr2">–</span></div>
+    <div class="stat"><span class="k">Resultado</span><span class="v" id="s-pips">–</span><span class="s" id="s-pips2">–</span></div>
+    <div class="stat"><span class="k">Factor de beneficio</span><span class="v" id="s-pf">–</span><span class="s">bruto ganado / perdido</span></div>
+    <div class="stat"><span class="k">Máx. drawdown</span><span class="v" id="s-dd">–</span><span class="s" id="s-dd2">–</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <label><select id="candles" aria-label="Tipo de vela"><option value="linreg">Velas LinReg</option><option value="real">Velas reales</option></select></label>
+          <span><i style="border-color:var(--ema)"></i>Señal LinReg</span>
+          <label><input type="checkbox" id="show-trail"> <i style="border-color:var(--trail)"></i>Línea UT</label>
+          <label><input type="checkbox" id="show-zones" checked> Zonas</label>
+          <label><input type="checkbox" id="show-sr"> S/R</label>
+        </div>
+        <div class="zoom">
+          <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+          <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+          <button class="btn sm" id="zend" type="button">Final</button>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Gráfico con velas LinReg coloreadas por régimen, señales UT, zonas de longevidad y soportes/resistencias"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="scroller">
+        <input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico">
+        <span id="scroll-lbl"></span>
+      </div>
+    </section>
+
+    <aside class="panel settings">
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="trades" type="button">Operaciones</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="dash" type="button">Panel del indicador</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="zones" type="button">Zonas de longevidad</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="equity" type="button">Curva de resultado</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="trades">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>Tipo</th><th>Entrada</th><th>Precio</th><th>Salida</th><th>Precio</th><th>Velas</th><th>Pips</th><th>P&amp;L</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="note">Modelo de operación: el indicador solo da señales. Se sigue su estado <code>posState</code> (las señales que disparan las alertas «UT Long» y «UT Short»): entrada y giro al cierre de cada señal confirmada. Tamaño fijo en unidades, sin comisiones ni spread.</p>
+    </div>
+    <div class="tabpanel" data-panel="dash" hidden><div class="dashp" id="dashp"></div></div>
+    <div class="tabpanel" data-panel="zones" hidden>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>Tipo</th><th>Inicio</th><th>Techo</th><th>Suelo</th><th>Fin</th><th>Duración</th><th>Estado</th></tr></thead>
+          <tbody id="zbody"></tbody>
+        </table>
+      </div>
+      <p class="note">Las zonas nacen en un máximo o mínimo de <code>len_z</code> velas y miden media ATR(20). Se eliminan cuando el precio las atraviesa o cuando hay más de 10 del mismo lado. El indicador solo dibuja las que siguen vivas en la última vela; aquí se listan todas, las vivas primero.</p>
+    </div>
+    <div class="tabpanel" data-panel="equity" hidden>
+      <div class="eq-box"><canvas id="eq"></canvas></div>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>Las líneas de compra y de venta son la misma.</b> Las dos usan el mismo cálculo de UT Bot y solo cambia el valor inicial. Con los mismos ajustes coinciden después de las primeras velas, así que las señales siempre alternan. Solo difieren si les das multiplicadores o periodos distintos.</li>
+        <li><b>ATR de 1 vela.</b> Con «ATR Period» = 1 la distancia de la línea es 2 veces el rango de la vela anterior, lo que da muchas señales en marcos cortos.</li>
+        <li><b>Etiquetas y alertas.</b> Las etiquetas Buy/Sell se dibujan con la señal sin filtrar; las alertas y el color de las velas LinReg usan <code>posState</code>, que ignora señales repetidas en la misma dirección.</li>
+        <li><b>Posición de las etiquetas de zona invertida.</b> <code>labels_at_root = lab_pos == "LastBar"</code>: al elegir «LastBar» la etiqueta va al origen de la zona, y al elegir «Root» va a la última vela.</li>
+        <li><b>Entradas sin efecto.</b> «Support &amp; Resistance Lines» (<code>srLines</code>) no se usa: las líneas S/R dependen de «Show Support &amp; Resistance Lines» (<code>showSR</code>, activado por defecto). Tampoco se usan «Panel Right Shift», «Panel anchor bars» ni «Panel vertical padding».</li>
+        <li><b>Panel.</b> Las tendencias por marco temporal solo se pueden calcular aquí para marcos iguales o mayores que el de las velas cargadas; la VWAP se reinicia cada día UTC.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+//@version=6
+indicator("UT Bot + LinReg Candles + Longevity Zones + S/R + Dashboard", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=5000)
+
+// =========================
+// UT Bot Inputs
+// =========================
+groupUT="UT Bot"
+a_buy=input.float(2,"Buy Sensitivity (Multiplier)",group=groupUT,minval=0)
+c_buy=input.int(1,"Buy ATR Period (0 = disable)",group=groupUT,minval=0)
+a_sell=input.float(2,"Sell Sensitivity (Multiplier)",group=groupUT,minval=0)
+c_sell=input.int(1,"Sell ATR Period (0 = disable)",group=groupUT,minval=0)
+showTrailBuy=input.bool(false,"Show Buy Trailing Line",group=groupUT)
+showTrailSell=input.bool(false,"Show Sell Trailing Line",group=groupUT)
+
+// =========================
+// LinReg Inputs
+// =========================
+signal_length=input.int(7,"Signal Smoothing",minval=1,maxval=200,group="LinReg")
+sma_signal=input.bool(true,"Simple MA (Signal Line)",group="LinReg")
+lin_reg=input.bool(true,"Use LinReg",group="LinReg")
+linreg_length=input.int(11,"Linear Regression Length",minval=1,maxval=200,group="LinReg")
+
+// =========================
+//Longevity Zones Inputs //
+// =========================
+groupZones="Longevity Zones"
+showZones=input.bool(true,"Show Longevity Zones",group=groupZones)
+len_z=input.int(5,"Longevity Length",group=groupZones)
+col_upper=input.color(color.new(color.red,75),"Upper Zone Color",group=groupZones)
+col_lower=input.color(color.new(color.green,75),"Lower Zone Color",group=groupZones)
+lab_pos=input.string("LastBar","Labels Position",options=["Root","LastBar"],group=groupZones)
+labels_at_root=lab_pos=="LastBar"
+labelOffsetBars=input.int(10,"Label Offset (bars)",group=groupZones,minval=10,maxval=500)
+
+// =========================
+// Add-ons (Panel S/R)
+// =========================
+groupAdd="Add-ons (Panel & S/R)"
+srLines=input.bool(false,"Support & Resistance Lines",group=groupAdd)
+dashOn=input.bool(true,"Dashboard Panel",group=groupAdd)
+dashShiftBars=input.int(60,"Panel Right Shift (bars)",group=groupAdd,minval=40,maxval=200)
+dashColor=input.color(color.new(#8fd46d,80),"Panel Background",inline="dash",group=groupAdd)
+dashTextColor=input.color(color.white,"Text Color",inline="dash",group=groupAdd)
+volMaLen=input.int(20,"Volume MA Length",group=groupAdd,minval=1)
+panelAnchorBars=input.int(300,"Panel anchor bars (top-right)",group=groupAdd,minval=100,maxval=9000)
+panelPadPct=input.float(0.2,"Panel vertical padding",group=groupAdd,minval=0.0,maxval=0.40,step=0.005)
+panelPlacement=input.string("Top-Right","Dashboard Placement",options=["Top-Right","Top-Left","Bottom-Right","Bottom-Left","Bottom-Center"],group=groupAdd)
+
+// =========================
+// UT Bot Calculations
+// =========================
+buyEnabled=(c_buy>0) and (a_buy>0)
+sellEnabled=(c_sell>0) and (a_sell>0)
+
+// BUY side
+src_buy=close
+ema_buy=ta.ema(src_buy,1)
+atr_buy=buyEnabled?ta.atr(c_buy):na
+nLoss_buy=buyEnabled?a_buy*atr_buy:na
+var float trail_buy=na
+if buyEnabled
+    if na(trail_buy[1])
+        trail_buy:=src_buy-nLoss_buy
+    else
+        if src_buy>trail_buy[1] and src_buy[1]>trail_buy[1]
+            trail_buy:=math.max(trail_buy[1],src_buy-nLoss_buy)
+        else if src_buy<trail_buy[1] and src_buy[1]<trail_buy[1]
+            trail_buy:=math.min(trail_buy[1],src_buy+nLoss_buy)
+        else
+            trail_buy:=src_buy>trail_buy[1]?src_buy-nLoss_buy:src_buy+nLoss_buy
+else
+    trail_buy:=na
+
+// SELL side
+src_sell=close
+ema_sell=ta.ema(src_sell,1)
+atr_sell=sellEnabled?ta.atr(c_sell):na
+nLoss_sell=sellEnabled?a_sell*atr_sell:na
+var float trail_sell=na
+if sellEnabled
+    if na(trail_sell[1])
+        trail_sell:=src_sell+nLoss_sell
+    else
+        if src_sell>trail_sell[1] and src_sell[1]>trail_sell[1]
+            trail_sell:=math.max(trail_sell[1],src_sell-nLoss_sell)
+        else if src_sell<trail_sell[1] and src_sell[1]<trail_sell[1]
+            trail_sell:=math.min(trail_sell[1],src_sell+nLoss_sell)
+        else
+            trail_sell:=src_sell>trail_sell[1]?src_sell-nLoss_sell:src_sell+nLoss_sell
+else
+    trail_sell:=na
+
+// IMPORTANT: compute crossovers every bar, then gate by flags
+above_buy_cross=ta.crossover(ema_buy,trail_buy)
+below_sell_cross=ta.crossover(trail_sell,ema_sell)
+
+above_buy=buyEnabled and above_buy_cross
+buy_signal_raw=buyEnabled and (src_buy>trail_buy) and above_buy
+buy_signal=buy_signal_raw and barstate.isconfirmed
+
+below_sell=sellEnabled and below_sell_cross
+sell_signal_raw=sellEnabled and (src_sell<trail_sell) and below_sell
+sell_signal=sell_signal_raw and barstate.isconfirmed
+
+// One-signal state (renamed to avoid enum conflict with table.position)
+var int posState=0  // 0=flat, 1=long, -1=short
+buy_signal_confirmed=buyEnabled and buy_signal and posState<=0
+sell_signal_confirmed=sellEnabled and sell_signal and posState>=0
+if buy_signal_confirmed
+    posState:=1
+else if sell_signal_confirmed
+    posState:=-1
+
+// Visibility
+buy_sig_vis=buyEnabled and buy_signal_raw
+sell_sig_vis=sellEnabled and sell_signal_raw
+
+// Signal labels
+plotshape(buy_sig_vis,title="UT Buy",style=shape.labelup,location=location.belowbar,color=color.green,textcolor=color.white,size=size.tiny,text="Buy")
+plotshape(sell_sig_vis,title="UT Sell",style=shape.labeldown,location=location.abovebar,color=color.red,textcolor=color.white,size=size.tiny,text="Sell")
+
+// Single bar color
+utColor=buy_sig_vis?color.new(color.green,75):sell_sig_vis?color.new(color.red,75):na
+barcolor(utColor)
+
+// Trails
+plot(showTrailBuy and buyEnabled?trail_buy:na,title="UT Bot Buy Trail",color=color.new(color.green,0),linewidth=1)
+plot(showTrailSell and sellEnabled?trail_sell:na,title="UT Bot Sell Trail",color=color.new(color.red,0),linewidth=1)
+
+// Alerts
+alertcondition(buy_signal_confirmed,title="UT Long",message="UT Long")
+alertcondition(sell_signal_confirmed,title="UT Short",message="UT Short")
+
+// =========================
+// LinReg Candles + Signal
+// =========================
+_bopen=lin_reg?ta.linreg(open,linreg_length,0):open
+_bhigh=lin_reg?ta.linreg(high,linreg_length,0):high
+_blow=lin_reg?ta.linreg(low,linreg_length,0):low
+_bclose=lin_reg?ta.linreg(close,linreg_length,0):close
+signal=sma_signal?ta.sma(_bclose,signal_length):ta.ema(_bclose,signal_length)
+inLong=posState==1
+inShort=posState==-1
+isFlat=posState==0
+dirUp=_bclose>=_bopen
+plotcandle(open=inLong?_bopen:na,high=inLong?_bhigh:na,low=inLong?_blow:na,close=inLong?_bclose:na,title="LinReg Long (regime)",color=color.green,wickcolor=color.green,bordercolor=color.green)
+plotcandle(open=inShort?_bopen:na,high=inShort?_bhigh:na,low=inShort?_blow:na,close=inShort?_bclose:na,title="LinReg Short (regime)",color=color.red,wickcolor=color.red,bordercolor=color.red)
+plotcandle(open=isFlat and dirUp?_bopen:na,high=isFlat and dirUp?_bhigh:na,low=isFlat and dirUp?_blow:na,close=isFlat and dirUp?_bclose:na,title="LinReg Flat Green",color=color.green,wickcolor=color.green,bordercolor=color.green)
+plotcandle(open=isFlat and not dirUp?_bopen:na,high=isFlat and not dirUp?_bhigh:na,low=isFlat and not dirUp?_blow:na,close=isFlat and not dirUp?_bclose:na,title="LinReg Flat Red",color=color.red,wickcolor=color.red,bordercolor=color.red)
+plot(signal,color=color.blue,linewidth=2,title="LinReg Signal")
+
+// =========================
+// Longevity Zones
+// =========================
+type level
+    float top
+    float bot
+    int   start
+type drawing
+    line top
+    line bot
+    linefill fill
+    label lbl
+var upper=array.new<level>()
+var lower=array.new<level>()
+var upperDraw=array.new<drawing>()
+var lowerDraw=array.new<drawing>()
+h=ta.highest(len_z)
+l=ta.lowest(len_z)
+high_pivot=high[1]==h[1] and high<h
+low_pivot=low[1]==l[1] and low>l
+halfATR=ta.atr(20)*0.5
+if showZones
+    if high_pivot
+        array.push(upper,level.new(h,h-halfATR,bar_index-1))
+    if low_pivot
+        array.push(lower,level.new(l+halfATR,l,bar_index-1))
+    if array.size(upper)>10
+        array.shift(upper)
+    if array.size(lower)>10
+        array.shift(lower)
+    for i=array.size(upper)-1 to 0
+        if array.size(upper)==0
+            break
+        zUp=array.get(upper,i)
+        if high>zUp.top and bar_index>zUp.start
+            array.remove(upper,i)
+    for i=array.size(lower)-1 to 0
+        if array.size(lower)==0
+            break
+        zLo=array.get(lower,i)
+        if low<zLo.bot and bar_index>zLo.start
+            array.remove(lower,i)
+
+// =========================
+// Longevity Zones (drawing)
+// =========================
+upperFillColor=col_upper
+lowerFillColor=col_lower
+if barstate.islast and showZones
+    if array.size(upperDraw)>0
+        for i=0 to array.size(upperDraw)-1
+            d=array.get(upperDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(upperDraw)
+    if array.size(lowerDraw)>0
+        for i=0 to array.size(lowerDraw)-1
+            d=array.get(lowerDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(lowerDraw)
+    if array.size(upper)>0
+        for i=0 to array.size(upper)-1
+            z=array.get(upper,i)
+            l1=line.new(z.start,z.top,bar_index,z.top,color=col_upper,width=8)
+            l2=line.new(z.start,z.bot,bar_index,z.bot,color=col_upper,width=8)
+            f=linefill.new(l1,l2,color=upperFillColor)
+            dur=bar_index-z.start
+            daysTot=int(dur*(timeframe.in_seconds(timeframe.period)/86400))
+            txt=daysTot>=365?str.tostring(int(daysTot/365))+" Y ("+str.tostring(dur)+" bars)":daysTot>=30?str.tostring(int(daysTot/30))+" M ("+str.tostring(dur)+" bars)":str.tostring(daysTot)+" D ("+str.tostring(dur)+" bars)"
+            lx=labels_at_root?z.start:bar_index+labelOffsetBars
+            ly=(z.top+z.bot)/2
+            lbl=label.new(lx,ly,txt,style=label.style_label_center,textcolor=color.white,color=color.new(color.black,0))
+            array.push(upperDraw,drawing.new(l1,l2,f,lbl))
+    if array.size(lower)>0
+        for i=0 to array.size(lower)-1
+            z=array.get(lower,i)
+            l1=line.new(z.start,z.top,bar_index,z.top,color=col_lower,width=8)
+            l2=line.new(z.start,z.bot,bar_index,z.bot,color=col_lower,width=8)
+            f=linefill.new(l1,l2,color=lowerFillColor)
+            dur=bar_index-z.start
+            daysTot=int(dur*(timeframe.in_seconds(timeframe.period)/86400))
+            txt=daysTot>=365?str.tostring(int(daysTot/365))+" Y ("+str.tostring(dur)+" bars)":daysTot>=30?str.tostring(int(daysTot/30))+" M ("+str.tostring(dur)+" bars)":str.tostring(daysTot)+" D ("+str.tostring(dur)+" bars)"
+            lx=labels_at_root?z.start:bar_index+labelOffsetBars
+            ly=(z.top+z.bot)/2
+            lbl=label.new(lx,ly,txt,style=label.style_label_center,textcolor=color.white,color=color.new(color.black,0))
+            array.push(lowerDraw,drawing.new(l1,l2,f,lbl))
+else if barstate.islast
+    if array.size(upperDraw)>0
+        for i=0 to array.size(upperDraw)-1
+            d=array.get(upperDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(upperDraw)
+    if array.size(lowerDraw)>0
+        for i=0 to array.size(lowerDraw)-1
+            d=array.get(lowerDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(lowerDraw)
+
+// =========================
+// S/R Lines calc
+// =========================
+showSR=input.bool(true,"Show Support & Resistance Lines",group="Support & Resistance")
+h1000=ta.highest(high,1000)
+h750=ta.highest(high,750)
+h500=ta.highest(high,500)
+h250=ta.highest(high,250)
+h100=ta.highest(high,100)
+h50=ta.highest(high,50)
+h10=ta.highest(high,10)
+l1000=ta.lowest(low,1000)
+l750=ta.lowest(low,750)
+l500=ta.lowest(low,500)
+l250=ta.lowest(low,250)
+l100=ta.lowest(low,100)
+l50=ta.lowest(low,50)
+l10=ta.lowest(low,10)
+plot(showSR?h1000:na,title="R1",color=close>h1000?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h750:na,title="R2",color=close>h750?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h500:na,title="R3",color=close>h500?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h250:na,title="R4",color=close>h250?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h100:na,title="R5",color=close>h100?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h50:na,title="R6",color=close>h50?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h10:na,title="R7",color=close>h10?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l1000:na,title="S1",color=close>l1000?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l750:na,title="S2",color=close>l750?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l500:na,title="S3",color=close>l500?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l250:na,title="S4",color=close>l250?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l100:na,title="S5",color=close>l100?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l50:na,title="S6",color=close>l50?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l10:na,title="S7",color=close>l10?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+
+// =========================
+// MACD & Stoch Inputs for panel
+// =========================
+groupOsc="Oscillator Settings"
+macdFastLen=input.int(12,"MACD Fast Length",group=groupOsc)
+macdSlowLen=input.int(26,"MACD Slow Length",group=groupOsc)
+macdSignalLen=input.int(9,"MACD Signal Length",group=groupOsc)
+stochLen=input.int(14,"Stochastic Length",group=groupOsc)
+stochK=input.int(3,"Stoch K Smoothing",group=groupOsc)
+stochD=input.int(3,"Stoch D Smoothing",group=groupOsc)
+
+// =========================
+// Dashboard & Calc
+// =========================
+emaTrend_tf(tf)=>
+    emaFast=request.security(syminfo.tickerid,tf,ta.ema(close,9),barmerge.gaps_off,barmerge.lookahead_off)
+    emaSlow=request.security(syminfo.tickerid,tf,ta.ema(close,21),barmerge.gaps_off,barmerge.lookahead_off)
+    emaFast>emaSlow?"🟢 BULL":emaFast<emaSlow?"🔴 BEAR":"— FLAT"
+trendStrHTF(tf)=>emaTrend_tf(tf)
+calcVol()=>
+    _atr=ta.atr(14)
+    _std2=2.0*ta.stdev(_atr,20)
+    _sma=ta.sma(_atr,20)
+    top=_sma+_std2
+    bot=_sma-_std2
+    nz(30.0+40.0*((_atr-bot)/math.max(1e-10,(top-bot))),50)
+volNow=volume
+volMA=ta.sma(volume,volMaLen)
+volBias=volNow>volMA?"🟢 Above Avg":volNow<volMA?"🔴 Below Avg":"— Avg"
+vwapVal=ta.vwap(close)
+vwapPos=close>vwapVal?"🟢 Price Above":"🔴 Price Below"
+[macdLine,signalLine,histLine]=ta.macd(close,macdFastLen,macdSlowLen,macdSignalLen)
+macdBias=macdLine>signalLine?"🟢 Bullish":"🔴 Bearish"
+k=ta.sma(ta.stoch(close,high,low,stochLen),stochK)
+d=ta.sma(k,stochD)
+stochPos=k>d?"🟢 Up":"🔴 Down"
+stochState=stochPos+" but "+(k>80?"Overbought":k<20?"Oversold":"Neutral")
+atrNow=ta.atr(14)
+atrSma20=ta.sma(atrNow,20)
+atrHiLo=atrNow>atrSma20*1.20?"🟢 High":atrNow<atrSma20*0.80?"🔴 Low":"— Mid"
+todayOpen=request.security(syminfo.tickerid,"D",open)
+todayClose=request.security(syminfo.tickerid,"D",close)
+todayHighD=request.security(syminfo.tickerid,"D",high)
+todayLowD=request.security(syminfo.tickerid,"D",low)
+todayDirection=todayClose>todayOpen?"🟢↑":todayClose<todayOpen?"🔴↓":"➖"
+todayRangePerc=((todayHighD-todayLowD)/math.max(todayLowD,syminfo.mintick))*100
+prevHigh=request.security(syminfo.tickerid,"D",high[1])
+prevLow=request.security(syminfo.tickerid,"D",low[1])
+prevOpen=request.security(syminfo.tickerid,"D",open[1])
+prevClose=request.security(syminfo.tickerid,"D",close[1])
+prevRangePerc=((prevHigh-prevLow)/math.max(prevLow,syminfo.mintick))*100
+prevDayDirection=prevClose>prevOpen?"🟢↑":prevClose<prevOpen?"🔴↓":"➖"
+atrTpStr=posState==1 and buyEnabled?str.tostring(trail_buy,"#.#####"):posState==-1 and sellEnabled?str.tostring(trail_sell,"#.#####"):"—"
+atrTpSide=posState==1?" (BUY)":posState==-1?" (SELL)":""
+
+// =========================
+// Dashboard Panel (TABLE — fixed to chart corners)
+// =========================
+var table dashTable=na
+var string prevPlace=""
+// Create or move table when placement changes
+if dashOn and (na(dashTable) or panelPlacement!=prevPlace)
+    // clear old (1x1) if exists
+    if not na(dashTable)
+        table.clear(dashTable,0,0,0,0)
+    dashTable:=switch panelPlacement
+        "Top-Right"     => table.new(position.top_right,1,1,border_width=1)
+        "Top-Left"      => table.new(position.top_left,1,1,border_width=1)
+        "Bottom-Right"  => table.new(position.bottom_right,1,1,border_width=1)
+        "Bottom-Left"   => table.new(position.bottom_left,1,1,border_width=1)
+        "Bottom-Center" => table.new(position.bottom_center,1,1,border_width=1)
+        => table.new(position.top_right,1,1,border_width=1)
+    prevPlace:=panelPlacement
+
+if dashOn and not na(dashTable)
+    panelText=
+         "📊 MARKET STATUS"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\nVolatility       | "+str.tostring(calcVol(),"##.##")+"%"+
+         "\nVolume           | "+str.tostring(volNow,"#.##")+" ("+volBias+")"+
+         "\nVWAP vs Price    | "+vwapPos+
+         "\nMACD Bias        | "+macdBias+
+         "\nStoch Bias       | "+stochState+
+         "\nRSI              | "+str.tostring(ta.rsi(close,14),"##.##")+
+         "\n"+
+         "\n📈 TREND Overall timeframes"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\n 1m  | "+trendStrHTF("1")+"    2h | "+trendStrHTF("120")+
+         "\n 5m  | "+trendStrHTF("5")+"    4h | "+trendStrHTF("240")+
+         "\n15m  | "+trendStrHTF("15")+"    1D | "+trendStrHTF("D")+
+         "\n30m  | "+trendStrHTF("30")+"    1W | "+trendStrHTF("W")+
+         "\n 1h  | "+trendStrHTF("60")+"    1M | "+trendStrHTF("M")+
+         "\n"+
+         "\n💰 PRICE POSITION"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\nToday’s Range %       | "+todayDirection+" "+str.tostring(todayRangePerc,"##.##")+
+         "\nYesterday’s Range %   | "+prevDayDirection+" "+str.tostring(prevRangePerc,"##.##")+
+         "\nYesterday’s High      | "+str.tostring(prevHigh,"#.#####")+
+         "\nYesterday’s Low       | "+str.tostring(prevLow,"#.#####")+
+         "\n"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\n📊 ACTUAL IN TRADE PROGRESSION"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\nATR state            | "+atrHiLo+" ("+str.tostring(atrNow,"#.###")+")"+
+         "\nATR Trailing stop"+atrTpSide+" | "+atrTpStr
+    table.cell(dashTable,0,0,panelText,text_color=dashTextColor,text_size=size.small,text_halign=text.align_left,text_valign=text.align_top,bgcolor=dashColor)
+else if not dashOn and not na(dashTable)
+    table.clear(dashTable,0,0,0,0)
+    dashTable:=na
+    prevPlace:=""
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineLinReg;
+const $ = id => document.getElementById(id);
+const STORE = 'linreg-params';
+const SCHEMA = [
+  {g:'UT Bot', open:true, f:[
+    ['aBuy','Sensibilidad compra','num',{min:0,step:0.1}], ['cBuy','ATR compra (0 = apagado)','num',{min:0,step:1,int:true}],
+    ['aSell','Sensibilidad venta','num',{min:0,step:0.1}], ['cSell','ATR venta (0 = apagado)','num',{min:0,step:1,int:true}]]},
+  {g:'Velas LinReg', f:[
+    ['linReg','Usar regresión lineal','bool'], ['linregLength','Longitud de la regresión','num',{min:1,max:200,step:1,int:true}],
+    ['signalLength','Suavizado de la señal','num',{min:1,max:200,step:1,int:true}], ['smaSignal','Señal con media simple','bool']]},
+  {g:'Zonas de longevidad', f:[
+    ['showZones','Calcular zonas','bool'], ['lenZ','Longitud','num',{min:2,step:1,int:true}]]},
+  {g:'Panel', f:[
+    ['volMaLen','Media de volumen','num',{min:1,step:1,int:true}],
+    ['macdFast','MACD rápida','num',{min:1,step:1,int:true}], ['macdSlow','MACD lenta','num',{min:2,step:1,int:true}], ['macdSignal','MACD señal','num',{min:1,step:1,int:true}],
+    ['stochLen','Estocástico','num',{min:2,step:1,int:true}], ['stochK','Suavizado K','num',{min:1,step:1,int:true}], ['stochD','Suavizado D','num',{min:1,step:1,int:true}]]},
+  {g:'Modelo de operación', f:[['units','Unidades por operación','num',{min:1,step:1000}]]}
+];
+let params = Object.assign({}, E.DEFAULTS);
+try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) params = Object.assign(params, saved); } catch (e) {}
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + '</summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key;
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + (type === 'bool' ? '<input type="checkbox" id="'+id+'">'
+        : '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">');
+      box.appendChild(row);
+      const el = row.querySelector('#'+id);
+      if (type === 'bool') el.checked = !!params[key]; else el.value = params[key];
+      el.addEventListener(type === 'bool' ? 'change' : 'input', () => {
+        let val;
+        if (type === 'bool') val = el.checked;
+        else { val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.int) val = Math.round(val); }
+        row.classList.remove('bad'); params[key] = val; markChanged(); schedule();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  markChanged();
+}
+function markChanged(){
+  document.querySelectorAll('.field').forEach(r => r.classList.toggle('changed', params[r.dataset.key] !== E.DEFAULTS[r.dataset.key]));
+  try { localStorage.setItem(STORE, JSON.stringify(params)); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { params = Object.assign({}, E.DEFAULTS); buildSettings(); schedule(); });
+
+let data = null, dataLabel = '', res = null;
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7);
+  data = E.makeSample(seed, 10); data.hasVolume = true;
+  dataLabel = '<b>Datos de ejemplo sintéticos</b> · tipo EURUSD 15 m · semilla ' + seed + ' · no son precios reales';
+  setMsg('');
+}
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random()*9999); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { const d = E.parseCSV(String(rd.result)); data = d; dataLabel = '<b>' + esc(file.name) + '</b> · ' + d.t.length.toLocaleString('es-ES') + ' velas'; setMsg(d.hasVolume ? '' : 'Sin columna de volumen: el panel mostrará volumen y VWAP vacíos.'); runNow(true); }
+    catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+const money = new Intl.NumberFormat('es-ES',{style:'currency',currency:'USD',maximumFractionDigits:2});
+const fmtMoney = x => { if (Math.abs(x) < 0.005) x = 0; return (x>0?'+':'') + money.format(x); };
+const fmtNum = (x, d) => (x > 0 ? '+' : '') + x.toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d});
+const fmtP = x => isFinite(x) ? x.toFixed(res.decimals) : '–';
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const fmtHM = t => { const d = new Date(t); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+function fmtDur(bars){
+  const days = Math.floor(bars * res.tfMin / 1440);
+  return (days >= 365 ? Math.floor(days/365) + ' A' : days >= 30 ? Math.floor(days/30) + ' M' : days + ' D') + ' (' + bars + ' velas)';
+}
+
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => runNow(false), 150); }
+function runNow(resetView){
+  res = E.run(data, params);
+  $('src-chip').innerHTML = dataLabel + ' · ' + fmtDay(data.t[0]) + ' → ' + fmtDay(data.t[data.t.length-1]) + ' UTC';
+  renderStats(); renderTrades(); renderDash(); renderZones();
+  if (resetView || !view.count){ view.count = Math.min(data.t.length, defaultCount()); view.start = data.t.length - view.count; }
+  clampView(); draw(); drawEquity();
+}
+function renderStats(){
+  const s = res.stats;
+  $('s-sig').textContent = s.signals;
+  $('s-sig2').textContent = s.rawBuys + ' Buy + ' + s.rawSells + ' Sell sin filtrar' + (s.repeatsBuy + s.repeatsSell ? ' · ' + (s.repeatsBuy + s.repeatsSell) + ' repetidas' : '');
+  $('s-tr').textContent = s.trades;
+  $('s-tr2').textContent = 'cerradas · 1 abierta al final';
+  $('s-wr').textContent = isFinite(s.winRate) ? s.winRate.toFixed(1) + ' %' : '–';
+  $('s-wr2').textContent = s.wins + ' con beneficio';
+  const p = $('s-pips'); p.textContent = s.trades ? fmtNum(s.netPips, 1) + ' pips' : '–'; p.className = 'v ' + (s.netPips > 0 ? 'pos' : s.netPips < 0 ? 'neg' : '');
+  $('s-pips2').textContent = fmtMoney(s.netProfit) + ' con ' + params.units.toLocaleString('es-ES') + ' u.' + (Math.abs(s.openPnl) > 0.005 ? ' · abierta ' + fmtMoney(s.openPnl) : '');
+  $('s-pf').textContent = isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : (s.profitFactor === Infinity ? '∞' : '–');
+  $('s-dd').textContent = s.trades ? money.format(-s.maxDd) : '–'; $('s-dd').className = 'v' + (s.maxDd > 0 ? ' neg' : '');
+  $('s-dd2').textContent = s.zonesAlive + ' zonas vivas de ' + s.zonesTotal;
+}
+let selTrade = -1;
+function renderTrades(){
+  const tb = $('tbody');
+  if (!res.trades.length){ tb.innerHTML = '<tr><td colspan="9" class="empty">Ninguna operación con estos parámetros.</td></tr>'; return; }
+  const t = data.t;
+  tb.innerHTML = res.trades.map((x,k) => {
+    const cls = x.pnl > 0 ? 'pos' : x.pnl < 0 ? 'neg' : '', done = x.exitIdx !== null;
+    return '<tr data-k="'+k+'"'+(k===selTrade?' class="sel"':'')+'><td>'+(k+1)+'</td>'
+      + '<td><span class="pill '+(x.dir>0?'b':'s')+'">'+(x.dir>0?'Largo':'Corto')+'</span></td>'
+      + '<td>'+fmtDate(t[x.idx])+'</td><td>'+fmtP(x.entry)+'</td>'
+      + '<td>'+(done ? fmtDate(t[x.exitIdx]) : 'abierta')+'</td><td>'+(done ? fmtP(x.exitPrice) : '–')+'</td>'
+      + '<td>'+(done ? x.exitIdx - x.idx : '–')+'</td>'
+      + '<td class="'+cls+'">'+(done ? fmtNum(x.pips, 1) : '–')+'</td><td class="'+cls+'">'+(done ? fmtMoney(x.pnl) : '–')+'</td></tr>';
+  }).join('');
+}
+$('tbody').addEventListener('click', ev => {
+  const row = ev.target.closest('tr[data-k]'); if (!row) return;
+  selTrade = +row.dataset.k;
+  document.querySelectorAll('#tbody tr').forEach(r => r.classList.toggle('sel', r === row));
+  const x = res.trades[selTrade], end = x.exitIdx !== null ? x.exitIdx : x.idx + 20;
+  view.count = Math.max(60, Math.min(200, end - x.idx + 60));
+  view.start = Math.round((x.idx + end) / 2) - Math.floor(view.count / 2); clampView(); draw();
+  $('chart-box').scrollIntoView({block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+});
+function renderDash(){
+  const D = res.dash; if (!D) { $('dashp').innerHTML = '<p class="empty">Hacen falta más velas.</p>'; return; }
+  const dot = x => '<span class="dot '+(x>0?'up':x<0?'dn':'')+'"></span>';
+  const dir = s => s.c > s.o ? dot(1) + '↑' : s.c < s.o ? dot(-1) + '↓' : '➖';
+  const row = (k, v) => '<tr><td>'+k+'</td><td>'+v+'</td></tr>';
+  const vol = isFinite(D.volMA) && D.volMA > 0 ? (D.volume > D.volMA ? dot(1) + ' sobre la media' : D.volume < D.volMA ? dot(-1) + ' bajo la media' : '— en la media') : 'sin datos';
+  const stoch = (D.stochK > D.stochD ? dot(1) + ' sube' : dot(-1) + ' baja') + ' · ' + (D.stochK > 80 ? 'sobrecompra' : D.stochK < 20 ? 'sobreventa' : 'neutral');
+  const tr = D.trends.map(x => '<span class="tf">' + (x.trend === null ? '<span class="dot na"></span>' : dot(x.trend)) + x.name + '</span>').join('');
+  $('dashp').innerHTML =
+    '<div class="dcol"><h3>📊 Estado del mercado</h3><table><tbody>'
+      + row('Volatilidad', D.volatility.toFixed(2) + ' %')
+      + row('Volumen', D.volume.toLocaleString('es-ES') + ' · ' + vol)
+      + row('Precio vs VWAP', isFinite(D.vwap) ? (D.close > D.vwap ? dot(1) + ' por encima' : dot(-1) + ' por debajo') + ' (' + fmtP(D.vwap) + ')' : 'sin volumen')
+      + row('MACD', D.macdBull ? dot(1) + ' alcista' : dot(-1) + ' bajista')
+      + row('Estocástico', stoch + ' (' + D.stochK.toFixed(1) + ')')
+      + row('RSI', D.rsi.toFixed(2))
+    + '</tbody></table></div>'
+    + '<div class="dcol"><h3>📈 Tendencia por marco (EMA 9/21)</h3><div class="tfs">' + tr + '</div><p class="note">Círculo vacío: marco menor que las velas cargadas, no calculable aquí. Gris: neutral o sin velas suficientes para las EMA.</p></div>'
+    + '<div class="dcol"><h3>💰 Posición del precio</h3><table><tbody>'
+      + row('Rango de hoy', dir(D.today) + ' ' + D.todayRange.toFixed(2) + ' %')
+      + row('Rango de ayer', dir(D.yesterday) + ' ' + D.prevRange.toFixed(2) + ' %')
+      + row('Máximo de ayer', fmtP(D.yesterday.h))
+      + row('Mínimo de ayer', fmtP(D.yesterday.l))
+    + '</tbody></table></div>'
+    + '<div class="dcol"><h3>📊 Operación en curso</h3><table><tbody>'
+      + row('Estado ATR', (D.atrState === 'High' ? dot(1) + ' alto' : D.atrState === 'Low' ? dot(-1) + ' bajo' : '— medio') + ' (' + D.atr.toFixed(res.decimals) + ')')
+      + row('Trailing stop' + (D.posState === 1 ? ' (compra)' : D.posState === -1 ? ' (venta)' : ''), fmtP(D.trailStop))
+    + '</tbody></table></div>';
+}
+function renderZones(){
+  const zb = $('zbody'), Z = res.zones.slice().sort((a,b) => (a.end === null) === (b.end === null) ? b.start - a.start : a.end === null ? -1 : 1);
+  if (!Z.length){ zb.innerHTML = '<tr><td colspan="8" class="empty">Sin zonas.</td></tr>'; return; }
+  const t = data.t, last = data.t.length - 1;
+  zb.innerHTML = Z.slice(0, 300).map((z,k) => '<tr data-s="'+z.start+'"><td>'+(k+1)+'</td><td><span class="pill '+(z.side==='S'?'b':'s')+'">'+(z.side==='S'?'Soporte':'Resistencia')+'</span></td>'
+    + '<td>'+fmtDate(t[z.start])+'</td><td>'+fmtP(z.top)+'</td><td>'+fmtP(z.bot)+'</td>'
+    + '<td>'+(z.end !== null ? fmtDate(t[z.end]) : '–')+'</td><td>'+fmtDur((z.end !== null ? z.end : last) - z.start)+'</td>'
+    + '<td>'+(z.end === null ? '<span class="pill n">viva</span>' : z.reason)+'</td></tr>').join('')
+    + (Z.length > 300 ? '<tr><td colspan="8" class="empty">… y ' + (Z.length - 300) + ' más</td></tr>' : '');
+}
+$('zbody').addEventListener('click', ev => {
+  const row = ev.target.closest('tr[data-s]'); if (!row) return;
+  const s = +row.dataset.s; view.start = s - Math.floor(view.count / 3); clampView(); draw();
+  $('chart-box').scrollIntoView({block:'nearest'});
+});
+
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(60, Math.min(200, Math.floor(cv.clientWidth / 5)));
+function clampView(){
+  const n = data.t.length;
+  view.count = Math.max(30, Math.min(n, view.count));
+  view.start = Math.max(0, Math.min(n - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, n - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),grid:g('--grid'),buy:g('--buy'),sell:g('--sell'),ema:g('--ema'),trail:g('--trail'),dd:g('--dd'),zr:g('--zone-r'),zs:g('--zone-s'),surface:g('--surface'),accent:g('--accent'),mono:g('--mono'),sans:g('--sans')};
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+function roundRect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = data, n = d.t.length;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 70, timeH = 22, plotW = W - axisW, priceH = H - timeH;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  const lrMode = $('candles').value === 'linreg', showTrail = $('show-trail').checked, showZ = $('show-zones').checked, showSR = $('show-sr').checked;
+  const O = lrMode ? res.bo : d.o, Hh = lrMode ? res.bh : d.h, Lw = lrMode ? res.bl : d.l, C = lrMode ? res.bc : d.c;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = s; i < e; i++){ for (const v of [d.l[i], d.h[i], Lw[i], Hh[i]]) if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  const padY = (hi - lo) * 0.05 || 0.0005; lo -= padY; hi += padY;
+  const Y = p => 26 + (hi - p) / (hi - lo) * (priceH - 52);
+  geo = {bw, plotW};
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const step = niceStep((hi - lo) / 7);
+  for (let p = Math.ceil(lo / step) * step; p <= hi; p += step){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(p.toFixed(res.decimals), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line; ctx.beginPath(); ctx.moveTo(plotW + 0.5, 0); ctx.lineTo(plotW + 0.5, priceH); ctx.stroke();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw)); let lastDay = -1;
+  for (let i = s; i < e; i++){
+    if ((i - s) % every) continue;
+    const day = new Date(d.t[i]).getUTCDate();
+    ctx.fillStyle = T.muted; ctx.fillText(day !== lastDay ? fmtDay(d.t[i]) : fmtHM(d.t[i]), Math.min(Math.max(X(i), 24), plotW - 24), H - 6);
+    lastDay = day;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(Math.round(X(i)) + 0.5, 0); ctx.lineTo(Math.round(X(i)) + 0.5, priceH); ctx.stroke();
+  }
+  ctx.textAlign = 'left';
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  if (showZ){
+    res.zones.forEach(z => {
+      const end = z.end === null ? n - 1 : z.end;
+      if (end < s || z.start >= e || !isFinite(z.top) || !isFinite(z.bot)) return;
+      ctx.fillStyle = z.side === 'R' ? T.zr : T.zs; ctx.globalAlpha = z.end === null ? 1 : 0.45;
+      const y1 = Y(z.top), y2 = Y(z.bot);
+      ctx.fillRect(X(z.start) - bw/2, y1, (end - z.start + 1) * bw, Math.max(2, y2 - y1)); ctx.globalAlpha = 1;
+      if (z.end === null){ ctx.strokeStyle = z.side === 'R' ? T.sell : T.buy; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.strokeRect(X(z.start) - bw/2, y1, (end - z.start + 1) * bw, Math.max(2, y2 - y1)); ctx.globalAlpha = 1; }
+    });
+  }
+  const bodyW = Math.max(1, Math.min(12, bw * 0.66));
+  for (let i = s; i < e; i++){
+    if (!isFinite(O[i]) || !isFinite(C[i])) continue;
+    const st = res.posState[i];
+    const up = lrMode ? (st === 1 ? true : st === -1 ? false : C[i] >= O[i]) : d.c[i] >= d.o[i];
+    const x = X(i);
+    ctx.strokeStyle = ctx.fillStyle = up ? T.buy : T.sell; ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, Y(Hh[i])); ctx.lineTo(Math.round(x) + 0.5, Y(Lw[i])); ctx.stroke();
+    const y1 = Y(Math.max(O[i], C[i])), y2 = Y(Math.min(O[i], C[i]));
+    ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+  ctx.globalAlpha = 1;
+  const line = (arr, col, width, dash) => {
+    ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath(); let pen = false;
+    for (let i = s; i < e; i++){ const v = arr[i]; if (!isFinite(v)) { pen = false; continue; } if (!pen) { ctx.moveTo(X(i), Y(v)); pen = true; } else ctx.lineTo(X(i), Y(v)); }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  line(res.signal, T.ema, 1.8);
+  if (showTrail) line(res.trailBuy, T.trail, 1.3);
+  if (showSR && e === n){
+    ctx.font = '10px ' + T.mono; ctx.textBaseline = 'bottom';
+    res.sr.forEach(r => {
+      if (!isFinite(r.price) || r.price < lo || r.price > hi) return;
+      const y = Math.round(Y(r.price)) + 0.5;
+      ctx.strokeStyle = d.c[n-1] > r.price ? T.buy : T.sell; ctx.globalAlpha = 0.6; ctx.setLineDash([2,3]);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.fillStyle = T.muted; ctx.fillText(r.name + ' (' + r.len + ')', plotW - (r.name[0] === 'R' ? 70 : 140), y - 1);
+    });
+  }
+  const showText = bw >= 4;
+  for (let i = s; i < e; i++){
+    const b = res.rawBuy[i], sl = res.rawSell[i]; if (!b && !sl) continue;
+    const x = X(i), col = b ? T.buy : T.sell, y0 = b ? Y(Math.min(d.l[i], Lw[i])) + 9 : Y(Math.max(d.h[i], Hh[i])) - 9;
+    ctx.fillStyle = col; ctx.beginPath();
+    if (b){ ctx.moveTo(x, y0 - 4); ctx.lineTo(x - 5, y0 + 4); ctx.lineTo(x + 5, y0 + 4); } else { ctx.moveTo(x, y0 + 4); ctx.lineTo(x - 5, y0 - 4); ctx.lineTo(x + 5, y0 - 4); }
+    ctx.closePath(); ctx.fill();
+    if (showText){
+      ctx.font = '600 10.5px ' + T.sans; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const txt = b ? 'Buy' : 'Sell', w = ctx.measureText(txt).width + 10, yy = b ? y0 + 14 : y0 - 14;
+      ctx.fillStyle = col; roundRect(x - w/2, yy - 8, w, 16, 4); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(txt, x, yy + 0.5); ctx.textAlign = 'left';
+    }
+  }
+  if (selTrade >= 0 && res.trades[selTrade]){
+    const x = res.trades[selTrade];
+    if (x.idx >= s && x.idx < e){ ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(x.idx), Y(x.entry), 7, 0, Math.PI*2); ctx.stroke(); }
+  }
+  ctx.restore();
+  if (hover >= s && hover < e){
+    const x = Math.round(X(hover)) + 0.5;
+    ctx.strokeStyle = T.muted; ctx.globalAlpha = 0.5; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, priceH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const n = data.t.length, e = Math.min(n, view.start + view.count);
+  const i = hover >= view.start && hover < e ? hover : e - 1;
+  if (i < 0) { $('readout').innerHTML = ''; return; }
+  const d = data, st = res.posState[i];
+  $('readout').innerHTML = fmtDate(d.t[i]) + '  O <b>' + fmtP(d.o[i]) + '</b> H <b>' + fmtP(d.h[i]) + '</b> L <b>' + fmtP(d.l[i]) + '</b> C <b>' + fmtP(d.c[i]) + '</b><br>LinReg C <b>' + fmtP(res.bc[i]) + '</b> · señal <b>' + fmtP(res.signal[i]) + '</b> · UT <b>' + fmtP(res.trailBuy[i]) + '</b> · estado <b>' + (st === 1 ? 'largo' : st === -1 ? 'corto' : 'plano') + '</b>';
+}
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const mx = ev.clientX - cv.getBoundingClientRect().left;
+  if (drag){ view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView(); }
+  hover = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  draw();
+});
+const endDrag = () => { drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const frac = Math.min(1, (ev.clientX - cv.getBoundingClientRect().left) / geo.plotW), anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) view.start += Math.round(ev.deltaX / geo.bw);
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = data.t.length; clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+for (const id of ['candles','show-trail','show-zones','show-sr']) $(id).addEventListener('change', draw);
+
+const ecv = $('eq'), ectx = ecv.getContext('2d');
+function drawEquity(){
+  if (!res || ecv.closest('[hidden]')) return;
+  const [W,H] = sizeCanvas(ecv), T = tok(), eq = res.equity, n = eq.length;
+  ectx.clearRect(0,0,W,H); if (!n) return;
+  const axisW = 84, bottom = 22, plotW = W - axisW, plotH = H - bottom - 8;
+  let lo = Math.min(0, ...eq), hi = Math.max(0, ...eq);
+  const pd = (hi - lo) * 0.08 || 50; lo -= pd; hi += pd;
+  const X = i => i / Math.max(1, n - 1) * plotW, Y = v => 8 + (hi - v) / (hi - lo) * plotH;
+  ectx.font = '11px ' + T.mono; ectx.textBaseline = 'middle'; ectx.lineWidth = 1;
+  const step = niceStep((hi - lo) / 5);
+  for (let v = Math.ceil(lo/step)*step; v <= hi; v += step){
+    const y = Math.round(Y(v)) + 0.5;
+    ectx.strokeStyle = T.grid; ectx.beginPath(); ectx.moveTo(0,y); ectx.lineTo(plotW,y); ectx.stroke();
+    ectx.fillStyle = T.muted; ectx.fillText(fmtMoney(v).replace(/,\d+/, ''), plotW + 8, y);
+  }
+  let peak = -Infinity; const peaks = eq.map(v => (peak = Math.max(peak, v)));
+  ectx.fillStyle = T.dd; ectx.beginPath(); ectx.moveTo(0, Y(eq[0]));
+  for (let i = 0; i < n; i++) ectx.lineTo(X(i), Y(peaks[i]));
+  for (let i = n - 1; i >= 0; i--) ectx.lineTo(X(i), Y(eq[i]));
+  ectx.closePath(); ectx.fill();
+  ectx.setLineDash([4,4]); ectx.strokeStyle = T.muted; ectx.beginPath(); ectx.moveTo(0, Math.round(Y(0))+0.5); ectx.lineTo(plotW, Math.round(Y(0))+0.5); ectx.stroke(); ectx.setLineDash([]);
+  ectx.strokeStyle = T.accent; ectx.lineWidth = 2; ectx.beginPath();
+  for (let i = 0; i < n; i++) i ? ectx.lineTo(X(i), Y(eq[i])) : ectx.moveTo(X(i), Y(eq[i]));
+  ectx.stroke();
+  ectx.fillStyle = T.muted; ectx.textBaseline = 'alphabetic';
+  ectx.textAlign = 'left'; ectx.fillText(fmtDay(data.t[0]), 0, H - 6);
+  ectx.textAlign = 'right'; ectx.fillText(fmtDay(data.t[n-1]), plotW, H - 6); ectx.textAlign = 'left';
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+  if (b.dataset.tab === 'equity') drawEquity();
+}));
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (ch === '"') inStr = !inStr; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code).replace(/("[^"]*")/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na|for|to|type|break|switch)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+new ResizeObserver(() => { if (res) { clampView(); draw(); drawEquity(); } }).observe($('chart-box'));
+const redraw = () => { draw(); drawEquity(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+loadSample();
+runNow(true);
+})();
+</script>
+</body>
+</html>

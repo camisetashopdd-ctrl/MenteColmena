@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UT Sniper Pro Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEEFEC; --surface:#FAFAF8; --surface-2:#E4E6E1; --ink:#181C1A; --muted:#5C6460; --line:#D4D8D2;
+  --accent:#8A3B2E; --accent-ink:#FBF6F4; --buy:#1E7F4E; --sell:#B8352D; --sl:#B8352D; --tp:#1E7F4E; --entry:#2B4A8C;
+  --ut-up:#1E7F4E; --ut-dn:#B8352D; --bb:#8B918D; --grid:rgba(24,28,26,.07); --dd:rgba(184,53,45,.10);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+    --accent:#E0846F; --accent-ink:#1E0F0B; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+    --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+  --accent:#E0846F; --accent-ink:#1E0F0B; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+  --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input,.seed select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.seed input{width:72px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.msg{font-size:13px;color:var(--sl)}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+.pos{color:var(--tp)} .neg{color:var(--sl)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px)}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{flex:1;min-width:0}
+.field input[type=number]{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--sl)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.ind-row{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;margin-bottom:10px;font-family:var(--mono);color:var(--muted)}
+.ind-row b{color:var(--ink);font-weight:500}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.b{background:color-mix(in srgb,var(--buy) 16%,transparent);color:var(--buy)}
+.pill.s{background:color-mix(in srgb,var(--sell) 16%,transparent);color:var(--sell)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.funnel h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.frow{display:grid;grid-template-columns:180px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12.5px;max-width:78ch;margin:12px 0 0}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--tp)} pre.code .nu{color:var(--entry)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:82ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>UT <span>Sniper</span> Pro</h1>
+      <p>Probador del indicador · divergencia en Bollinger + gatillo UT Bot · Pine v6 portado a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="seed">Semilla</label><input id="seed" type="number" value="7" min="1" step="1"></span>
+      <span class="seed"><label for="weeks">Semanas</label><select id="weeks"><option>10</option><option selected>26</option><option>52</option></select></span>
+      <button class="btn" id="reseed" type="button">Nuevos datos de ejemplo</button>
+      <label class="btn primary" for="csv">Cargar CSV…</label>
+      <input id="csv" type="file" accept=".csv,.txt,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="chips">
+    <span class="chip" id="src-chip"></span>
+    <span class="msg" id="msg" hidden></span>
+  </div>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Operaciones</span><span class="v" id="s-tr">–</span><span class="s" id="s-tr2">–</span></div>
+    <div class="stat"><span class="k">Win rate</span><span class="v" id="s-wr">–</span><span class="s">TP2 / (TP2 + SL)</span></div>
+    <div class="stat"><span class="k">Resultados</span><span class="v" id="s-res">–</span><span class="s">TP2 · TP1 → entrada · SL</span></div>
+    <div class="stat"><span class="k">Resultado en R</span><span class="v" id="s-r">–</span><span class="s" id="s-r2">–</span></div>
+    <div class="stat"><span class="k">Beneficio (modelo)</span><span class="v" id="s-net">–</span><span class="s" id="s-net2">–</span></div>
+    <div class="stat"><span class="k">Máx. drawdown</span><span class="v" id="s-dd">–</span><span class="s" id="s-dd2">–</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <span><i style="border-color:var(--ut-up)"></i>UT alcista</span>
+          <span><i style="border-color:var(--ut-dn)"></i>UT bajista</span>
+          <span><i style="border-color:var(--bb)"></i>Bollinger</span>
+          <span><i class="dash" style="border-color:var(--accent)"></i>Divergencia</span>
+          <span><i style="border-color:var(--entry)"></i>Entrada</span>
+          <span><i style="border-color:var(--sl)"></i>SL</span>
+          <span><i style="border-color:var(--tp)"></i>TP1 / TP2</span>
+        </div>
+        <div class="zoom">
+          <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+          <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+          <button class="btn sm" id="zend" type="button">Final</button>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Gráfico de precio con Bollinger, línea UT, divergencias, operaciones e histograma MACD"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="scroller">
+        <input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico">
+        <span id="scroll-lbl"></span>
+      </div>
+    </section>
+
+    <aside class="panel settings">
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="trades" type="button">Operaciones</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="funnel" type="button">Setups y filtros</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="equity" type="button">Curva de capital</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="trades">
+      <div class="ind-row" id="ind-row"></div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>Tipo</th><th>Entrada</th><th>Precio</th><th>SL</th><th>TP1</th><th>TP2</th><th>TP1 tocado</th><th>Salida</th><th>Resultado</th><th>R</th><th>P&amp;L</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="tabpanel" data-panel="funnel" hidden>
+      <div class="funnel" id="funnel"></div>
+      <p class="note">Arriba, cuántos pivotes llegan a ser setup (divergencia de precio con toque de Bollinger). Abajo, cómo terminan los setups y, para cada vela con setup activo, la primera condición de entrada que falló. Una misma vela puede contar varias veces mientras el setup sigue vivo.</p>
+    </div>
+    <div class="tabpanel" data-panel="equity" hidden>
+      <div class="eq-box"><canvas id="eq"></canvas></div>
+      <p class="note">Modelo: cada operación arriesga el mismo importe (riesgo % sobre la cuenta inicial). TP2 suma el múltiplo de TP2, SL resta 1 R y «TP1 → entrada» cierra a 0 R, tal como el indicador cuenta sus resultados. Sin comisiones.</p>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>Cómo funciona.</b> Un pivote de precio que marca un mínimo más bajo (o máximo más alto) tocando la banda de Bollinger arma un setup. El setup espera entre 2 y 10 velas a que la línea UT, una vela de cuerpo normal del color correcto, el histograma MACD, la zona de Bollinger y los filtros anti-FOMO y ATR coincidan.</li>
+        <li><b>Salida en la misma vela de entrada.</b> El bloque «CLOSE TRADE» se ejecuta también en la vela en que se entra, con su máximo y mínimo, que ocurrieron antes del cierre. El probador lo reproduce y lo cuenta en «salidas en la vela de entrada».</li>
+        <li><b>Win rate.</b> El indicador no cuenta «TP1 → entrada» ni como ganada ni como perdida: su win rate es TP2 / (TP2 + SL).</li>
+        <li><b>La divergencia es solo de precio.</b> Con «MACD Hist Divergence» apagado (por defecto) el setup no exige divergencia en el MACD: basta un mínimo más bajo que el anterior tocando la banda inferior.</li>
+        <li><b>Pivotes y Heikin Ashi.</b> Los pivotes y las bandas usan <code>src</code> (el cierre, o el cierre Heikin Ashi si se activa), pero el toque de banda del setup compara el mínimo o máximo real de la vela.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+//@version=6
+indicator("UT Sniper Pro", overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+// UT Bot
+a = input.float(2.0, "Key Value (Sensitivity)", minval=0.1, group="UT Bot")
+c = input.int(10, "ATR Period", group="UT Bot")
+h = input.bool(false, "Signals from Heikin Ashi", group="UT Bot")
+
+// Candle Filter
+min_atr_mult = input.float(0.5, "Min Candle Body (ATR Mult)", group="Candle Filter")
+max_atr_mult = input.float(1.5, "Max Candle Body (ATR Mult)", group="Candle Filter")
+
+// Divergence & MACD & BB
+piv_len = input.int(4, "Pivot Period", group="Divergence")
+div_lookback = input.int(20, "Divergence Max Lookback (Bars)", group="Divergence")
+
+use_macd = input.bool(false, "Enable MACD Hist Divergence", group="Divergence")
+macd_fast = input.int(12, "MACD Fast", group="Divergence")
+macd_slow = input.int(26, "MACD Slow", group="Divergence")
+macd_sig = input.int(9, "MACD Signal", group="Divergence")
+max_hist_ratio = input.float(1.0, "Max MACD Hist Ratio (Peak2/Peak1)", group="Divergence")
+
+bb_len = input.int(200, "Bollinger Band Period", group="Filters")
+bb_std = input.float(2.0, "BB StdDev", group="Filters")
+
+// Entry Time Limit
+min_setup_bars = input.int(2, "Min Bars After Confirmation", tooltip="Wait at least this many bars after divergence confirmation", group="Filters")
+max_setup_bars = input.int(10, "Max Bars After Confirmation", tooltip="Cancel setup if no entry after this many bars", group="Filters")
+
+// Anti-FOMO Filter (Wait for Pullback)
+use_fomo_filter = input.bool(true, "Enable Anti-FOMO Filter (Wait for Pullback)", group="Filters")
+max_fomo_candles = input.int(2, "Max Consecutive Same-Color Candles", minval=1, tooltip="Prevent Short if previous candles are all Red. Prevent Long if previous candles are all Green.", group="Filters")
+
+// ATR Spike Filter
+use_atr_filter = input.bool(true, "Enable ATR Spike Filter", group="Filters")
+atr_lookback = input.int(75, "Past Bars to Compare ATR", group="Filters")
+max_atr_increase = input.float(1.3, "Max ATR Increase Ratio (1.5 = 50% increase)", tooltip="Reject trade if current ATR exceeds this multiplier compared to the past ATR", group="Filters")
+
+max_bb_percent_long = input.float(0.3, "Max BB % for Long (0.0-1.0)", tooltip="Only allow Long setups in the specified lower portion of BB", group="Filters")
+min_bb_percent_short = input.float(0.7, "Min BB % for Short (0.0-1.0)", tooltip="Only allow Short setups in the specified upper portion of BB", group="Filters")
+
+// SL/TP Settings
+sl_atr_mult = input.float(2.0, "SL (ATR Mult)", group="SL/TP")
+tp1_mult = input.float(1.5, "TP1 (Ratio to SL)", group="SL/TP")
+tp2_mult = input.float(2.0, "TP2 (Ratio to SL)", group="SL/TP")
+line_ext = input.int(20, "Line Extension (Bars)", group="SL/TP")
+
+// ==========================================
+// 2. UT BOT LOGIC
+// ==========================================
+src = h ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close) : close
+xATR = ta.atr(c)
+nLoss = a * xATR
+
+var float xATRTrailingStop = 0.0
+xATRTrailingStop := src > nz(xATRTrailingStop[1], 0) and src[1] > nz(xATRTrailingStop[1], 0) ? math.max(nz(xATRTrailingStop[1]), src - nLoss) :
+   src < nz(xATRTrailingStop[1], 0) and src[1] < nz(xATRTrailingStop[1], 0) ? math.min(nz(xATRTrailingStop[1]), src + nLoss) :
+   src > nz(xATRTrailingStop[1], 0) ? src - nLoss : src + nLoss
+
+pos = 0
+pos := src[1] < nz(xATRTrailingStop[1], 0) and src > nz(xATRTrailingStop[1], 0) ? 1 :
+   src[1] > nz(xATRTrailingStop[1], 0) and src < nz(xATRTrailingStop[1], 0) ? -1 : nz(pos[1], 0)
+
+xcolor = pos == -1 ? color.red: pos == 1 ? color.green : color.blue
+plot(xATRTrailingStop, title="UT Bot Line", color=xcolor, linewidth=2)
+
+// ==========================================
+// 3. INDICATOR LOGIC (BB, MACD, PIVOT)
+// ==========================================
+[bb_mid, bb_upper, bb_lower] = ta.bb(src, bb_len, bb_std)
+[macdLine, signalLine, histLine] = ta.macd(src, macd_fast, macd_slow, macd_sig)
+
+ph = ta.pivothigh(src, piv_len, piv_len)
+pl = ta.pivotlow(src, piv_len, piv_len)
+
+var float last_ph_val = na
+var float last_ph_hist = na
+var int last_ph_bar = 0
+
+var float last_pl_val = na
+var float last_pl_hist = na
+var int last_pl_bar = 0
+
+if not na(ph)
+    last_ph_val := ph
+    last_ph_hist := histLine[piv_len]
+    last_ph_bar := bar_index[piv_len]
+if not na(pl)
+    last_pl_val := pl
+    last_pl_hist := histLine[piv_len]
+    last_pl_bar := bar_index[piv_len]
+
+// ==========================================
+// 4. SETUP CHECK & MANAGEMENT
+// ==========================================
+div_buy_price = not na(pl) and pl < last_pl_val[1] and (bar_index[piv_len] - last_pl_bar[1]) <= div_lookback
+hist_buy_ratio_cond = math.abs(histLine[piv_len]) <= (max_hist_ratio * math.abs(nz(last_pl_hist[1], histLine[piv_len])))
+macd_buy_cond = use_macd ? (histLine[piv_len] > nz(last_pl_hist[1], histLine[piv_len]) and hist_buy_ratio_cond) : true
+bb_buy_cond = low[piv_len] <= bb_lower[piv_len]
+
+div_sell_price = not na(ph) and ph > last_ph_val[1] and (bar_index[piv_len] - last_ph_bar[1]) <= div_lookback
+hist_sell_ratio_cond = math.abs(histLine[piv_len]) <= (max_hist_ratio * math.abs(nz(last_ph_hist[1], histLine[piv_len])))
+macd_sell_cond = use_macd ? (histLine[piv_len] < nz(last_ph_hist[1], histLine[piv_len]) and hist_sell_ratio_cond) : true
+bb_sell_cond = high[piv_len] >= bb_upper[piv_len]
+
+var bool long_setup = false
+var bool short_setup = false
+var int long_setup_bar = 0
+var int short_setup_bar = 0
+
+var float long_setup_pl = na
+var float short_setup_ph = na
+
+if div_buy_price and macd_buy_cond and bb_buy_cond
+    long_setup := true
+    short_setup := false
+    long_setup_bar := bar_index
+    long_setup_pl := pl
+
+    label.new(x=bar_index[piv_len], y=pl, color=color.green, style=label.style_circle, size=size.small)
+    label.new(x=last_pl_bar[1], y=last_pl_val[1], color=color.green, style=label.style_circle, size=size.small)
+    line.new(x1=last_pl_bar[1], y1=last_pl_val[1], x2=bar_index[piv_len], y2=pl, color=color.green, style=line.style_dashed, width=2)
+
+if div_sell_price and macd_sell_cond and bb_sell_cond
+    short_setup := true
+    long_setup := false
+    short_setup_bar := bar_index
+    short_setup_ph := ph
+
+    label.new(x=bar_index[piv_len], y=ph, color=color.red, style=label.style_circle, size=size.small)
+    label.new(x=last_ph_bar[1], y=last_ph_val[1], color=color.red, style=label.style_circle, size=size.small)
+    line.new(x1=last_ph_bar[1], y1=last_ph_val[1], x2=bar_index[piv_len], y2=ph, color=color.red, style=line.style_dashed, width=2)
+
+if long_setup and ((bar_index - long_setup_bar) > max_setup_bars or high >= bb_upper or close < long_setup_pl)
+    long_setup := false
+
+if short_setup and ((bar_index - short_setup_bar) > max_setup_bars or low <= bb_lower or close > short_setup_ph)
+    short_setup := false
+
+// ==========================================
+// 5. TRADE MANAGEMENT & TRIGGERS
+// ==========================================
+var int state = 0
+var float entry_p = na
+var float sl_p = na
+var float tp1_p = na
+var float tp2_p = na
+var bool tp1_hit = false
+
+var int total_trades = 0
+var int count_tp1_back = 0
+var int count_tp2 = 0
+var int count_sl = 0
+var string current_sig = "NONE"
+
+// Basic Candle Filter Conditions
+candle_body = math.abs(close - open)
+valid_candle = candle_body > (min_atr_mult * xATR) and candle_body < (max_atr_mult * xATR)
+green_candle = close > open
+red_candle = close < open
+
+// Position within BB Conditions
+bb_range = bb_upper - bb_lower
+long_zone_valid = close <= (bb_lower + (bb_range * max_bb_percent_long))
+short_zone_valid = close >= (bb_lower + (bb_range * min_bb_percent_short))
+
+// MACD Histogram Conditions at Entry Candle
+macd_hist_long_valid = histLine > histLine[1]
+macd_hist_short_valid = histLine < histLine[1]
+
+// Count bars passed since confirmation
+bars_since_long = bar_index - long_setup_bar
+bars_since_short = bar_index - short_setup_bar
+
+// Anti-FOMO Calculation
+prev_green_count = math.sum(green_candle ? 1 : 0, max_fomo_candles)[1]
+prev_red_count = math.sum(red_candle ? 1 : 0, max_fomo_candles)[1]
+
+no_fomo_long = use_fomo_filter ? (prev_green_count < max_fomo_candles) : true
+no_fomo_short = use_fomo_filter ? (prev_red_count < max_fomo_candles) : true
+
+// ATR Spike Condition Calculation (Compare current ATR with past ATR)
+// Use nz function to handle cases where the chart lacks sufficient past candles
+atr_spike_valid = use_atr_filter ? (xATR <= (nz(xATR[atr_lookback], xATR) * max_atr_increase)) : true
+
+// ACTIVATE TRADE
+long_cond = (state == 0) and long_setup and (bars_since_long >= min_setup_bars) and (pos == 1) and valid_candle and green_candle and long_zone_valid and macd_hist_long_valid and no_fomo_long and atr_spike_valid
+short_cond = (state == 0) and short_setup and (bars_since_short >= min_setup_bars) and (pos == -1) and valid_candle and red_candle and short_zone_valid and macd_hist_short_valid and no_fomo_short and atr_spike_valid
+
+if long_cond
+    state := 1
+    long_setup := false // Reset
+    entry_p := close
+    sl_p := close - (xATR * sl_atr_mult)
+    float risk = entry_p - sl_p
+    tp1_p := entry_p + (risk * tp1_mult)
+    tp2_p := entry_p + (risk * tp2_mult)
+    tp1_hit := false
+    total_trades := total_trades + 1
+    current_sig := "LONG"
+
+    line.new(bar_index, entry_p, bar_index + line_ext, entry_p, color=color.blue, width=2)
+    line.new(bar_index, sl_p, bar_index + line_ext, sl_p, color=color.red, width=2)
+    line.new(bar_index, tp1_p, bar_index + line_ext, tp1_p, color=color.green, width=1, style=line.style_dashed)
+    line.new(bar_index, tp2_p, bar_index + line_ext, tp2_p, color=color.green, width=2)
+
+if short_cond
+    state := -1
+    short_setup := false // Reset
+    entry_p := close
+    sl_p := close + (xATR * sl_atr_mult)
+    float risk = sl_p - entry_p
+    tp1_p := entry_p - (risk * tp1_mult)
+    tp2_p := entry_p - (risk * tp2_mult)
+    tp1_hit := false
+    total_trades := total_trades + 1
+    current_sig := "SHORT"
+
+    line.new(bar_index, entry_p, bar_index + line_ext, entry_p, color=color.blue, width=2)
+    line.new(bar_index, sl_p, bar_index + line_ext, sl_p, color=color.red, width=2)
+    line.new(bar_index, tp1_p, bar_index + line_ext, tp1_p, color=color.green, width=1, style=line.style_dashed)
+    line.new(bar_index, tp2_p, bar_index + line_ext, tp2_p, color=color.green, width=2)
+
+// CLOSE TRADE
+if state == 1
+    if high >= tp1_p
+        tp1_hit := true
+    if tp1_hit and low <= entry_p
+        count_tp1_back := count_tp1_back + 1
+        state := 0
+        current_sig := "TP1->ENTRY"
+    else if high >= tp2_p
+        count_tp2 := count_tp2 + 1
+        state := 0
+        current_sig := "TP2 DONE"
+    else if low <= sl_p
+        count_sl := count_sl + 1
+        state := 0
+        current_sig := "SL HIT"
+
+if state == -1
+    if low <= tp1_p
+        tp1_hit := true
+    if tp1_hit and high >= entry_p
+        count_tp1_back := count_tp1_back + 1
+        state := 0
+        current_sig := "TP1->ENTRY"
+    else if low <= tp2_p
+        count_tp2 := count_tp2 + 1
+        state := 0
+        current_sig := "TP2 DONE"
+    else if high >= sl_p
+        count_sl := count_sl + 1
+        state := 0
+        current_sig := "SL HIT"
+
+// ==========================================
+// 6. DISPLAY
+// ==========================================
+plotshape(long_cond, "Buy Label", shape.labelup, location.belowbar, color.green, 0, "BUY", color.white, size=size.small)
+plotshape(short_cond, "Sell Label", shape.labeldown, location.abovebar, color.red, 0, "SELL", color.white, size=size.small)
+
+win_rate = (count_tp2 + count_sl) > 0 ? (count_tp2 / (count_tp2 + count_sl)) * 100 : 0
+
+var table stats = table.new(position.top_right, 2, 6, border_color=color.black, border_width=1)
+if barstate.islast
+    table.cell(stats, 0, 0, "SIGNAL", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 0, current_sig, bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 1, "TOTAL TRADES", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 1, str.tostring(total_trades), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 2, "TP1 > ENTRY", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 2, str.tostring(count_tp1_back), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 3, "TP2 DONE", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 3, str.tostring(count_tp2), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 4, "SL HIT", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 4, str.tostring(count_sl), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 5, "WIN RATE", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 5, str.tostring(win_rate, "#.##") + "%", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+
+plot(bb_upper, color=color.new(color.gray, 70))
+plot(bb_lower, color=color.new(color.gray, 70))
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineSniper;
+const $ = id => document.getElementById(id);
+const STORE = 'sniper-params';
+
+const SCHEMA = [
+  {g:'UT Bot', open:true, f:[
+    ['a','Sensibilidad (Key)','num',{min:0.1,step:0.1}],
+    ['c','Periodo ATR','num',{min:1,step:1,int:true}],
+    ['useHA','Señales con Heikin Ashi','bool']]},
+  {g:'Filtro de vela', open:true, f:[
+    ['minAtrMult','Cuerpo mínimo (× ATR)','num',{min:0,step:0.1}],
+    ['maxAtrMult','Cuerpo máximo (× ATR)','num',{min:0,step:0.1}]]},
+  {g:'Divergencia', f:[
+    ['pivLen','Periodo del pivote','num',{min:1,step:1,int:true}],
+    ['divLookback','Distancia máx. entre pivotes','num',{min:1,step:1,int:true}],
+    ['useMacd','Exigir divergencia en MACD','bool'],
+    ['macdFast','MACD rápida','num',{min:1,step:1,int:true}],
+    ['macdSlow','MACD lenta','num',{min:2,step:1,int:true}],
+    ['macdSig','MACD señal','num',{min:1,step:1,int:true}],
+    ['maxHistRatio','Ratio máx. histograma','num',{min:0,step:0.1}]]},
+  {g:'Filtros', f:[
+    ['bbLen','Periodo Bollinger','num',{min:5,step:1,int:true}],
+    ['bbStd','Desviaciones Bollinger','num',{min:0.5,step:0.1}],
+    ['minSetupBars','Velas mín. tras setup','num',{min:0,step:1,int:true}],
+    ['maxSetupBars','Velas máx. tras setup','num',{min:1,step:1,int:true}],
+    ['useFomo','Filtro anti-FOMO','bool'],
+    ['maxFomoCandles','Velas seguidas del mismo color','num',{min:1,step:1,int:true}],
+    ['useAtrFilter','Filtro de pico de ATR','bool'],
+    ['atrLookback','Velas atrás para comparar ATR','num',{min:1,step:1,int:true}],
+    ['maxAtrIncrease','Aumento máx. de ATR','num',{min:1,step:0.1}],
+    ['maxBbPctLong','% Bollinger máx. para largos','num',{min:0,max:1,step:0.05}],
+    ['minBbPctShort','% Bollinger mín. para cortos','num',{min:0,max:1,step:0.05}]]},
+  {g:'SL / TP', f:[
+    ['slAtrMult','SL (× ATR)','num',{min:0.1,step:0.1}],
+    ['tp1Mult','TP1 (× riesgo)','num',{min:0.1,step:0.1}],
+    ['tp2Mult','TP2 (× riesgo)','num',{min:0.1,step:0.1}]]},
+  {g:'Modelo de capital', f:[
+    ['accountSize','Cuenta ($)','num',{min:100,step:1000}],
+    ['riskPct','Riesgo por operación %','num',{min:0.1,max:10,step:0.1}]]}
+];
+
+let params = Object.assign({}, E.DEFAULTS);
+try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) params = Object.assign(params, saved); } catch (e) {}
+
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + '</summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key;
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + (type === 'bool' ? '<input type="checkbox" id="'+id+'">'
+        : '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">');
+      box.appendChild(row);
+      const el = row.querySelector('#'+id);
+      if (type === 'bool') el.checked = !!params[key]; else el.value = params[key];
+      el.addEventListener(type === 'bool' ? 'change' : 'input', () => {
+        let val;
+        if (type === 'bool') val = el.checked;
+        else { val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.int) val = Math.round(val); }
+        row.classList.remove('bad');
+        params[key] = val; markChanged(); schedule();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  markChanged();
+}
+function markChanged(){
+  document.querySelectorAll('.field').forEach(r => r.classList.toggle('changed', params[r.dataset.key] !== E.DEFAULTS[r.dataset.key]));
+  try { localStorage.setItem(STORE, JSON.stringify(params)); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { params = Object.assign({}, E.DEFAULTS); buildSettings(); schedule(); });
+
+let data = null, dataLabel = '', res = null;
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7), weeks = +$('weeks').value;
+  data = E.makeSample(seed, weeks);
+  dataLabel = '<b>Datos de ejemplo sintéticos</b> · tipo EURUSD 15 m · ' + weeks + ' semanas · semilla ' + seed + ' · no son precios reales';
+  setMsg('');
+}
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random()*9999); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('weeks').addEventListener('change', () => { loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { const d = E.parseCSV(String(rd.result)); data = d; dataLabel = '<b>' + esc(file.name) + '</b> · ' + d.t.length.toLocaleString('es-ES') + ' velas'; setMsg(''); runNow(true); }
+    catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+const money = new Intl.NumberFormat('es-ES',{style:'currency',currency:'USD',maximumFractionDigits:2});
+const fmtMoney = x => { if (Math.abs(x) < 0.005) x = 0; return (x>0?'+':'') + money.format(x); };
+let decimals = 5;
+const fmtP = x => isFinite(x) ? x.toFixed(decimals) : '–';
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const fmtHM = t => { const d = new Date(t); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+function inferDecimals(c){ let dec = 0; for (let i = 0; i < Math.min(c.length, 300); i++){ const s = String(c[i]), p = s.indexOf('.'); if (p >= 0) dec = Math.max(dec, Math.min(8, s.length - p - 1)); } return dec; }
+
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => runNow(false), 200); }
+function runNow(resetView){
+  res = E.run(data, params);
+  decimals = inferDecimals(data.c);
+  $('src-chip').innerHTML = dataLabel + ' · ' + fmtDay(data.t[0]) + ' → ' + fmtDay(data.t[data.t.length-1]) + ' UTC';
+  renderStats(); renderTrades(); renderFunnel();
+  if (resetView || !view.count){
+    view.count = Math.min(data.t.length, defaultCount());
+    const last = res.trades[res.trades.length - 1];
+    view.start = (last ? (last.exitIdx ?? last.idx) + Math.floor(view.count * 0.3) : data.t.length) - view.count;
+  }
+  clampView(); draw(); drawEquity();
+}
+
+function renderStats(){
+  const s = res.stats, C = res.counts;
+  $('s-tr').textContent = s.trades;
+  const longs = res.trades.filter(x => x.dir > 0).length;
+  $('s-tr2').textContent = longs + ' largos · ' + (s.trades - longs) + ' cortos · ' + s.setups + ' setups';
+  $('s-wr').textContent = (s.tp2 + s.sl) ? s.winRate.toFixed(2) + ' %' : '–';
+  $('s-res').textContent = s.tp2 + ' · ' + s.tp1Back + ' · ' + s.sl;
+  const r = $('s-r'); r.textContent = (s.totalR >= 0 ? '+' : '') + s.totalR.toFixed(1) + ' R'; r.className = 'v ' + (s.totalR >= 0 ? 'pos' : 'neg');
+  $('s-r2').textContent = isFinite(s.avgR) ? 'media ' + (s.avgR >= 0 ? '+' : '') + s.avgR.toFixed(2) + ' R · PF ' + (isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : s.profitFactor === Infinity ? '∞' : '–') : 'sin operaciones cerradas';
+  const net = $('s-net'); net.textContent = fmtMoney(s.netProfit); net.className = 'v ' + (s.netProfit >= 0 ? 'pos' : 'neg');
+  $('s-net2').textContent = (s.netProfitPct >= 0 ? '+' : '') + s.netProfitPct.toFixed(2) + ' % · ' + params.riskPct + ' % por operación';
+  $('s-dd').textContent = s.maxDdPct.toFixed(2) + ' %'; $('s-dd').className = 'v' + (s.maxDdPct > 0 ? ' neg' : '');
+  $('s-dd2').textContent = money.format(-s.maxDd);
+  $('ind-row').innerHTML = 'Tabla del indicador: SIGNAL <b>' + C.current + '</b> · TOTAL TRADES <b>' + C.total + '</b> · TP1 &gt; ENTRY <b>' + C.tp1Back + '</b> · TP2 DONE <b>' + C.tp2 + '</b> · SL HIT <b>' + C.sl + '</b> · WIN RATE <b>' + s.winRate.toFixed(2) + '%</b>' + (s.sameBarExits ? ' · salidas en la vela de entrada <b>' + s.sameBarExits + '</b>' : '');
+}
+
+let selTrade = -1;
+function renderTrades(){
+  const tb = $('tbody');
+  if (!res.trades.length){ tb.innerHTML = '<tr><td colspan="12" class="empty">Ninguna operación con estos parámetros. Prueba con más semanas de datos o mira «Setups y filtros».</td></tr>'; return; }
+  const t = data.t;
+  tb.innerHTML = res.trades.map((x,k) => {
+    const cls = x.r > 0 ? 'pos' : x.r < 0 ? 'neg' : '';
+    const outc = x.outcome === 'TP2' ? '<span class="pill b">TP2</span>' : x.outcome === 'SL' ? '<span class="pill s">SL</span>' : x.outcome ? '<span class="pill n">TP1 → entrada</span>' : '<span class="pill n">abierta</span>';
+    return '<tr data-k="'+k+'"'+(k===selTrade?' class="sel"':'')+'><td>'+(k+1)+'</td>'
+      + '<td><span class="pill '+(x.dir>0?'b':'s')+'">'+(x.dir>0?'Largo':'Corto')+'</span></td>'
+      + '<td>'+fmtDate(t[x.idx])+'</td><td>'+fmtP(x.entry)+'</td><td>'+fmtP(x.sl)+'</td><td>'+fmtP(x.tp1)+'</td><td>'+fmtP(x.tp2)+'</td>'
+      + '<td>'+(x.tp1Idx !== null ? fmtDate(t[x.tp1Idx]) : '–')+'</td>'
+      + '<td>'+(x.outcome ? fmtDate(t[x.exitIdx]) : '–')+'</td><td>'+outc+'</td>'
+      + '<td class="'+cls+'">'+(x.outcome ? (x.r>=0?'+':'')+x.r.toFixed(2) : '–')+'</td>'
+      + '<td class="'+cls+'">'+(x.outcome ? fmtMoney(x.pnl) : '–')+'</td></tr>';
+  }).join('');
+}
+$('tbody').addEventListener('click', ev => {
+  const row = ev.target.closest('tr[data-k]'); if (!row) return;
+  selTrade = +row.dataset.k;
+  document.querySelectorAll('#tbody tr').forEach(r => r.classList.toggle('sel', r === row));
+  const x = res.trades[selTrade], from = x.setupBar !== null ? Math.min(x.setupBar - 30, x.idx) : x.idx, to = x.outcome ? x.exitIdx : x.idx + 20;
+  view.count = Math.max(80, Math.min(240, to - from + 40));
+  view.start = Math.round((from + to) / 2) - Math.floor(view.count / 2); clampView(); draw();
+  $('chart-box').scrollIntoView({block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+});
+
+function renderFunnel(){
+  const col = (name, f, low) => {
+    const bar = (label, n, max, cls) => '<div class="frow '+(cls||'')+'"><span>'+label+'</span><span class="bar"><i style="width:'+(max ? n/max*100 : 0).toFixed(1)+'%"></i></span><span class="n">'+n+'</span></div>';
+    const ended = f.expired + f.bbOpposite + f.invalidated + f.replaced + f.entries + f.pending;
+    const blk = f.block, bmax = Math.max(1, ...Object.values(blk));
+    return '<div><h3>'+name+' <span>'+f.pivots+' pivotes</span></h3>'
+      + bar(low ? 'Mínimo más bajo' : 'Máximo más alto', f.lowerLow, f.pivots)
+      + bar('Dentro de la distancia máx.', f.inLookback, f.pivots)
+      + bar('Condición MACD', f.macd, f.pivots)
+      + bar('Toca la banda → setup', f.bbTouch, f.pivots, 'ok')
+      + '<h4>Cómo terminan los setups</h4>'
+      + bar('Entrada', f.entries, ended, 'ok')
+      + bar('Caducado (velas máx.)', f.expired, ended)
+      + bar('Precio cruza el pivote', f.invalidated, ended)
+      + bar('Toca la banda contraria', f.bbOpposite, ended)
+      + bar('Sustituido por otro setup', f.replaced, ended)
+      + (f.pending ? bar('Aún activo', f.pending, ended) : '')
+      + '<h4>Velas con setup activo bloqueadas por</h4>'
+      + bar('Operación abierta', blk.inTrade, bmax) + bar('Antes de las velas mín.', blk.early, bmax)
+      + bar('Línea UT en contra', blk.pos, bmax) + bar('Cuerpo de vela fuera de rango', blk.candle, bmax)
+      + bar('Color de vela', blk.color, bmax) + bar('Fuera de zona Bollinger', blk.zone, bmax)
+      + bar('Histograma MACD', blk.macdHist, bmax) + bar('Anti-FOMO', blk.fomo, bmax) + bar('Pico de ATR', blk.atr, bmax)
+      + '</div>';
+  };
+  $('funnel').innerHTML = col('Largos', res.funnel.long, true) + col('Cortos', res.funnel.short, false);
+}
+
+// ---------------- chart ----------------
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(80, Math.min(260, Math.floor(cv.clientWidth / 4.5)));
+function clampView(){
+  const n = data.t.length;
+  view.count = Math.max(30, Math.min(n, view.count));
+  view.start = Math.max(0, Math.min(n - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, n - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),grid:g('--grid'),buy:g('--buy'),sell:g('--sell'),sl:g('--sl'),tp:g('--tp'),entry:g('--entry'),up:g('--ut-up'),dn:g('--ut-dn'),bb:g('--bb'),dd:g('--dd'),surface:g('--surface'),accent:g('--accent'),mono:g('--mono'),sans:g('--sans')};
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+function roundRect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = data, n = d.t.length;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 70, timeH = 22, gap = 12, plotW = W - axisW;
+  const priceH = Math.round((H - timeH - gap) * 0.76), mTop = priceH + gap, mH = H - timeH - mTop;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = s; i < e; i++){ lo = Math.min(lo, d.l[i]); hi = Math.max(hi, d.h[i]); }
+  res.trades.forEach(x => { const end = x.outcome ? x.exitIdx : n - 1; if (x.idx < e && end >= s) { lo = Math.min(lo, x.sl, x.tp2); hi = Math.max(hi, x.sl, x.tp2); } });
+  const padY = (hi - lo) * 0.06 || 0.0005; lo -= padY; hi += padY;
+  const Y = p => 28 + (hi - p) / (hi - lo) * (priceH - 56);
+  geo = {bw, plotW};
+
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const step = niceStep((hi - lo) / 6);
+  for (let p = Math.ceil(lo / step) * step; p <= hi; p += step){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(p.toFixed(decimals), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line;
+  ctx.beginPath(); ctx.moveTo(plotW + 0.5, 0); ctx.lineTo(plotW + 0.5, H - timeH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, mTop - gap/2 + 0.5); ctx.lineTo(W, mTop - gap/2 + 0.5); ctx.stroke();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw)); let lastDay = -1;
+  for (let i = s; i < e; i++){
+    if ((i - s) % every) continue;
+    const day = new Date(d.t[i]).getUTCDate();
+    ctx.fillStyle = T.muted; ctx.fillText(day !== lastDay ? fmtDay(d.t[i]) : fmtHM(d.t[i]), Math.min(Math.max(X(i), 24), plotW - 24), H - 6);
+    lastDay = day;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(Math.round(X(i)) + 0.5, 0); ctx.lineTo(Math.round(X(i)) + 0.5, H - timeH); ctx.stroke();
+  }
+  ctx.textAlign = 'left';
+
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  // Bollinger
+  const line = (arr, colFn, width, dash) => {
+    ctx.lineWidth = width; ctx.setLineDash(dash || []);
+    for (let i = Math.max(s, 1); i < e; i++){
+      const a = arr[i-1], b = arr[i]; if (!isFinite(a) || !isFinite(b)) continue;
+      ctx.strokeStyle = colFn(i); ctx.beginPath(); ctx.moveTo(X(i-1), Y(a)); ctx.lineTo(X(i), Y(b)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  };
+  line(res.bbUp, () => T.bb, 1.2); line(res.bbLo, () => T.bb, 1.2);
+  // candles
+  const bodyW = Math.max(1, Math.min(12, bw * 0.66));
+  for (let i = s; i < e; i++){
+    const up = d.c[i] >= d.o[i], x = X(i);
+    ctx.strokeStyle = ctx.fillStyle = up ? T.buy : T.sell; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, Y(d.h[i])); ctx.lineTo(Math.round(x) + 0.5, Y(d.l[i])); ctx.stroke();
+    const y1 = Y(Math.max(d.o[i], d.c[i])), y2 = Y(Math.min(d.o[i], d.c[i]));
+    ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+  ctx.globalAlpha = 1;
+  line(res.stop, i => res.pos[i] === -1 ? T.dn : T.up, 1.6);
+  // divergence setups
+  ctx.strokeStyle = T.accent; ctx.fillStyle = T.accent;
+  res.setups.forEach(st => {
+    if (st.bar < s || st.prevBar >= e) return;
+    ctx.lineWidth = 2; ctx.setLineDash([5,4]); ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.moveTo(X(st.prevBar), Y(st.prevVal)); ctx.lineTo(X(st.pivBar), Y(st.pivVal)); ctx.stroke(); ctx.setLineDash([]);
+    for (const [bi, v] of [[st.prevBar, st.prevVal], [st.pivBar, st.pivVal]]){ ctx.beginPath(); ctx.arc(X(bi), Y(v), 3.5, 0, Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  });
+  // trades
+  res.trades.forEach((x, k) => {
+    const end = x.outcome ? x.exitIdx : n - 1;
+    if (end < s || x.idx >= e) return;
+    const x1 = X(x.idx) - bw/2, x2 = X(Math.max(end, x.idx)) + bw/2;
+    const seg = (y, col, w, dash) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.moveTo(x1, Y(y)); ctx.lineTo(x2, Y(y)); ctx.stroke(); ctx.setLineDash([]); };
+    seg(x.entry, T.entry, 1.6); seg(x.sl, T.sl, 1.6); seg(x.tp1, T.tp, 1, [4,3]); seg(x.tp2, T.tp, 1.6);
+    if (x.outcome){
+      ctx.fillStyle = T.surface; ctx.strokeStyle = x.r > 0 ? T.tp : x.r < 0 ? T.sl : T.muted; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(X(x.exitIdx), Y(x.exitPrice), 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    const col = x.dir > 0 ? T.buy : T.sell, xc = X(x.idx);
+    ctx.font = '600 10.5px ' + T.sans; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const txt = x.dir > 0 ? 'BUY' : 'SELL', w = ctx.measureText(txt).width + 10;
+    const yy = x.dir > 0 ? Y(d.l[x.idx]) + 14 : Y(d.h[x.idx]) - 14;
+    ctx.fillStyle = col; roundRect(xc - w/2, yy - 8, w, 16, 4); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText(txt, xc, yy + 0.5); ctx.textAlign = 'left';
+    if (k === selTrade){ ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.strokeRect(xc - w/2 - 3, yy - 11, w + 6, 22); }
+  });
+  ctx.restore();
+
+  // MACD histogram
+  let hmax = 0;
+  for (let i = s; i < e; i++) if (isFinite(res.hist[i])) hmax = Math.max(hmax, Math.abs(res.hist[i]));
+  hmax = hmax || 1;
+  const zeroY = mTop + mH / 2, HY = v => zeroY - v / hmax * (mH / 2 - 6);
+  ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, Math.round(zeroY) + 0.5); ctx.lineTo(plotW, Math.round(zeroY) + 0.5); ctx.stroke();
+  for (let i = s; i < e; i++){
+    const v = res.hist[i]; if (!isFinite(v)) continue;
+    const rising = i > 0 && v > res.hist[i-1];
+    ctx.fillStyle = v >= 0 ? T.buy : T.sell; ctx.globalAlpha = rising === (v >= 0) ? 0.85 : 0.4;
+    const y = HY(v); ctx.fillRect(X(i) - bodyW/2, Math.min(y, zeroY), bodyW, Math.max(1, Math.abs(y - zeroY)));
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = '11px ' + T.mono; ctx.fillStyle = T.muted; ctx.textBaseline = 'top';
+  ctx.fillText('Histograma MACD ' + params.macdFast + '/' + params.macdSlow + '/' + params.macdSig, 8, mTop + 2);
+
+  if (hover >= s && hover < e){
+    const x = Math.round(X(hover)) + 0.5;
+    ctx.strokeStyle = T.muted; ctx.globalAlpha = 0.5; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - timeH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const n = data.t.length, e = Math.min(n, view.start + view.count);
+  const i = hover >= view.start && hover < e ? hover : e - 1;
+  if (i < 0) { $('readout').innerHTML = ''; return; }
+  const d = data, rng = res.bbUp[i] - res.bbLo[i], pct = rng > 0 ? (d.c[i] - res.bbLo[i]) / rng * 100 : NaN;
+  $('readout').innerHTML = fmtDate(d.t[i]) + '  O <b>' + fmtP(d.o[i]) + '</b> H <b>' + fmtP(d.h[i]) + '</b> L <b>' + fmtP(d.l[i]) + '</b> C <b>' + fmtP(d.c[i]) + '</b><br>UT <b>' + fmtP(res.stop[i]) + '</b> (' + (res.pos[i] === 1 ? 'alcista' : res.pos[i] === -1 ? 'bajista' : 'neutral') + ') · posición en Bollinger <b>' + (isFinite(pct) ? pct.toFixed(0) + ' %' : '–') + '</b>';
+}
+
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const mx = ev.clientX - cv.getBoundingClientRect().left;
+  if (drag){ view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView(); }
+  hover = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  draw();
+});
+const endDrag = () => { drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const frac = Math.min(1, (ev.clientX - cv.getBoundingClientRect().left) / geo.plotW), anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) view.start += Math.round(ev.deltaX / geo.bw);
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = data.t.length; clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+
+const ecv = $('eq'), ectx = ecv.getContext('2d');
+function drawEquity(){
+  if (!res || ecv.closest('[hidden]')) return;
+  const [W,H] = sizeCanvas(ecv), T = tok(), eq = res.equity, n = eq.length;
+  ectx.clearRect(0,0,W,H); if (!n) return;
+  const axisW = 84, bottom = 22, plotW = W - axisW, plotH = H - bottom - 8, cap = params.accountSize;
+  let lo = Math.min(cap, ...eq), hi = Math.max(cap, ...eq);
+  const pd = (hi - lo) * 0.08 || 50; lo -= pd; hi += pd;
+  const X = i => i / Math.max(1, n - 1) * plotW, Y = v => 8 + (hi - v) / (hi - lo) * plotH;
+  ectx.font = '11px ' + T.mono; ectx.textBaseline = 'middle'; ectx.lineWidth = 1;
+  const step = niceStep((hi - lo) / 5);
+  for (let v = Math.ceil(lo/step)*step; v <= hi; v += step){
+    const y = Math.round(Y(v)) + 0.5;
+    ectx.strokeStyle = T.grid; ectx.beginPath(); ectx.moveTo(0,y); ectx.lineTo(plotW,y); ectx.stroke();
+    ectx.fillStyle = T.muted; ectx.fillText(money.format(v).replace(/,\d+/, ''), plotW + 8, y);
+  }
+  let peak = -Infinity; const peaks = eq.map(v => (peak = Math.max(peak, v)));
+  ectx.fillStyle = T.dd; ectx.beginPath(); ectx.moveTo(0, Y(eq[0]));
+  for (let i = 0; i < n; i++) ectx.lineTo(X(i), Y(peaks[i]));
+  for (let i = n - 1; i >= 0; i--) ectx.lineTo(X(i), Y(eq[i]));
+  ectx.closePath(); ectx.fill();
+  ectx.setLineDash([4,4]); ectx.strokeStyle = T.muted; ectx.beginPath(); ectx.moveTo(0, Math.round(Y(cap))+0.5); ectx.lineTo(plotW, Math.round(Y(cap))+0.5); ectx.stroke(); ectx.setLineDash([]);
+  ectx.strokeStyle = T.accent; ectx.lineWidth = 2; ectx.beginPath();
+  for (let i = 0; i < n; i++) i ? ectx.lineTo(X(i), Y(eq[i])) : ectx.moveTo(X(i), Y(eq[i]));
+  ectx.stroke();
+  ectx.fillStyle = T.accent; ectx.beginPath(); ectx.arc(X(n-1), Y(eq[n-1]), 3.5, 0, Math.PI*2); ectx.fill();
+  ectx.fillStyle = T.muted; ectx.textBaseline = 'alphabetic';
+  ectx.textAlign = 'left'; ectx.fillText(fmtDay(data.t[0]), 0, H - 6);
+  ectx.textAlign = 'right'; ectx.fillText(fmtDay(data.t[n-1]), plotW, H - 6); ectx.textAlign = 'left';
+}
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+  if (b.dataset.tab === 'equity') drawEquity();
+}));
+
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (ch === '"') inStr = !inStr; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code)
+      .replace(/("[^"]*")/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na|for|to)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+
+new ResizeObserver(() => { if (res) { clampView(); draw(); drawEquity(); } }).observe($('chart-box'));
+const redraw = () => { draw(); drawEquity(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+loadSample();
+runNow(true);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DCA Liquidation Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEEFEC; --surface:#FAFAF8; --surface-2:#E4E6E1; --ink:#181C1A; --muted:#5C6460; --line:#D4D8D2;
+  --accent:#1E6F9F; --accent-ink:#F2F8FC; --buy:#1E7F4E; --sell:#B8352D; --sl:#B8352D; --tp:#1E7F4E; --entry:#2B4A8C;
+  --ut-up:#1E7F4E; --ut-dn:#B8352D; --bb:#8B918D; --ema:#7A4FB5; --trail:#C77A12; --held:#C79A3A; --e200:#2F5FB8; --e21:#D2761C; --e15:#8A4FC0; --adx:#1F6F8B; --off:rgba(184,53,45,.07); --sq:#B58A00; --fuch:#B0339B; --weak:rgba(214,120,0,.09); --upbg:rgba(30,127,78,.045); --dnbg:rgba(184,53,45,.045); --bb:#3A6FC4; --kc:#D2761C; --e50:#D2761C; --e20:#7A4FB5; --e200:#707872; --candle:#3E4540; --grid:rgba(24,28,26,.07); --dd:rgba(184,53,45,.10);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+    --accent:#6FB6E3; --accent-ink:#06202F; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+    --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --sq:#F2C94C; --fuch:#E77BD6; --weak:rgba(240,160,78,.09); --upbg:rgba(70,192,127,.05); --dnbg:rgba(238,107,96,.05); --bb:#7FA4F0; --kc:#F0A04E; --e50:#F0A04E; --e20:#B494E6; --e200:#9AA39E; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+  --accent:#6FB6E3; --accent-ink:#06202F; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+  --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --sq:#F2C94C; --fuch:#E77BD6; --weak:rgba(240,160,78,.09); --upbg:rgba(70,192,127,.05); --dnbg:rgba(238,107,96,.05); --bb:#7FA4F0; --kc:#F0A04E; --e50:#F0A04E; --e20:#B494E6; --e200:#9AA39E; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input,.seed select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.seed input{width:72px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.msg{font-size:13px;color:var(--sl)}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+.pos{color:var(--tp)} .neg{color:var(--sl)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px)}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{flex:1;min-width:0}
+.field input[type=number]{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--sl)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.ind-row{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;margin-bottom:10px;font-family:var(--mono);color:var(--muted)}
+.ind-row b{color:var(--ink);font-weight:500}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.b{background:color-mix(in srgb,var(--buy) 16%,transparent);color:var(--buy)}
+.pill.s{background:color-mix(in srgb,var(--sell) 16%,transparent);color:var(--sell)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.funnel h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.frow{display:grid;grid-template-columns:180px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12.5px;max-width:78ch;margin:12px 0 0}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--tp)} pre.code .nu{color:var(--entry)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:82ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.mode button{border:0;background:none;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.mode button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.diag{border:1px solid var(--line);border-left:4px solid var(--sl);border-radius:8px;background:var(--surface);padding:14px 16px;display:grid;gap:8px}
+.diag.ok{border-left-color:var(--accent)}
+.diag h2{font-size:15px;font-weight:700}
+.diag p{margin:0;max-width:90ch;color:var(--ink)}
+.diag p.m{color:var(--muted);font-size:13px}
+.diag code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.diag .nums{display:flex;flex-wrap:wrap;gap:6px 22px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.diag .nums b{color:var(--ink);font-weight:500}
+.field select{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+
+.chips .btn{padding:3px 10px;font-size:12px}
+.legend i.tri{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;margin-right:5px}
+.legend i.tri.up{border-bottom:8px solid var(--buy)}
+.legend i.tri.dn{border-top:8px solid var(--sell)}
+#ltable td,#ltable th{text-align:right}
+#ltable td:last-child,#ltable th:last-child{text-align:left}
+#ltable tbody tr{cursor:default}
+.txt{font-family:var(--sans)}
+
+.frow{grid-template-columns:200px minmax(0,1fr) 44px}
+@media (max-width:480px){.frow{grid-template-columns:130px minmax(0,1fr) 40px}}
+.legend i.dot{width:8px;height:8px;border:1.5px solid var(--muted);border-radius:50%}
+.legend i.box{width:12px;height:10px;border:0;background:var(--off);outline:1px solid var(--line)}
+.reasons{display:flex;flex-wrap:wrap;gap:4px 10px}
+#ttable td:nth-child(n+4),#ttable th:nth-child(n+4){text-align:right}
+#ttable td:nth-child(9),#ttable th:nth-child(9){text-align:left}
+.seed select{font-family:var(--sans)}
+.info{margin:0;padding:10px 14px 12px;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;border-bottom:1px solid var(--line)}
+.info dt{color:var(--muted)}
+.info dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.info .ttl{grid-column:1/-1;display:flex;justify-content:space-between;font-weight:600;color:var(--accent);margin-bottom:2px}
+.info .ttl span{color:var(--muted);font-weight:500;font-size:11px}
+.info .sep{grid-column:1/-1;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px}
+.warn{color:var(--sq)}
+.fuch{color:var(--fuch)}
+pre.json{margin:12px 0 0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto}
+#stable td:nth-child(n+4),#stable th:nth-child(n+4){text-align:right}
+#stable td:nth-child(3),#stable th:nth-child(3){text-align:left}
+#ctable td,#ctable th{text-align:right}
+#ctable td:first-child,#ctable th:first-child{text-align:left}
+#ctable tbody tr{cursor:pointer}
+#ctable tr.cur{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.field .fixed{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.legend i.dia{width:8px;height:8px;border:0;background:var(--fuch);transform:rotate(45deg)}
+.legend i.hol{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--muted);opacity:.6}
+.legend i.bgw{width:12px;height:10px;border:0;background:var(--weak);outline:1px solid var(--line)}
+.lead{margin:0;max-width:95ch;color:var(--muted);font-size:13.5px}
+.lead b{color:var(--ink)}
+.note.pad{padding:0 14px 14px;margin:10px 0 0;max-width:none;font-size:13px;color:var(--ink)}
+.chart-box{height:460px}
+@media (max-width:600px){.chart-box{height:360px}}
+.legend i.dot{width:9px;height:9px;border:1.5px solid var(--muted);border-radius:50%}
+.legend i.dot.fill{background:var(--buy);border-color:var(--buy)}
+.txtin{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+table.dlc{background:rgba(118,124,118,.63);font-size:12px}
+table.dlc th{position:sticky;top:0;background:#4b504c;color:#fff;text-transform:none;letter-spacing:0;font-size:11.5px;text-align:center;white-space:normal;min-width:74px}
+table.dlc td{color:#fff;text-align:center;border-bottom:2px solid #111}
+table.dlc tbody tr{cursor:default}
+table.dlc tbody tr:hover{background:inherit}
+table.dlc tr.bo-ok td{background:#4CAF50} table.dlc tr.bo-bad td{background:rgba(128,49,49,.33)}
+table.dlc tr.so-ok td{background:rgb(30,96,86)} table.dlc tr.so-bad td{background:#FF5252}
+table.dlc tr.gap td{background:rgba(118,124,118,.63);height:10px;padding:0}
+table.dlc td.pnl-pos{background:#4CAF50!important} table.dlc td.pnl-neg{background:rgba(169,35,35,.79)!important}
+table.dlc td.liq-yellow{background:#FFEB3B!important;color:#000} table.dlc td.liq-green{background:#4CAF50!important}
+table.dlc td.liq-magenta{background:rgb(191,17,165)!important} table.dlc td.liq-red{background:#FF5252!important}
+.side-stats{margin-top:14px;max-width:420px}
+table.dlc.st{background:rgba(213,220,220,.52)}
+table.dlc.st th{position:static;text-align:center;background:#667;font-size:12.5px}
+table.dlc.st td{text-align:left;color:#fff;background:rgba(90,96,96,.85)} table.dlc.st td.ok{background:#4CAF50} table.dlc.st td.bad{background:#FF5252}
+.sw{display:inline-block;padding:0 6px;border-radius:3px;color:#fff;font-size:12px}
+.sw.y{background:#FFEB3B;color:#000} .sw.g{background:#4CAF50} .sw.m{background:rgb(191,17,165)} .sw.r{background:#FF5252}
+#ctable td,#ctable th{text-align:right} #ctable td:first-child,#ctable th:first-child{text-align:left} #ctable td:last-child{text-align:left}
+#ctable tbody tr{cursor:default} #ctable tr.dim td{opacity:.6}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>DCA <span>Liquidation</span> Calculation</h1>
+      <p>Calculadora del indicador «DCA Liquidation Calculation [ChartPrime]» · Pine v5 portado a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="bo">Precio BO</label><input id="bo" type="number" min="0" step="any" value="65000"></span>
+      <span class="chip" id="sym-chip"></span>
+    </div>
+  </header>
+
+  <p class="lead">El script no mira el gráfico. Toma como precio de la orden base el <b>cierre diario de ayer</b> del símbolo elegido (<code>request.security(symbol, "D", close[1])</code>) y calcula la escalera de órdenes. Aquí puedes escribir ese precio a mano. La tabla del script sale tal cual y, al lado, la comprobación con el PnL de toda la posición, la liquidación correcta en corto y en largo, y si cada orden llega a ejecutarse.</p>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Capital necesario</span><span class="v" id="s-cap">–</span><span class="s" id="s-cap2">–</span></div>
+    <div class="stat"><span class="k">Valor máx. con apalancamiento</span><span class="v" id="s-deal">–</span><span class="s" id="s-deal2">–</span></div>
+    <div class="stat"><span class="k">Cobertura</span><span class="v" id="s-cov">–</span><span class="s" id="s-cov2">–</span></div>
+    <div class="stat"><span class="k">SO que se llenan de verdad</span><span class="v" id="s-fill">–</span><span class="s" id="s-fill2">–</span></div>
+    <div class="stat"><span class="k">Liquidación final</span><span class="v" id="s-liq">–</span><span class="s" id="s-liq2">–</span></div>
+    <div class="stat"><span class="k">La tabla del script dice</span><span class="v" id="s-scr">–</span><span class="s" id="s-scr2">–</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <span><i class="dot fill"></i>Orden que se llena</span>
+          <span><i class="dot"></i>Orden que no llega</span>
+          <span><i style="border-color:var(--accent)"></i>Precio medio</span>
+          <span><i style="border-color:var(--sell)"></i>Liquidación (correcta)</span>
+          <span><i class="dash" style="border-color:var(--sell)"></i>Liquidación (script)</span>
+          <span><i class="dash" style="border-color:var(--muted)"></i>Precio BO</span>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Escalera DCA: precio de cada orden, precio medio y precio de liquidación tras cada orden"></canvas>
+      </div>
+      <p class="note pad" id="verdict"></p>
+    </section>
+
+    <aside class="panel settings">
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="script" type="button">Tabla del script</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="check" type="button">Comprobación</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="script">
+      <div class="table-scroll">
+        <table id="mtable" class="dlc">
+          <thead><tr id="mhead"></tr></thead>
+          <tbody id="mbody"></tbody>
+        </table>
+      </div>
+      <div class="side-stats" id="stats-tbl"></div>
+      <p class="note">Reproduce la tabla principal y la de estadísticas con sus colores. En las filas de SO, fondo verde azulado = volumen total &lt; cartera × apalancamiento. Colores de la liquidación: <span class="sw y">amarillo</span>, <span class="sw g">verde</span>, <span class="sw m">magenta</span> y <span class="sw r">rojo</span>, según las reglas del script. «----» = liquidación negativa (el script la considera sin riesgo).</p>
+    </div>
+    <div class="tabpanel" data-panel="check" hidden>
+      <div class="table-scroll">
+        <table id="ctable">
+          <thead><tr><th>Orden</th><th>Precio</th><th>Volumen</th><th>Precio medio</th><th>PnL «script»</th><th>PnL real posición</th><th>Liq. script</th><th>Liq. correcta</th><th>Capital al llegar</th><th>Margen necesario</th><th>¿Se llena?</th></tr></thead>
+          <tbody id="cbody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="cnote"></p>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>En corto, la liquidación está mal.</b> <code>liq_balance()</code> usa siempre la fórmula de largo, <code>(cartera − tamaño × entrada) / (tamaño × (0,005 − 1))</code>, sin mirar <code>IS_LONG</code>. En modo short da precios por debajo de la entrada, cuando un corto se liquida por encima.</li>
+        <li><b>La columna PNL no es el PnL de la posición.</b> Calcula <code>qty × precio − qty × medio</code> solo con la cantidad de la última SO. El PnL de toda la posición cuando el precio llega a esa SO es varias veces mayor.</li>
+        <li><b>El color verde no garantiza que la orden se llene.</b> Solo compara el volumen total con cartera × apalancamiento, sin descontar la pérdida abierta. En la práctica la cuenta se queda sin margen, o se liquida, antes de llegar a las últimas SO.</li>
+        <li><b>El apalancamiento no cambia la liquidación.</b> La fórmula usa toda la cartera como garantía (margen cruzado) con un margen de mantenimiento fijo del 0,5 %. El apalancamiento solo cambia colores y el «capital necesario». Con margen aislado el resultado sería otro.</li>
+        <li><b>El precio de la BO es el cierre diario de ayer</b> del símbolo del input (BTCUSDT), no el precio actual ni el del gráfico. En cambio, las cabeceras usan la moneda del símbolo del gráfico (<code>syminfo.currency</code>).</li>
+        <li><b>Rendimiento.</b> Las tablas se crean con <code>table.new</code> en cada vela, sin <code>var</code> ni <code>barstate.islast</code>, y la de estadísticas se crea otra vez en cada vuelta del bucle. Funciona, pero hace mucho trabajo de más. Además, la fila 2 de la tabla queda vacía y <code>color2</code> (RSI 3) se calcula pero no se usa.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ©  ChartPrime
+
+//@version=5
+indicator("DCA Liquidation Calculation [ChartPrime]",shorttitle = "DLC [ChartPrime]",overlay = true)
+//
+color bgray                                         = color.rgb(118, 124, 118, 37)
+color WHITE                                         = color.rgb(210, 210, 210)
+color red                                           = color.rgb(128, 49, 49, 67)
+color white                                         = color.rgb(248, 248, 248, 14)
+color olive                                         = color.olive
+color blue                                          = color.rgb(23, 43, 77)
+color Yellow                                        = color.rgb(255, 186, 75)
+string core                                         =  "➞ Main Core Settings 🔸"
+string DCAg                                         =  "➞ DCA Logic Settings 🔸"
+string visual                                       =  "➞ Visuals Settings🔸"
+
+float Wallet                                        = input.float(1000,title = "Wallet ➞",group = core,inline = "01")
+string symbol                                       = input.symbol("BTCUSDT",group = core,inline = "01")
+bool IS_LONG                                        = input.string(title='Strategy Type ➞ ', defval='long', options=['long', 'short'],group=DCAg,inline = "001") == "long"
+var float  BO_price                                 = 0.0
+int decimals                                        = 3
+float base_order_value                              = input.float(title='        Base order   ➞              ', defval=200, step=50, group=DCAg,inline = "002")
+float Safety_order_value                            = input.float(title='        Safety order ➞              ', defval=300, step=50, group=DCAg,inline = "003")
+int leverage                                        = input.int  (title='        leverage ➞                  ', defval=10, minval=1,step=1, group=DCAg,inline = "004")
+float Safety_orders                                 = input.float(title='        Max Safety Count ➞', defval=10, group=DCAg)
+float price_deviation                               = input.float(title='        Price Deviation ➞', minval=0.0, step=0.1, defval=2.2, group=DCAg)
+float Volume_Scale                                  = input.float(title='        Safety Volume Scale ➞', defval=1.5, step=0.1, group=DCAg)
+float Step_Scale                                    = input.float(title='        Safety Step Scale ➞', defval=1.0, step=0.1, group=DCAg)
+
+bool Showmain                                       = input.bool(true, "Show Main Table ❓",group = visual,inline = "01")
+string position                                     = input.string("Middle Center",
+     options = ["Middle Right","Top Center","Top Right","Middle Left","Middle Center","Bottom Left","Bottom Center","Bottom Right"],
+     title = 'Position',
+     inline = "01",
+     group = visual
+     )
+
+bool Showstats                                       = input.bool(true, "Show Stats Table ❓",group = visual,inline = "02")
+string _position                                     = input.string("Top Right",
+     options = ["Middle Right","Top Center","Top Right","Middle Left","Middle Center","Bottom Left","Bottom Center","Bottom Right"],
+     title = 'Position',
+     inline = "02",
+     group = visual
+     )
+
+symbol_price()=>
+    request.security(symbol,"D", close[1])
+
+BO_price := symbol_price()
+
+
+plot(symbol_price(),display = display.data_window)
+plot(BO_price,display = display.data_window)
+stepped_deviation(so_index) =>
+    float SD = 0
+    if so_index > 0
+        for _i = 1 to so_index by 1
+            SD := SD + price_deviation * math.pow(Step_Scale, _i - 1)
+    else
+        SD := 0
+
+
+next_so_price(so_index, _bo_price) =>
+    float SD = stepped_deviation(so_index)
+    if IS_LONG
+        float _next_so_price = _bo_price * (1 - SD / 100)
+    else
+        float _next_so_price = _bo_price * (1 + SD / 100)
+
+next_so_size_usd(so_index) =>
+    float next_so_value = (Safety_order_value) * math.pow(Volume_Scale, so_index - 1)
+
+
+next_so_qty(so_index, _bo_price) =>
+    float next_so_value = next_so_size_usd(so_index)
+    float _next_so_qty = next_so_value / next_so_price(so_index, _bo_price)
+
+
+base()=>
+    str.replace(syminfo.ticker(symbol), "USDT",  "", 0)
+
+
+liq_balance(wallet_balance, contract_qty, entry_price)=>
+    liq_price = (wallet_balance + 0 - contract_qty * entry_price) / (math.abs(contract_qty) * ((0.5 / 100) - (1)))
+    math.round(liq_price, 2)
+
+
+
+_steps_bo_size = (base_order_value) / BO_price
+
+table_position(type) =>
+    switch type
+        "Middle Right" => position.middle_right
+        "Top Center" => position.top_center
+        "Top Right" => position.top_right
+        "Middle Left" => position.middle_left
+        "Middle Center" => position.middle_center
+        "Bottom Left" => position.bottom_left
+        "Bottom Center" => position.bottom_center
+        "Bottom Right" => position.bottom_right
+
+
+//
+if Showmain
+    color2 = color.from_gradient(ta.rsi(close, 3), 0, 100, #E6DADA, #274046)
+    table main = table.new(table_position(position), columns=20, rows=int(Safety_orders) + 4, frame_width=4,
+         frame_color=color.rgb(71, 71, 71) , border_width=2, border_color=color.black, bgcolor=bgray)
+    table.cell(main, 0, 0, 'Order # no', text_color=color.white, text_size=size.normal, width = 5, height=4)
+    table.cell(main, 1, 0, 'Deviation ( % )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 2, 0, 'Size ( ' + str.tostring(base()) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 3, 0, 'Volume ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 4, 0, 'Price ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 5, 0, 'Avg price ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 6, 0, 'PNL ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 7, 0, 'Liquidation Price ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 8, 0, 'Total size ( ' + str.tostring(base()) + ' )', text_color=color.white, text_size=size.normal)
+    table.cell(main, 9, 0, 'Total Vol ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.normal)
+
+    float _steps_total_size = _steps_bo_size
+    float _steps_total_volume = BO_price * _steps_bo_size
+    row_color = _steps_total_volume < Wallet ? color.green : red
+    //base order
+    table.cell(main, 0, 1, 'BO', text_color=color.white, text_size=size.normal,bgcolor = row_color)
+    table.cell(main, 1, 1, '0', text_color=color.white, text_size=size.normal,bgcolor = row_color)
+    table.cell(main, 2, 1, str.tostring(math.round(_steps_bo_size, decimals)), text_color=color.white, text_size=size.normal,bgcolor = row_color)
+    table.cell(main, 3, 1, str.tostring(math.round(BO_price * _steps_bo_size, decimals)), text_color=color.white, text_size=size.normal,bgcolor = row_color)
+    table.cell(main, 4, 1, str.tostring(math.round(BO_price, decimals)), text_color=color.white, text_size=size.normal,bgcolor = row_color)
+    table.cell(main, 5, 1, str.tostring(math.round(_steps_total_volume / _steps_total_size, decimals)), text_color=color.white, text_size=size.normal,bgcolor = row_color)
+
+    float next_so_price = 0
+    float next_so_qty = 0
+    if Safety_orders > 0
+        for _i = 1 to Safety_orders by 1
+            next_so_price  := next_so_price(_i, BO_price)
+            next_so_qty    := next_so_qty(_i, BO_price)
+
+            _steps_total_size   += next_so_qty
+            _steps_total_volume += next_so_qty * next_so_price
+            inrow_color = _steps_total_volume < Wallet * leverage ? color.rgb(30, 96, 86) : color.red
+
+            avg = math.round(_steps_total_volume / _steps_total_size, decimals)
+            PNL = IS_LONG ? (next_so_qty * next_so_price) - (next_so_qty * avg) : (next_so_qty * avg) - (next_so_qty * next_so_price)
+            Liq = math.round(liq_balance(Wallet,_steps_total_size,avg), decimals)
+            liq_color2 = ((math.abs(PNL) + (_steps_total_volume / leverage) ) > Wallet)
+            liqcon = Liq > 0 and _steps_total_volume < ( Wallet * leverage ) and liq_color2
+            _liqcon = Liq > 0 and _steps_total_volume < ( Wallet * leverage ) and not liq_color2
+
+            liq_color = liqcon ? color.yellow : Liq < 0 and _steps_total_volume < (Wallet * leverage) ? color.green : _liqcon ? color.rgb(191, 17, 165): color.red
+            volwithlev = leverage > 1 ? str.tostring(math.round(next_so_qty * next_so_price, 3))+" ⇢ "+"Lev: "
+                 + str.tostring(math.round((next_so_qty * next_so_price / leverage), 3)) + "💲" : str.tostring(math.round(next_so_qty * next_so_price, decimals))
+
+            totalwithlev = leverage > 1 ? str.tostring(math.round(_steps_total_volume, decimals))+ " ⇢ " +"Lev: "
+                 + str.tostring(math.round((_steps_total_volume / leverage), decimals)) + "💲" : str.tostring(math.round(_steps_total_volume, decimals))
+            table.cell(main, 0, _i + 2, str.tostring(_i), text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 1, _i + 2, str.tostring(math.round(stepped_deviation(_i),decimals)) + " %", text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 2, _i + 2, str.tostring(math.round(next_so_qty, decimals)), text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 3, _i + 2, volwithlev, text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 4, _i + 2, str.tostring(math.round(next_so_price, decimals)), text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 5, _i + 2, str.tostring(math.round(_steps_total_volume / _steps_total_size, decimals)), text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 6, _i + 2, str.tostring(math.round(PNL, decimals)) + "💲", text_color=color.white, text_size=size.normal,bgcolor =  PNL > 0 ? color.green:color.rgb(169, 35, 35, 21))
+            table.cell(main, 7, _i + 2, Liq < 0 ? "----": str.tostring(Liq), text_color=liqcon ? color.black : color.white, text_size=size.normal,bgcolor = liq_color)
+            table.cell(main, 8, _i + 2, str.tostring(math.round(_steps_total_size, decimals)), text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            table.cell(main, 9, _i + 2, str.tostring(totalwithlev), text_color=color.white, text_size=size.normal,bgcolor = inrow_color)
+            if Showstats
+                table stats = table.new(table_position(_position), columns=20, rows=int(Safety_orders) + 4, frame_width=3, frame_color=color.black, border_width=2, border_color=color.black, bgcolor=color.rgb(213, 220, 220, 48))
+                table.cell(stats, 0, 0, 'BOT info', text_color=color.white, text_size=size.auto, width = 5, height=4)
+                table.cell(stats, 1, 0, '', text_color=color.white, text_size=size.auto)
+                table.merge_cells(stats, 0, 0, 1, 0)
+                table.cell(stats, 0, 1, 'Required Capital ( ' + str.tostring(syminfo.currency) + ' )', text_color=color.white, text_size=size.auto)
+                capitalcon = Wallet<math.round((_steps_total_volume / leverage),decimals)
+                table.cell(stats, 1, 1, capitalcon ? "😞" + " " + str.tostring(math.round((_steps_total_volume / leverage),decimals)) + " " +str.tostring(syminfo.currency) :
+                     "🥳" + " " + str.tostring(math.round((_steps_total_volume / leverage),decimals)) + " " +str.tostring(syminfo.currency),
+                     text_color=color.white, text_size=size.auto,
+                     bgcolor=capitalcon ? color.red : color.green)
+                table.cell(stats, 0, 2, "Max Deal Value\nwith leverage", text_color=color.white, text_size=size.auto)
+                table.cell(stats, 1, 2, str.tostring(math.round((_steps_total_volume),decimals)) + " " +str.tostring(syminfo.currency),
+                     text_color=color.white, text_size=size.auto,
+                     bgcolor=Wallet * leverage < math.round((_steps_total_volume),decimals)? color.red : color.green)
+                table.cell(stats, 0, 3, "Leverage", text_color=color.white, text_size=size.auto)
+                table.cell(stats, 1, 3, "X " + str.tostring(leverage), text_color=color.white, text_size=size.auto)
+                table.cell(stats, 0, 4, "Maximum coverage", text_color=color.white, text_size=size.auto)
+                table.cell(stats, 1, 4, str.tostring(math.round(stepped_deviation(_i),decimals)) + " %", text_color=color.white, text_size=size.auto)
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineDLC;
+const $ = id => document.getElementById(id);
+const STORE = 'dlc-params';
+const SCHEMA = [
+  {g:'Cuenta y símbolo', open:true, f:[['wallet','Cartera','num',{min:1,step:100}], ['symbol','Símbolo','text'], ['currency','Moneda (syminfo.currency)','text']]},
+  {g:'DCA', open:true, f:[
+    ['isLong','Tipo','sel',{opts:[['long',true],['short',false]]}], ['baseOrder','Orden base','num',{min:1,step:50}], ['safetyOrder','Safety order','num',{min:1,step:50}],
+    ['leverage','Apalancamiento','num',{min:1,step:1,int:true}], ['safetyOrders','Número máx. de SO','num',{min:0,max:50,step:1}],
+    ['priceDeviation','Desviación %','num',{min:0,step:0.1}], ['volumeScale','Escala de volumen','num',{min:0.1,step:0.1}], ['stepScale','Escala de paso','num',{min:0.1,step:0.1}]]},
+  {g:'Liquidación', open:true, f:[['mmPct','Margen de mantenimiento % (fijo 0,5 en el script)','num',{min:0,max:50,step:0.1}]]}
+];
+const DEF = Object.assign({currency:'USDT'}, E.DEFAULTS);
+let params = Object.assign({}, DEF), boPrice = 65000;
+try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) { params = Object.assign(params, saved.p || {}); if (saved.bo > 0) boPrice = saved.bo; } } catch (e) {}
+$('bo').value = boPrice;
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + '</summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key;
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + (type === 'sel' ? '<select id="'+id+'">' + opt.opts.map(([t,v]) => '<option value="' + v + '">' + t + '</option>').join('') + '</select>'
+        : type === 'text' ? '<input type="text" id="'+id+'" class="txtin">'
+        : '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">');
+      box.appendChild(row);
+      const el = row.querySelector('#'+id);
+      el.value = String(params[key]);
+      el.addEventListener(type === 'sel' ? 'change' : 'input', () => {
+        let val;
+        if (type === 'sel') val = el.value === 'true';
+        else if (type === 'text') val = el.value.trim() || DEF[key];
+        else { val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.int) val = Math.round(val); if (opt.max != null) val = Math.min(opt.max, val); if (opt.min != null) val = Math.max(opt.min, val); }
+        row.classList.remove('bad'); params[key] = val; save(); render();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  save();
+}
+function save(){
+  document.querySelectorAll('.field').forEach(r => r.classList.toggle('changed', params[r.dataset.key] !== DEF[r.dataset.key]));
+  try { localStorage.setItem(STORE, JSON.stringify({p: params, bo: boPrice})); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { params = Object.assign({}, DEF); buildSettings(); render(); });
+$('bo').addEventListener('input', () => { const v = parseFloat($('bo').value); if (v > 0) { boPrice = v; save(); render(); } });
+
+const nf = (x, d) => isFinite(x) ? x.toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d}) : '–';
+// Pine str.tostring(math.round(x, 3)) style
+const ps = x => { if (!isFinite(x)) return 'NaN'; const r = Math.sign(x) * Math.round(Math.abs(x) * 1000) / 1000; return String(r); };
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+let res = null;
+function render(){
+  res = E.run({boPrice}, params);
+  const s = res.stats, P = params, cur = esc(P.currency), base = esc(res.base), lev = s.leverage;
+  $('sym-chip').innerHTML = 'Símbolo <b>' + esc(P.symbol) + '</b> · ' + (P.isLong ? 'long' : 'short') + ' · ×' + lev;
+  const cap = $('s-cap'); cap.textContent = (s.requiredOk ? '🥳 ' : '😞 ') + nf(s.requiredCapital, 2); cap.className = 'v ' + (s.requiredOk ? 'pos' : 'neg');
+  $('s-cap2').textContent = 'volumen total / apalancamiento · cartera ' + nf(P.wallet, 0) + ' ' + P.currency;
+  const deal = $('s-deal'); deal.textContent = nf(s.maxDealValue, 0); deal.className = 'v ' + (s.maxDealOk ? 'pos' : 'neg');
+  $('s-deal2').textContent = 'límite cartera × ' + lev + ' = ' + nf(P.wallet * lev, 0);
+  $('s-cov').textContent = nf(s.coverage, 2) + ' %';
+  $('s-cov2').textContent = 'hasta ' + nf(res.rows[res.rows.length - 1].price, 2) + ' (' + (res.rows.length - 1) + ' SO)';
+  const N = res.rows.length - 1, fill = $('s-fill');
+  fill.textContent = s.lastFillable + ' de ' + N; fill.className = 'v ' + (s.lastFillable === N ? 'pos' : 'neg');
+  const fb = s.firstBlocked;
+  $('s-fill2').textContent = fb ? 'la SO ' + fb.label + ' no llega: ' + (fb.liquidatedBefore ? 'liquidación antes' : !fb.reachable ? 'la anterior no se llenó' : 'sin margen (' + nf(fb.equityBefore, 0) + ' < ' + nf(fb.marginUsed, 0) + ')') : 'todas se pueden llenar';
+  const liq = $('s-liq'); liq.textContent = isFinite(s.liqAfterLast) ? nf(s.liqAfterLast, 2) : 'sin liquidación'; liq.className = 'v' + (isFinite(s.liqAfterLast) ? ' neg' : ' pos');
+  $('s-liq2').textContent = isFinite(s.liqDistPct) ? (s.liqDistPct > 0 ? '+' : '') + nf(s.liqDistPct, 2) + ' % desde la BO, con ' + s.lastFillable + ' SO' : 'la cartera cubre la caída hasta 0';
+  $('s-scr').textContent = s.scriptGreenRows + ' de ' + N + ' verdes';
+  $('s-scr2').textContent = 'volumen < cartera × apal. · liquidación verde en ' + s.scriptSafeLiqRows;
+  renderScript(cur, base); renderCheck(cur); renderVerdict(); draw();
+}
+function renderScript(cur, base){
+  const P = params, lev = res.stats.leverage;
+  const heads = ['Order # no', 'Deviation ( % )', 'Size ( ' + base + ' )', 'Volume ( ' + cur + ' )', 'Price ( ' + cur + ' )', 'Avg price ( ' + cur + ' )', 'PNL ( ' + cur + ' )', 'Liquidation Price ( ' + cur + ' )', 'Total size ( ' + base + ' )', 'Total Vol ( ' + cur + ' )'];
+  $('mhead').innerHTML = heads.map(h => '<th>' + h + '</th>').join('');
+  const B = res.rows[0];
+  let html = '<tr class="' + (B.rowOk ? 'bo-ok' : 'bo-bad') + '"><td>BO</td><td>0</td><td>' + ps(B.qty) + '</td><td>' + ps(B.usd) + '</td><td>' + ps(B.price) + '</td><td>' + ps(B.tVol / B.tSize) + '</td><td></td><td></td><td></td><td></td></tr>';
+  html += '<tr class="gap"><td colspan="10"></td></tr>';
+  for (const r of res.rows.slice(1)){
+    const vol = lev > 1 ? ps(r.usd) + ' ⇢ Lev: ' + ps(r.usd / lev) + '💲' : ps(r.usd);
+    const tot = lev > 1 ? ps(r.tVol) + ' ⇢ Lev: ' + ps(r.tVol / lev) + '💲' : ps(r.tVol);
+    html += '<tr class="' + (r.rowOk ? 'so-ok' : 'so-bad') + '"><td>' + r.label + '</td><td>' + ps(r.dev) + ' %</td><td>' + ps(r.qty) + '</td><td>' + vol + '</td><td>' + ps(r.price) + '</td><td>' + ps(r.tVol / r.tSize) + '</td>'
+      + '<td class="' + (r.pnlScript > 0 ? 'pnl-pos' : 'pnl-neg') + '">' + ps(r.pnlScript) + '💲</td><td class="liq-' + r.liqCls + '">' + (r.liqScript < 0 ? '----' : ps(r.liqScript)) + '</td><td>' + ps(r.tSize) + '</td><td>' + tot + '</td></tr>';
+  }
+  $('mbody').innerHTML = html;
+  const s = res.stats;
+  $('stats-tbl').innerHTML = '<table class="dlc st"><tbody><tr><th colspan="2">BOT info</th></tr>'
+    + '<tr><td>Required Capital ( ' + cur + ' )</td><td class="' + (s.requiredOk ? 'ok' : 'bad') + '">' + (s.requiredOk ? '🥳' : '😞') + ' ' + ps(s.requiredCapital) + ' ' + cur + '</td></tr>'
+    + '<tr><td>Max Deal Value<br>with leverage</td><td class="' + (s.maxDealOk ? 'ok' : 'bad') + '">' + ps(s.maxDealValue) + ' ' + cur + '</td></tr>'
+    + '<tr><td>Leverage</td><td>X ' + s.leverage + '</td></tr><tr><td>Maximum coverage</td><td>' + ps(s.coverage) + ' %</td></tr></tbody></table>';
+}
+function renderCheck(cur){
+  const L = params.isLong;
+  $('cbody').innerHTML = res.rows.map(r => {
+    const why = r.fillable ? '<span class="pill b">sí</span>' : '<span class="pill s">' + (r.liquidatedBefore ? 'liquidada antes' : !r.reachable ? 'no' : !r.marginOk ? 'sin margen' : 'no (anterior)') + '</span>';
+    return '<tr' + (r.fillable ? '' : ' class="dim"') + '><td>' + (r.k ? 'SO ' + r.label : 'BO') + '</td><td>' + nf(r.price, 2) + '</td><td>' + nf(r.usd, 2) + '</td><td>' + nf(r.avgExact, 2) + '</td>'
+      + '<td>' + (r.k ? nf(r.pnlScript, 2) : '–') + '</td><td class="' + (r.pnlReal < 0 ? 'neg' : '') + '">' + (r.k ? nf(r.pnlReal, 2) : '–') + '</td>'
+      + '<td>' + (r.k ? (r.liqScript < 0 ? '----' : nf(r.liqScript, 2)) : '–') + '</td><td>' + (isFinite(r.liqReal) ? nf(r.liqReal, 2) : 'sin riesgo') + '</td>'
+      + '<td>' + nf(r.equityBefore, 2) + '</td><td class="' + (r.marginOk ? '' : 'neg') + '">' + nf(r.marginUsed, 2) + '</td><td class="txt">' + why + '</td></tr>';
+  }).join('');
+  $('cnote').innerHTML = '<b>PnL real posición</b>: ganancia o pérdida de toda la posición justo después de llenar esa orden. '
+    + '<b>Liq. correcta</b>: margen cruzado con toda la cartera como garantía y ' + nf(params.mmPct, 2) + ' % de margen de mantenimiento, con la fórmula de ' + (L ? 'largo' : 'corto') + '. '
+    + '<b>Capital al llegar</b>: cartera más la pérdida abierta cuando el precio llega a esa orden. <b>Margen necesario</b>: volumen total / apalancamiento. '
+    + 'Una orden se llena solo si se llenaron las anteriores, la liquidación no llega antes y el capital cubre el margen. Es una aproximación: cada exchange calcula el margen a su manera.';
+}
+function renderVerdict(){
+  const s = res.stats, N = res.rows.length - 1, fb = s.firstBlocked, L = params.isLong;
+  let t = 'Con ' + nf(params.wallet, 0) + ' ' + esc(params.currency) + ' y ×' + s.leverage + ', ';
+  if (!fb) t += 'las ' + N + ' SO se pueden llenar' + (isFinite(s.liqAfterLast) ? ' y la liquidación final queda en ' + nf(s.liqAfterLast, 2) + ' (' + nf(s.liqDistPct, 2) + ' %).' : ' y la cartera cubre la caída hasta 0.');
+  else t += 'solo se llenan <b>' + s.lastFillable + ' de ' + N + '</b> SO. La SO ' + fb.label + ' (' + nf(fb.price, 2) + ') ' + (fb.liquidatedBefore ? 'no llega porque la posición se liquida antes, en ' + nf(res.rows[fb.k - 1].liqReal, 2) : 'no se puede abrir: el capital al llegar (' + nf(fb.equityBefore, 2) + ') no cubre el margen (' + nf(fb.marginUsed, 2) + ')') + '. '
+    + (isFinite(s.liqAfterLast) ? 'Con las SO que sí se llenan, la liquidación está en ' + nf(s.liqAfterLast, 2) + ' (' + (s.liqDistPct > 0 ? '+' : '') + nf(s.liqDistPct, 2) + ' % desde la BO), frente a la cobertura de ' + nf(s.coverage, 2) + ' % que muestra el script.' : '');
+  if (!L) t += ' <b>En modo short, la columna de liquidación del script es incorrecta</b>: usa la fórmula de largo.';
+  $('verdict').innerHTML = t;
+}
+
+const cv = $('chart'), ctx = cv.getContext('2d');
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  const o = {}; ['ink','muted','line','grid','buy','sell','surface','accent','mono','dd'].forEach(k => o[k] = g('--' + k)); return o;
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), rows = res.rows, n = rows.length, L = params.isLong;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 84, bottom = 26, top = 14, plotW = W - axisW - 12, plotH = H - bottom - top;
+  let lo = Infinity, hi = -Infinity;
+  const inc = v => { if (isFinite(v) && v > 0) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+  const near = v => Math.abs(v - res.bo) / res.bo < 0.6;
+  rows.forEach(r => { inc(r.price); inc(r.avgExact); if ((r.fillable || r.k === 0) && near(r.liqReal)) inc(r.liqReal); if (r.k && r.liqScript > 0 && near(r.liqScript)) inc(r.liqScript); });
+  const pad = (hi - lo) * 0.08 || hi * 0.05; lo -= pad; hi += pad;
+  const X = k => 12 + (n === 1 ? plotW / 2 : k / (n - 1) * plotW), Y = p => top + (hi - p) / (hi - lo) * plotH;
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const st = niceStep((hi - lo) / 6);
+  for (let p = Math.ceil(lo / st) * st; p <= hi; p += st){
+    const y = Math.round(Y(p)) + 0.5; ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - axisW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(nf(Math.abs(p) < st / 1e6 ? 0 : p, 0), W - axisW + 8, y);
+  }
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top - 6, W - axisW, plotH + 12); ctx.clip();
+  // liquidation danger zone (after the last fillable order)
+  const lastF = rows.filter(r => r.fillable).pop();
+  if (lastF && isFinite(lastF.liqReal)){
+    const y = Y(lastF.liqReal); ctx.fillStyle = T.dd;
+    if (L) ctx.fillRect(0, y, W - axisW, top + plotH - y); else ctx.fillRect(0, top, W - axisW, y - top);
+  }
+  // BO price
+  ctx.setLineDash([4,4]); ctx.strokeStyle = T.muted; ctx.beginPath(); ctx.moveTo(0, Math.round(Y(res.bo)) + 0.5); ctx.lineTo(W - axisW, Math.round(Y(res.bo)) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+  // step lines
+  const stepLine = (get, color, dash, width, onlyFill) => {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath(); let on = false;
+    rows.forEach((r, k) => {
+      let v = get(r); if (!isFinite(v) || v <= 0 || (onlyFill && !r.fillable)) { on = false; return; }
+      v = Math.max(lo - (hi - lo), Math.min(hi + (hi - lo), v));
+      const x0 = X(k), x1 = k < n - 1 ? X(k + 1) : X(k) + 10;
+      if (!on) { ctx.moveTo(x0, Y(v)); on = true; } else ctx.lineTo(x0, Y(v));
+      ctx.lineTo(x1, Y(v));
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  stepLine(r => r.avgExact, T.accent, null, 2);
+  stepLine(r => r.k ? r.liqScript : NaN, T.sell, [5,4], 1.5);
+  stepLine(r => r.liqReal, T.sell, null, 2);
+  ctx.restore();
+  // order dots
+  rows.forEach((r, k) => {
+    const x = X(k), y = Y(r.price), rad = 4 + Math.min(8, Math.sqrt(r.usd / Math.max(1, params.safetyOrder)) * 3);
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
+    if (r.fillable){ ctx.fillStyle = L ? T.buy : T.sell; ctx.fill(); } else { ctx.strokeStyle = T.muted; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.fillStyle = T.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(r.k ? 'SO' + r.k : 'BO', x, H - 8);
+  });
+  ctx.textAlign = 'left';
+  if (res.stats.firstBlocked){
+    const fb = res.stats.firstBlocked, x = X(fb.k), y = Y(fb.price);
+    ctx.fillStyle = T.sell; ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle';
+    const txt = fb.liquidatedBefore ? '← liquidada antes' : '← sin margen';
+    ctx.fillText(txt, Math.min(x + 14, W - axisW - ctx.measureText(txt).width - 4), y + (L ? -16 : 16));
+  }
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+}));
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, q = '', ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (!inStr && (ch === '"' || ch === "'")) { inStr = true; q = ch; } else if (inStr && ch === q) inStr = false; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code).replace(/("[^"]*"|'[^']*')/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na|for|to|by|bool|float|int|string|color|table|switch)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+new ResizeObserver(draw).observe($('chart-box'));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+new MutationObserver(draw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+render();
+})();
+</script>
+</body>
+</html>

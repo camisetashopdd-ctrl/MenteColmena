@@ -1,0 +1,284 @@
+//@version=6
+indicator("UT Sniper Pro", overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+// UT Bot
+a = input.float(2.0, "Key Value (Sensitivity)", minval=0.1, group="UT Bot")
+c = input.int(10, "ATR Period", group="UT Bot")
+h = input.bool(false, "Signals from Heikin Ashi", group="UT Bot")
+
+// Candle Filter
+min_atr_mult = input.float(0.5, "Min Candle Body (ATR Mult)", group="Candle Filter")
+max_atr_mult = input.float(1.5, "Max Candle Body (ATR Mult)", group="Candle Filter")
+
+// Divergence & MACD & BB
+piv_len = input.int(4, "Pivot Period", group="Divergence")
+div_lookback = input.int(20, "Divergence Max Lookback (Bars)", group="Divergence")
+
+use_macd = input.bool(false, "Enable MACD Hist Divergence", group="Divergence")
+macd_fast = input.int(12, "MACD Fast", group="Divergence")
+macd_slow = input.int(26, "MACD Slow", group="Divergence")
+macd_sig = input.int(9, "MACD Signal", group="Divergence")
+max_hist_ratio = input.float(1.0, "Max MACD Hist Ratio (Peak2/Peak1)", group="Divergence")
+
+bb_len = input.int(200, "Bollinger Band Period", group="Filters")
+bb_std = input.float(2.0, "BB StdDev", group="Filters")
+
+// Entry Time Limit
+min_setup_bars = input.int(2, "Min Bars After Confirmation", tooltip="Wait at least this many bars after divergence confirmation", group="Filters")
+max_setup_bars = input.int(10, "Max Bars After Confirmation", tooltip="Cancel setup if no entry after this many bars", group="Filters")
+
+// Anti-FOMO Filter (Wait for Pullback)
+use_fomo_filter = input.bool(true, "Enable Anti-FOMO Filter (Wait for Pullback)", group="Filters")
+max_fomo_candles = input.int(2, "Max Consecutive Same-Color Candles", minval=1, tooltip="Prevent Short if previous candles are all Red. Prevent Long if previous candles are all Green.", group="Filters")
+
+// ATR Spike Filter
+use_atr_filter = input.bool(true, "Enable ATR Spike Filter", group="Filters")
+atr_lookback = input.int(75, "Past Bars to Compare ATR", group="Filters")
+max_atr_increase = input.float(1.3, "Max ATR Increase Ratio (1.5 = 50% increase)", tooltip="Reject trade if current ATR exceeds this multiplier compared to the past ATR", group="Filters")
+
+max_bb_percent_long = input.float(0.3, "Max BB % for Long (0.0-1.0)", tooltip="Only allow Long setups in the specified lower portion of BB", group="Filters")
+min_bb_percent_short = input.float(0.7, "Min BB % for Short (0.0-1.0)", tooltip="Only allow Short setups in the specified upper portion of BB", group="Filters")
+
+// SL/TP Settings
+sl_atr_mult = input.float(2.0, "SL (ATR Mult)", group="SL/TP")
+tp1_mult = input.float(1.5, "TP1 (Ratio to SL)", group="SL/TP")
+tp2_mult = input.float(2.0, "TP2 (Ratio to SL)", group="SL/TP")
+line_ext = input.int(20, "Line Extension (Bars)", group="SL/TP")
+
+// ==========================================
+// 2. UT BOT LOGIC
+// ==========================================
+src = h ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close) : close
+xATR = ta.atr(c)
+nLoss = a * xATR
+
+var float xATRTrailingStop = 0.0
+xATRTrailingStop := src > nz(xATRTrailingStop[1], 0) and src[1] > nz(xATRTrailingStop[1], 0) ? math.max(nz(xATRTrailingStop[1]), src - nLoss) :
+   src < nz(xATRTrailingStop[1], 0) and src[1] < nz(xATRTrailingStop[1], 0) ? math.min(nz(xATRTrailingStop[1]), src + nLoss) :
+   src > nz(xATRTrailingStop[1], 0) ? src - nLoss : src + nLoss
+
+pos = 0
+pos := src[1] < nz(xATRTrailingStop[1], 0) and src > nz(xATRTrailingStop[1], 0) ? 1 :
+   src[1] > nz(xATRTrailingStop[1], 0) and src < nz(xATRTrailingStop[1], 0) ? -1 : nz(pos[1], 0)
+
+xcolor = pos == -1 ? color.red: pos == 1 ? color.green : color.blue
+plot(xATRTrailingStop, title="UT Bot Line", color=xcolor, linewidth=2)
+
+// ==========================================
+// 3. INDICATOR LOGIC (BB, MACD, PIVOT)
+// ==========================================
+[bb_mid, bb_upper, bb_lower] = ta.bb(src, bb_len, bb_std)
+[macdLine, signalLine, histLine] = ta.macd(src, macd_fast, macd_slow, macd_sig)
+
+ph = ta.pivothigh(src, piv_len, piv_len)
+pl = ta.pivotlow(src, piv_len, piv_len)
+
+var float last_ph_val = na
+var float last_ph_hist = na
+var int last_ph_bar = 0
+
+var float last_pl_val = na
+var float last_pl_hist = na
+var int last_pl_bar = 0
+
+if not na(ph)
+    last_ph_val := ph
+    last_ph_hist := histLine[piv_len]
+    last_ph_bar := bar_index[piv_len]
+if not na(pl)
+    last_pl_val := pl
+    last_pl_hist := histLine[piv_len]
+    last_pl_bar := bar_index[piv_len]
+
+// ==========================================
+// 4. SETUP CHECK & MANAGEMENT
+// ==========================================
+div_buy_price = not na(pl) and pl < last_pl_val[1] and (bar_index[piv_len] - last_pl_bar[1]) <= div_lookback
+hist_buy_ratio_cond = math.abs(histLine[piv_len]) <= (max_hist_ratio * math.abs(nz(last_pl_hist[1], histLine[piv_len])))
+macd_buy_cond = use_macd ? (histLine[piv_len] > nz(last_pl_hist[1], histLine[piv_len]) and hist_buy_ratio_cond) : true
+bb_buy_cond = low[piv_len] <= bb_lower[piv_len]
+
+div_sell_price = not na(ph) and ph > last_ph_val[1] and (bar_index[piv_len] - last_ph_bar[1]) <= div_lookback
+hist_sell_ratio_cond = math.abs(histLine[piv_len]) <= (max_hist_ratio * math.abs(nz(last_ph_hist[1], histLine[piv_len])))
+macd_sell_cond = use_macd ? (histLine[piv_len] < nz(last_ph_hist[1], histLine[piv_len]) and hist_sell_ratio_cond) : true
+bb_sell_cond = high[piv_len] >= bb_upper[piv_len]
+
+var bool long_setup = false
+var bool short_setup = false
+var int long_setup_bar = 0
+var int short_setup_bar = 0
+
+var float long_setup_pl = na
+var float short_setup_ph = na
+
+if div_buy_price and macd_buy_cond and bb_buy_cond
+    long_setup := true
+    short_setup := false
+    long_setup_bar := bar_index
+    long_setup_pl := pl
+
+    label.new(x=bar_index[piv_len], y=pl, color=color.green, style=label.style_circle, size=size.small)
+    label.new(x=last_pl_bar[1], y=last_pl_val[1], color=color.green, style=label.style_circle, size=size.small)
+    line.new(x1=last_pl_bar[1], y1=last_pl_val[1], x2=bar_index[piv_len], y2=pl, color=color.green, style=line.style_dashed, width=2)
+
+if div_sell_price and macd_sell_cond and bb_sell_cond
+    short_setup := true
+    long_setup := false
+    short_setup_bar := bar_index
+    short_setup_ph := ph
+
+    label.new(x=bar_index[piv_len], y=ph, color=color.red, style=label.style_circle, size=size.small)
+    label.new(x=last_ph_bar[1], y=last_ph_val[1], color=color.red, style=label.style_circle, size=size.small)
+    line.new(x1=last_ph_bar[1], y1=last_ph_val[1], x2=bar_index[piv_len], y2=ph, color=color.red, style=line.style_dashed, width=2)
+
+if long_setup and ((bar_index - long_setup_bar) > max_setup_bars or high >= bb_upper or close < long_setup_pl)
+    long_setup := false
+
+if short_setup and ((bar_index - short_setup_bar) > max_setup_bars or low <= bb_lower or close > short_setup_ph)
+    short_setup := false
+
+// ==========================================
+// 5. TRADE MANAGEMENT & TRIGGERS
+// ==========================================
+var int state = 0
+var float entry_p = na
+var float sl_p = na
+var float tp1_p = na
+var float tp2_p = na
+var bool tp1_hit = false
+
+var int total_trades = 0
+var int count_tp1_back = 0
+var int count_tp2 = 0
+var int count_sl = 0
+var string current_sig = "NONE"
+
+// Basic Candle Filter Conditions
+candle_body = math.abs(close - open)
+valid_candle = candle_body > (min_atr_mult * xATR) and candle_body < (max_atr_mult * xATR)
+green_candle = close > open
+red_candle = close < open
+
+// Position within BB Conditions
+bb_range = bb_upper - bb_lower
+long_zone_valid = close <= (bb_lower + (bb_range * max_bb_percent_long))
+short_zone_valid = close >= (bb_lower + (bb_range * min_bb_percent_short))
+
+// MACD Histogram Conditions at Entry Candle
+macd_hist_long_valid = histLine > histLine[1]
+macd_hist_short_valid = histLine < histLine[1]
+
+// Count bars passed since confirmation
+bars_since_long = bar_index - long_setup_bar
+bars_since_short = bar_index - short_setup_bar
+
+// Anti-FOMO Calculation
+prev_green_count = math.sum(green_candle ? 1 : 0, max_fomo_candles)[1]
+prev_red_count = math.sum(red_candle ? 1 : 0, max_fomo_candles)[1]
+
+no_fomo_long = use_fomo_filter ? (prev_green_count < max_fomo_candles) : true
+no_fomo_short = use_fomo_filter ? (prev_red_count < max_fomo_candles) : true
+
+// ATR Spike Condition Calculation (Compare current ATR with past ATR)
+// Use nz function to handle cases where the chart lacks sufficient past candles
+atr_spike_valid = use_atr_filter ? (xATR <= (nz(xATR[atr_lookback], xATR) * max_atr_increase)) : true
+
+// ACTIVATE TRADE
+long_cond = (state == 0) and long_setup and (bars_since_long >= min_setup_bars) and (pos == 1) and valid_candle and green_candle and long_zone_valid and macd_hist_long_valid and no_fomo_long and atr_spike_valid
+short_cond = (state == 0) and short_setup and (bars_since_short >= min_setup_bars) and (pos == -1) and valid_candle and red_candle and short_zone_valid and macd_hist_short_valid and no_fomo_short and atr_spike_valid
+
+if long_cond
+    state := 1
+    long_setup := false // Reset
+    entry_p := close
+    sl_p := close - (xATR * sl_atr_mult)
+    float risk = entry_p - sl_p
+    tp1_p := entry_p + (risk * tp1_mult)
+    tp2_p := entry_p + (risk * tp2_mult)
+    tp1_hit := false
+    total_trades := total_trades + 1
+    current_sig := "LONG"
+
+    line.new(bar_index, entry_p, bar_index + line_ext, entry_p, color=color.blue, width=2)
+    line.new(bar_index, sl_p, bar_index + line_ext, sl_p, color=color.red, width=2)
+    line.new(bar_index, tp1_p, bar_index + line_ext, tp1_p, color=color.green, width=1, style=line.style_dashed)
+    line.new(bar_index, tp2_p, bar_index + line_ext, tp2_p, color=color.green, width=2)
+
+if short_cond
+    state := -1
+    short_setup := false // Reset
+    entry_p := close
+    sl_p := close + (xATR * sl_atr_mult)
+    float risk = sl_p - entry_p
+    tp1_p := entry_p - (risk * tp1_mult)
+    tp2_p := entry_p - (risk * tp2_mult)
+    tp1_hit := false
+    total_trades := total_trades + 1
+    current_sig := "SHORT"
+
+    line.new(bar_index, entry_p, bar_index + line_ext, entry_p, color=color.blue, width=2)
+    line.new(bar_index, sl_p, bar_index + line_ext, sl_p, color=color.red, width=2)
+    line.new(bar_index, tp1_p, bar_index + line_ext, tp1_p, color=color.green, width=1, style=line.style_dashed)
+    line.new(bar_index, tp2_p, bar_index + line_ext, tp2_p, color=color.green, width=2)
+
+// CLOSE TRADE
+if state == 1
+    if high >= tp1_p
+        tp1_hit := true
+    if tp1_hit and low <= entry_p
+        count_tp1_back := count_tp1_back + 1
+        state := 0
+        current_sig := "TP1->ENTRY"
+    else if high >= tp2_p
+        count_tp2 := count_tp2 + 1
+        state := 0
+        current_sig := "TP2 DONE"
+    else if low <= sl_p
+        count_sl := count_sl + 1
+        state := 0
+        current_sig := "SL HIT"
+
+if state == -1
+    if low <= tp1_p
+        tp1_hit := true
+    if tp1_hit and high >= entry_p
+        count_tp1_back := count_tp1_back + 1
+        state := 0
+        current_sig := "TP1->ENTRY"
+    else if low <= tp2_p
+        count_tp2 := count_tp2 + 1
+        state := 0
+        current_sig := "TP2 DONE"
+    else if high >= sl_p
+        count_sl := count_sl + 1
+        state := 0
+        current_sig := "SL HIT"
+
+// ==========================================
+// 6. DISPLAY
+// ==========================================
+plotshape(long_cond, "Buy Label", shape.labelup, location.belowbar, color.green, 0, "BUY", color.white, size=size.small)
+plotshape(short_cond, "Sell Label", shape.labeldown, location.abovebar, color.red, 0, "SELL", color.white, size=size.small)
+
+win_rate = (count_tp2 + count_sl) > 0 ? (count_tp2 / (count_tp2 + count_sl)) * 100 : 0
+
+var table stats = table.new(position.top_right, 2, 6, border_color=color.black, border_width=1)
+if barstate.islast
+    table.cell(stats, 0, 0, "SIGNAL", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 0, current_sig, bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 1, "TOTAL TRADES", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 1, str.tostring(total_trades), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 2, "TP1 > ENTRY", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 2, str.tostring(count_tp1_back), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 3, "TP2 DONE", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 3, str.tostring(count_tp2), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 4, "SL HIT", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 4, str.tostring(count_sl), bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 0, 5, "WIN RATE", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+    table.cell(stats, 1, 5, str.tostring(win_rate, "#.##") + "%", bgcolor=color.white, text_color=color.black, text_font_family=font.family_monospace)
+
+plot(bb_upper, color=color.new(color.gray, 70))
+plot(bb_lower, color=color.new(color.gray, 70))

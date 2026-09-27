@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Bot Regime Feed Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEEFEC; --surface:#FAFAF8; --surface-2:#E4E6E1; --ink:#181C1A; --muted:#5C6460; --line:#D4D8D2;
+  --accent:#0F7B6C; --accent-ink:#F0FAF8; --e12:#1E7F4E; --e35:#B8352D; --adxc:#B38B00; --buy:#1E7F4E; --sell:#B8352D; --sl:#B8352D; --tp:#1E7F4E; --entry:#2B4A8C;
+  --ut-up:#1E7F4E; --ut-dn:#B8352D; --bb:#8B918D; --ema:#7A4FB5; --trail:#C77A12; --held:#C79A3A; --e200:#2F5FB8; --e21:#D2761C; --e15:#8A4FC0; --adx:#1F6F8B; --off:rgba(184,53,45,.07); --sq:#B58A00; --fuch:#B0339B; --weak:rgba(214,120,0,.09); --upbg:rgba(30,127,78,.045); --dnbg:rgba(184,53,45,.045); --bb:#3A6FC4; --kc:#D2761C; --e50:#D2761C; --e20:#7A4FB5; --e200:#707872; --candle:#3E4540; --grid:rgba(24,28,26,.07); --dd:rgba(184,53,45,.10);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+    --accent:#4FD1BE; --accent-ink:#04201C; --e12:#46C07F; --e35:#EE6B60; --adxc:#E8C547; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+    --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --sq:#F2C94C; --fuch:#E77BD6; --weak:rgba(240,160,78,.09); --upbg:rgba(70,192,127,.05); --dnbg:rgba(238,107,96,.05); --bb:#7FA4F0; --kc:#F0A04E; --e50:#F0A04E; --e20:#B494E6; --e200:#9AA39E; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111412; --surface:#181C1A; --surface-2:#222724; --ink:#E3E7E4; --muted:#8E9792; --line:#2C332F;
+  --accent:#4FD1BE; --accent-ink:#04201C; --e12:#46C07F; --e35:#EE6B60; --adxc:#E8C547; --buy:#46C07F; --sell:#EE6B60; --sl:#EE6B60; --tp:#46C07F; --entry:#86A6EE;
+  --ut-up:#46C07F; --ut-dn:#EE6B60; --bb:#6F7873; --ema:#B494E6; --trail:#E9A546; --held:#D8AE58; --e200:#7FA4F0; --e21:#F0A04E; --e15:#C39AF0; --adx:#5FC0DE; --off:rgba(238,107,96,.08); --sq:#F2C94C; --fuch:#E77BD6; --weak:rgba(240,160,78,.09); --upbg:rgba(70,192,127,.05); --dnbg:rgba(238,107,96,.05); --bb:#7FA4F0; --kc:#F0A04E; --e50:#F0A04E; --e20:#B494E6; --e200:#9AA39E; --candle:#B9C1BC; --grid:rgba(227,231,228,.06); --dd:rgba(238,107,96,.13);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input,.seed select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.seed input{width:72px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.msg{font-size:13px;color:var(--sl)}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono);overflow-wrap:anywhere}
+.pos{color:var(--tp)} .neg{color:var(--sl)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px)}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{flex:1;min-width:0}
+.field input[type=number]{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--sl)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.ind-row{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;margin-bottom:10px;font-family:var(--mono);color:var(--muted)}
+.ind-row b{color:var(--ink);font-weight:500}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.b{background:color-mix(in srgb,var(--buy) 16%,transparent);color:var(--buy)}
+.pill.s{background:color-mix(in srgb,var(--sell) 16%,transparent);color:var(--sell)}
+.pill.n{background:var(--surface-2);color:var(--muted)}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.funnel h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.frow{display:grid;grid-template-columns:180px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12.5px;max-width:78ch;margin:12px 0 0}
+
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--tp)} pre.code .nu{color:var(--entry)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:82ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.mode button{border:0;background:none;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.mode button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.diag{border:1px solid var(--line);border-left:4px solid var(--sl);border-radius:8px;background:var(--surface);padding:14px 16px;display:grid;gap:8px}
+.diag.ok{border-left-color:var(--accent)}
+.diag h2{font-size:15px;font-weight:700}
+.diag p{margin:0;max-width:90ch;color:var(--ink)}
+.diag p.m{color:var(--muted);font-size:13px}
+.diag code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.diag .nums{display:flex;flex-wrap:wrap;gap:6px 22px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.diag .nums b{color:var(--ink);font-weight:500}
+.field select{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+
+.chips .btn{padding:3px 10px;font-size:12px}
+.legend i.tri{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;margin-right:5px}
+.legend i.tri.up{border-bottom:8px solid var(--buy)}
+.legend i.tri.dn{border-top:8px solid var(--sell)}
+#ltable td,#ltable th{text-align:right}
+#ltable td:last-child,#ltable th:last-child{text-align:left}
+#ltable tbody tr{cursor:default}
+.txt{font-family:var(--sans)}
+
+.frow{grid-template-columns:200px minmax(0,1fr) 44px}
+@media (max-width:480px){.frow{grid-template-columns:130px minmax(0,1fr) 40px}}
+.legend i.dot{width:8px;height:8px;border:1.5px solid var(--muted);border-radius:50%}
+.legend i.box{width:12px;height:10px;border:0;background:var(--off);outline:1px solid var(--line)}
+.reasons{display:flex;flex-wrap:wrap;gap:4px 10px}
+#ttable td:nth-child(n+4),#ttable th:nth-child(n+4){text-align:right}
+#ttable td:nth-child(9),#ttable th:nth-child(9){text-align:left}
+.seed select{font-family:var(--sans)}
+.info{margin:0;padding:10px 14px 12px;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;border-bottom:1px solid var(--line)}
+.info dt{color:var(--muted)}
+.info dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.info .ttl{grid-column:1/-1;display:flex;justify-content:space-between;font-weight:600;color:var(--accent);margin-bottom:2px}
+.info .ttl span{color:var(--muted);font-weight:500;font-size:11px}
+.info .sep{grid-column:1/-1;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px}
+.warn{color:var(--sq)}
+.fuch{color:var(--fuch)}
+pre.json{margin:12px 0 0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto}
+#stable td:nth-child(n+4),#stable th:nth-child(n+4){text-align:right}
+#stable td:nth-child(3),#stable th:nth-child(3){text-align:left}
+#ctable td,#ctable th{text-align:right}
+#ctable td:first-child,#ctable th:first-child{text-align:left}
+#ctable tbody tr{cursor:pointer}
+#ctable tr.cur{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.field .fixed{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.legend i.dia{width:8px;height:8px;border:0;background:var(--fuch);transform:rotate(45deg)}
+.legend i.hol{width:0;height:0;border:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--muted);opacity:.6}
+.legend i.bgw{width:12px;height:10px;border:0;background:var(--weak);outline:1px solid var(--line)}
+.chip.toggle{cursor:pointer;color:var(--ink)} .chip.toggle input{accent-color:var(--accent)}
+.legend i.box{width:12px;height:10px;border:0;outline:1px solid var(--line)} .legend i.box.bull{background:var(--upbg)} .legend i.box.bear{background:var(--dnbg)}
+.txtin{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.hist-box{position:relative;height:260px} .hist-box canvas{position:absolute;inset:0;width:100%;height:100%}
+#xtable td,#xtable th{text-align:right} #xtable td:nth-child(-n+3),#xtable th:nth-child(-n+3){text-align:left} #xtable td:nth-child(5),#xtable td:nth-child(6),#xtable th:nth-child(5),#xtable th:nth-child(6){text-align:left}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>AI Bot <span>Regime</span> Feed</h1>
+      <p>Probador del indicador de alertas «AI Bot Regime Feed (v6) — stable» · Pine v6 portado a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="seed">Semilla</label><input id="seed" type="number" value="7" min="1" step="1"></span>
+      <button class="btn" id="reseed" type="button">Nuevos datos de ejemplo</button>
+      <label class="btn primary" for="csv">Cargar CSV…</label>
+      <input id="csv" type="file" accept=".csv,.txt,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="chips">
+    <span class="chip" id="src-chip"></span>
+    <span class="chip" id="gate-chip"></span>
+    <label class="chip toggle"><input type="checkbox" id="adx-on-price"> Dibujar el ADX en el gráfico de precio, como hace el script</label>
+    <span class="msg" id="msg" hidden></span>
+  </div>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Cruces de EMA</span><span class="v" id="s-cx">–</span><span class="s" id="s-cx2">–</span></div>
+    <div class="stat"><span class="k">Alertas enviadas</span><span class="v" id="s-sig">–</span><span class="s" id="s-sig2">–</span></div>
+    <div class="stat"><span class="k">RSI medio en los cruces</span><span class="v" id="s-rsi">–</span><span class="s" id="s-rsi2">–</span></div>
+    <div class="stat"><span class="k">«regime» en las alertas</span><span class="v" id="s-reg">–</span><span class="s" id="s-reg2">–</span></div>
+    <div class="stat"><span class="k">«confidence»</span><span class="v" id="s-conf">–</span><span class="s" id="s-conf2">–</span></div>
+    <div class="stat"><span class="k">Tras el cruce</span><span class="v" id="s-fwd">–</span><span class="s" id="s-fwd2">–</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <span><i style="border-color:var(--e12)"></i>EMA 12</span>
+          <span><i style="border-color:var(--e35)"></i>EMA 35</span>
+          <span><i class="tri up"></i>BUY</span>
+          <span><i class="tri dn"></i>SELL</span>
+          <span><i class="hol"></i>Cruce bloqueado por el RSI</span>
+          <span><i class="box bull"></i>bullish</span>
+          <span><i class="box bear"></i>bearish</span>
+        </div>
+        <div class="zoom">
+          <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+          <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+          <button class="btn sm" id="zend" type="button">Final</button>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Gráfico de precio con EMA 12 y 35, cruces y régimen; RSI y ADX debajo"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="scroller">
+        <input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico">
+        <span id="scroll-lbl"></span>
+      </div>
+    </section>
+
+    <aside class="panel settings">
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="hist" type="button">RSI en los cruces</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="cross" type="button">Cruces</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="json" type="button">JSON</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="hist">
+      <div class="hist-box"><canvas id="hist" aria-label="Histograma del RSI en el momento de cada cruce de EMA, con la zona que deja pasar el filtro"></canvas></div>
+      <p class="note" id="hnote"></p>
+    </div>
+    <div class="tabpanel" data-panel="cross" hidden>
+      <div class="table-scroll">
+        <table id="xtable">
+          <thead><tr><th>#</th><th>Fecha</th><th>Cruce</th><th>RSI</th><th>¿Pasa el filtro?</th><th>regime</th><th>confidence</th><th>ADX</th><th>Rend. tras H velas</th></tr></thead>
+          <tbody id="xbody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="xnote"></p>
+    </div>
+    <div class="tabpanel" data-panel="json" hidden>
+      <p class="note" style="margin-top:0">JSON que enviaría <code>alert()</code>. Si no hay alertas, se muestra el de un cruce bloqueado, marcado como tal. Haz clic en una fila de «Cruces» para ver el suyo.</p>
+      <pre class="json" id="json"></pre>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>El filtro RSI casi nunca deja pasar un cruce.</b> Para comprar exige que la EMA 12 cruce hacia arriba la EMA 35 <i>y</i> que el RSI esté por debajo de 40. Pero un cruce alcista solo llega después de una subida, con el RSI normalmente por encima de 50. En la venta pasa lo mismo al revés (cruce bajista con RSI &gt; 60). En los datos de ejemplo (10 semillas × 26 semanas) el RSI en un cruce alcista nunca bajó de 49,8: cero alertas.</li>
+        <li><b>El campo «regime» de la alerta siempre dice «choppy».</b> «bullish» exige EMA 12 &gt; EMA 35 y RSI &gt; 45. Justo cuando hay un BUY el RSI es &lt; 40, así que nunca es «bullish», y tampoco «bearish» porque la EMA rápida está arriba. Lo mismo ocurre en SELL. Con estos umbrales, ninguna alerta puede llevar otro régimen.</li>
+        <li><b>«confidence» no es una probabilidad.</b> Es 0,85 + (ADX − 20) × 0,005 − (ATR/precio − 0,01) × 2, limitado entre 0,50 y 0,99. Casi siempre sale entre 0,80 y 0,99.</li>
+        <li><b>El ADX se dibuja sobre el precio.</b> El indicador es <code>overlay=true</code> y el ADX (0–100) se pinta en la misma escala que el precio. En BTC aplasta el gráfico, porque la escala tiene que ir de 20 a 90 000. Actívalo arriba para verlo.</li>
+        <li><b>JSON.</b> <code>str.tostring()</code> sin formato: si el ADX todavía es <code>na</code> (primeras ~28 velas) se envía <code>NaN</code>, que no es JSON válido. <code>ts</code> es la hora de apertura de la vela, aunque la alerta sale al cierre (<code>alert.freq_once_per_bar_close</code>, que evita repintado). El símbolo es <code>syminfo.ticker</code>, sin el exchange.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+//@version=6
+indicator("AI Bot Regime Feed (v6) — stable", overlay=true)
+
+// --- Core indicators ---
+emaFast  = ta.ema(close, 12)
+emaSlow  = ta.ema(close, 35)
+rsiValue = ta.rsi(close, 14)
+atrValue = ta.atr(14)
+volPct   = atrValue / close
+
+// --- Manual ADX calculation (no ta.adx/ta.dx dependencies) ---
+lenADX   = 14
+upMove   = ta.change(high)
+downMove = -ta.change(low)
+plusDM   = na(upMove) or upMove <= 0 or upMove <= downMove ? 0.0 : upMove
+minusDM  = na(downMove) or downMove <= 0 or downMove <= upMove ? 0.0 : downMove
+trur     = ta.rma(ta.tr, lenADX)
+plusDI   = 100 * ta.rma(plusDM, lenADX)  / trur
+minusDI  = 100 * ta.rma(minusDM, lenADX) / trur
+dx       = (plusDI + minusDI == 0) ? 0.0 : 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+adxValue = ta.rma(dx, lenADX)
+
+// --- Regime labeling ---
+bullish = emaFast > emaSlow and rsiValue > 45
+bearish = emaFast < emaSlow and rsiValue < 55
+regime  = bullish ? "bullish" : bearish ? "bearish" : "choppy"
+
+// --- Signals (example gates) ---
+buySignal  = ta.crossover(emaFast, emaSlow) and rsiValue < 40
+sellSignal = ta.crossunder(emaFast, emaSlow) and rsiValue > 60
+
+// --- clamp helper (replaces math.clamp) ---
+clamp(x, lo, hi) =>
+    math.min(math.max(x, lo), hi)
+
+// --- Confidence (simple demo) ---
+confBase   = 0.85
+confAdj    = ((adxValue - 20.0) * 0.005) - ((volPct - 0.01) * 2.0)
+confidence = clamp(confBase + confAdj, 0.50, 0.99)
+
+// --- Plots (use named arguments to avoid order issues) ---
+plot(emaFast, title="EMA 12", color=color.new(color.green, 0))
+plot(emaSlow, title="EMA 35", color=color.new(color.red,   0))
+plot(adxValue, title="ADX",   color=color.new(color.yellow, 0))
+
+plotshape(buySignal,  title="BUY",
+     style=shape.triangleup,  location=location.belowbar, color=color.green, size=size.tiny)
+plotshape(sellSignal, title="SELL",
+     style=shape.triangledown, location=location.abovebar, color=color.red,   size=size.tiny)
+
+// --- JSON builder (single assignment to avoid continuation issues) ---
+json(side) =>
+    payload = '{"source":"tradingview","symbol":"' + syminfo.ticker +
+      '","side":"' + side +
+      '","timeframe":"' + timeframe.period +
+      '","confidence":' + str.tostring(confidence) +
+      ',"indicators":{"ema_fast":' + str.tostring(emaFast) +
+      ',"ema_slow":' + str.tostring(emaSlow) +
+      ',"rsi":' + str.tostring(rsiValue) +
+      ',"adx":' + str.tostring(adxValue) +
+      ',"atr":' + str.tostring(atrValue) +
+      ',"volatility":' + str.tostring(volPct) +
+      '},"regime":"' + regime + '","note":"ema crossover + rsi gate","ts":' +
+      str.tostring(time) + '}'
+    payload
+
+// --- Alerts (set alert to "Any alert() function call") ---
+if buySignal
+    alert(json("buy"), alert.freq_once_per_bar_close)
+if sellSignal
+    alert(json("sell"), alert.freq_once_per_bar_close)
+
+// Optional labels for UI
+alertcondition(buySignal,  title="BUY Alert",  message="BUY Triggered")
+alertcondition(sellSignal, title="SELL Alert", message="SELL Triggered")
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.EngineRegimeFeed;
+const $ = id => document.getElementById(id);
+const STORE = 'regimefeed-params';
+const SCHEMA = [
+  {g:'Filtro de las señales', open:true, f:[
+    ['buyRsiMax','BUY: RSI por debajo de','num',{min:0,max:100,step:1}], ['sellRsiMin','SELL: RSI por encima de','num',{min:0,max:100,step:1}]]},
+  {g:'Régimen', open:true, f:[
+    ['bullRsi','bullish: RSI por encima de','num',{min:0,max:100,step:1}], ['bearRsi','bearish: RSI por debajo de','num',{min:0,max:100,step:1}]]},
+  {g:'Indicadores', open:true, f:[
+    ['emaFastLen','EMA rápida','num',{min:1,step:1,int:true}], ['emaSlowLen','EMA lenta','num',{min:2,step:1,int:true}], ['rsiLen','RSI','num',{min:2,step:1,int:true}],
+    ['atrLen','ATR','num',{min:1,step:1,int:true}], ['adxLen','ADX','num',{min:2,step:1,int:true}], ['confBase','Confianza base','num',{min:0,max:1,step:0.01}]]},
+  {g:'Evaluación y JSON', f:[
+    ['horizon','Velas para medir el rendimiento','num',{min:1,step:1,int:true}], ['symbol','symbol (syminfo.ticker)','text'], ['timeframe','timeframe (timeframe.period)','text']]}
+];
+let params = Object.assign({}, E.DEFAULTS);
+try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) params = Object.assign(params, saved); } catch (e) {}
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + '</summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key;
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + (type === 'text' ? '<input type="text" id="'+id+'" class="txtin">'
+        : '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">');
+      box.appendChild(row);
+      const el = row.querySelector('#'+id);
+      el.value = params[key];
+      el.addEventListener('input', () => {
+        let val;
+        if (type === 'text') val = el.value.trim() || E.DEFAULTS[key];
+        else { val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.int) val = Math.round(val); }
+        row.classList.remove('bad'); params[key] = val; markChanged(); schedule();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  markChanged();
+}
+function markChanged(){
+  document.querySelectorAll('.field').forEach(r => r.classList.toggle('changed', params[r.dataset.key] !== E.DEFAULTS[r.dataset.key]));
+  try { localStorage.setItem(STORE, JSON.stringify(params)); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { params = Object.assign({}, E.DEFAULTS); buildSettings(); schedule(); });
+$('adx-on-price').addEventListener('change', () => draw());
+
+let data = null, dataLabel = '', res = null, selX = -1;
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7);
+  data = E.makeSample(seed, 26);
+  dataLabel = '<b>Datos de ejemplo sintéticos</b> · tipo BTCUSD 1 h · 26 semanas · semilla ' + seed + ' · no son precios reales';
+  setMsg('');
+}
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random()*9999); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { const d = E.parseCSV(String(rd.result)); data = d; dataLabel = '<b>' + esc(file.name) + '</b> · ' + d.t.length.toLocaleString('es-ES') + ' velas'; setMsg(''); runNow(true); }
+    catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+const nf = (x, d) => isFinite(x) ? x.toLocaleString('es-ES', {minimumFractionDigits:d, maximumFractionDigits:d}) : '–';
+const spct = x => isFinite(x) ? (x > 0.005 ? '+' : x < -0.005 ? '−' : '') + nf(Math.abs(x), 2) + ' %' : '–';
+let dec = 2;
+const fmtP = x => nf(x, dec);
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const fmtHM = t => { const d = new Date(t); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => runNow(false), 150); }
+function runNow(resetView){
+  res = E.run(data, params);
+  dec = Math.min(Math.max(res.decimals, 2), 6);
+  if (selX >= res.crosses.length) selX = -1;
+  $('src-chip').innerHTML = dataLabel + ' · ' + fmtDay(data.t[0]) + ' → ' + fmtDay(data.t[data.t.length-1]) + ' UTC';
+  $('gate-chip').innerHTML = 'BUY = cruce alcista y RSI &lt; <b>' + params.buyRsiMax + '</b> · SELL = cruce bajista y RSI &gt; <b>' + params.sellRsiMin + '</b>';
+  renderStats(); renderCross(); renderJson();
+  if (resetView || !view.count){ view.count = Math.min(res.n, defaultCount()); view.start = res.n - view.count; }
+  clampView(); draw(); drawHist();
+}
+function renderStats(){
+  const s = res.stats, P = params;
+  $('s-cx').textContent = s.crossUp + s.crossDn;
+  $('s-cx2').textContent = s.crossUp + ' alcistas · ' + s.crossDn + ' bajistas';
+  const sg = $('s-sig'); sg.textContent = s.signals; sg.className = 'v' + (s.signals ? '' : ' neg');
+  $('s-sig2').textContent = s.buys + ' BUY · ' + s.sells + ' SELL · ' + (s.crossUp + s.crossDn ? nf(s.signals / (s.crossUp + s.crossDn) * 100, 1) + ' % de los cruces' : '');
+  $('s-rsi').textContent = nf(s.rsiAtCrossUp, 1) + ' / ' + nf(s.rsiAtCrossDn, 1);
+  $('s-rsi2').textContent = 'alcistas / bajistas · el filtro pide < ' + P.buyRsiMax + ' / > ' + P.sellRsiMin;
+  const regs = Object.entries(s.signalRegimes);
+  $('s-reg').textContent = regs.length ? regs.map(([k, v]) => k + ' ' + v).join(' · ') : (P.bullRsi > P.buyRsiMax && P.bearRsi < P.sellRsiMin ? 'siempre choppy' : 'sin alertas');
+  $('s-reg2').textContent = P.bullRsi > P.buyRsiMax && P.bearRsi < P.sellRsiMin ? 'BUY exige RSI < ' + P.buyRsiMax + ' pero bullish RSI > ' + P.bullRsi : 'con estos umbrales puede variar';
+  $('s-conf').textContent = nf(s.confMin, 2) + '–' + nf(s.confMax, 2);
+  $('s-conf2').textContent = 'media ' + nf(s.confAvg, 3) + ' en todas las velas';
+  const f = $('s-fwd'); f.textContent = spct(s.fwdAll); f.className = 'v ' + (s.fwdAll > 0 ? 'pos' : s.fwdAll < 0 ? 'neg' : '');
+  $('s-fwd2').textContent = 'media a ' + P.horizon + ' velas, a favor del cruce · con filtro ' + (isFinite(s.fwdPass) ? spct(s.fwdPass) : 'sin casos');
+}
+function renderCross(){
+  const t = data.t, H = params.horizon;
+  $('xbody').innerHTML = res.crosses.length ? res.crosses.map((x, k) => '<tr data-k="' + k + '"' + (k === selX ? ' class="sel"' : '') + '><td>' + (k + 1) + '</td><td>' + fmtDate(t[x.i]) + '</td><td><span class="pill ' + (x.dir > 0 ? 'b' : 's') + '">' + (x.dir > 0 ? 'alcista' : 'bajista') + '</span></td>'
+    + '<td>' + nf(x.rsi, 1) + '</td><td class="txt">' + (x.pass ? '<span class="pill ' + (x.dir > 0 ? 'b' : 's') + '">' + (x.dir > 0 ? 'BUY' : 'SELL') + '</span>' : '<span class="pill n">no (' + (x.dir > 0 ? 'RSI ≥ ' + params.buyRsiMax : 'RSI ≤ ' + params.sellRsiMin) + ')</span>') + '</td>'
+    + '<td class="txt">' + x.regime + '</td><td>' + nf(x.conf, 3) + '</td><td>' + nf(x.adx, 1) + '</td><td class="' + (x.fwd > 0 ? 'pos' : x.fwd < 0 ? 'neg' : '') + '">' + spct(x.fwd) + '</td></tr>').join('')
+    : '<tr><td colspan="9" class="empty">No hay cruces de EMA en estos datos.</td></tr>';
+  const s = res.stats;
+  $('xnote').innerHTML = 'Rendimiento a favor del cruce, del cierre de la vela del cruce al cierre ' + H + ' velas después. Media de todos los cruces: <b>' + spct(s.fwdAll) + '</b>. Cruces bloqueados por el RSI: <b>' + spct(s.fwdBlocked) + '</b>. Los que pasan el filtro: <b>' + (isFinite(s.fwdPass) ? spct(s.fwdPass) : 'ninguno') + '</b>.';
+}
+$('xbody').addEventListener('click', ev => {
+  const row = ev.target.closest('tr[data-k]'); if (!row) return;
+  selX = +row.dataset.k;
+  document.querySelectorAll('#xbody tr').forEach(r => r.classList.toggle('sel', r === row));
+  const x = res.crosses[selX];
+  view.start = x.i - Math.floor(view.count / 2); clampView(); draw(); renderJson();
+});
+function renderJson(){
+  const pick = selX >= 0 ? res.crosses[selX] : (res.crosses.find(x => x.pass) || res.crosses[res.crosses.length - 1]);
+  if (!pick){ $('json').textContent = 'No hay cruces.'; return; }
+  let s = E.alertJson(res, data, pick);
+  try { s = JSON.stringify(JSON.parse(s), null, 2); } catch (e) { s = '// JSON no válido (contiene NaN):\n' + s; }
+  $('json').textContent = (pick.pass ? '' : '// Este cruce NO envía alerta (bloqueado por el filtro RSI). Así sería el JSON:\n') + s;
+}
+
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(80, Math.min(300, Math.floor(cv.clientWidth / 3.5)));
+function clampView(){
+  const n = res.n;
+  view.count = Math.max(30, Math.min(n, view.count));
+  view.start = Math.max(0, Math.min(n - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, n - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  const o = {}; ['ink','muted','line','grid','buy','sell','surface','accent','mono','candle','e12','e35','adxc','upbg','dnbg'].forEach(k => o[k] = g('--' + k)); return o;
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = data, n = res.n, r = res, adxOnPrice = $('adx-on-price').checked;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 76, timeH = 22, gap = 12, plotW = W - axisW;
+  const priceH = Math.round((H - timeH - gap) * 0.72), hTop = priceH + gap, hH = H - timeH - hTop;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  let lo = Infinity, hi = -Infinity;
+  const inc = v => { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+  for (let i = s; i < e; i++){ inc(d.l[i]); inc(d.h[i]); inc(r.emaFast[i]); inc(r.emaSlow[i]); if (adxOnPrice) inc(r.adx[i]); }
+  const padY = (hi - lo) * 0.05 || 1; lo -= padY; hi += padY;
+  const Y = p => 10 + (hi - p) / (hi - lo) * (priceH - 20);
+  geo = {bw, plotW};
+  for (let i = s; i < e; i++){ const g = r.regime[i]; if (g === 'choppy') continue; ctx.fillStyle = g === 'bullish' ? T.upbg : T.dnbg; ctx.fillRect(X(i) - bw/2, 0, bw + 0.5, priceH); }
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const stepY = niceStep((hi - lo) / 7), pdec = stepY < 1 ? Math.min(dec, Math.ceil(-Math.log10(stepY))) : 0;
+  for (let p = Math.ceil(lo / stepY) * stepY; p <= hi; p += stepY){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillStyle = T.muted; ctx.fillText(p.toFixed(pdec), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line; ctx.beginPath(); ctx.moveTo(plotW + 0.5, 0); ctx.lineTo(plotW + 0.5, H - timeH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, hTop - gap/2 + 0.5); ctx.lineTo(W, hTop - gap/2 + 0.5); ctx.stroke();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw)); let lastDay = -1;
+  for (let i = s; i < e; i++){
+    if ((i - s) % every) continue;
+    const day = new Date(d.t[i]).getUTCDate();
+    ctx.fillStyle = T.muted; ctx.fillText(day !== lastDay ? fmtDay(d.t[i]) : fmtHM(d.t[i]), Math.min(Math.max(X(i), 24), plotW - 24), H - 6);
+    lastDay = day;
+  }
+  ctx.textAlign = 'left';
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  const line = (arr, color, width, Yf) => {
+    Yf = Yf || Y; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); let on = false;
+    for (let i = Math.max(0, s - 1); i < Math.min(n, e + 1); i++){ const v = arr[i]; if (!isFinite(v)) { on = false; continue; } on ? ctx.lineTo(X(i), Yf(v)) : ctx.moveTo(X(i), Yf(v)); on = true; }
+    ctx.stroke();
+  };
+  const bodyW = Math.max(1, Math.min(10, bw * 0.66));
+  for (let i = s; i < e; i++){
+    const up = d.c[i] >= d.o[i], x = X(i);
+    ctx.strokeStyle = ctx.fillStyle = T.candle; ctx.globalAlpha = up ? 0.55 : 0.95;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, Y(d.h[i])); ctx.lineTo(Math.round(x) + 0.5, Y(d.l[i])); ctx.stroke();
+    const y1 = Y(Math.max(d.o[i], d.c[i])), y2 = Y(Math.min(d.o[i], d.c[i]));
+    if (up) ctx.strokeRect(x - bodyW/2 + 0.5, y1 + 0.5, Math.max(1, bodyW - 1), Math.max(1, y2 - y1)); else ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+  ctx.globalAlpha = 1;
+  line(r.emaFast, T.e12, 1.5); line(r.emaSlow, T.e35, 1.5);
+  if (adxOnPrice) line(r.adx, T.adxc, 1.5);
+  const sz = bw > 6 ? 6 : 4.5;
+  r.crosses.forEach((x, k) => {
+    if (x.i < s || x.i >= e) return;
+    const xx = X(x.i), up = x.dir > 0, y = up ? Y(d.l[x.i]) + 10 : Y(d.h[x.i]) - 10;
+    ctx.beginPath();
+    if (up){ ctx.moveTo(xx, y - sz); ctx.lineTo(xx - sz, y + sz); ctx.lineTo(xx + sz, y + sz); } else { ctx.moveTo(xx, y + sz); ctx.lineTo(xx - sz, y - sz); ctx.lineTo(xx + sz, y - sz); }
+    ctx.closePath();
+    if (x.pass){ ctx.fillStyle = up ? T.buy : T.sell; ctx.fill(); } else { ctx.strokeStyle = T.muted; ctx.lineWidth = 1.2; ctx.stroke(); }
+    if (k === selX){ ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(xx, y, 10, 0, Math.PI*2); ctx.stroke(); }
+  });
+  ctx.restore();
+  // RSI / ADX pane
+  const PY = v => hTop + 14 + (1 - v / 100) * (hH - 18);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, hTop, plotW, hH); ctx.clip();
+  const hl = (v, col, dash) => { const y = Math.round(PY(v)) + 0.5; ctx.strokeStyle = col; ctx.setLineDash(dash); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke(); ctx.setLineDash([]); };
+  hl(params.buyRsiMax, T.buy, [5,3]); hl(params.sellRsiMin, T.sell, [5,3]); hl(params.bullRsi, T.muted, [1,3]); hl(params.bearRsi, T.muted, [1,3]);
+  line(r.adx, T.adxc, 1.2, PY); line(r.rsi, T.accent, 1.5, PY);
+  r.crosses.forEach(x => { if (x.i < s || x.i >= e) return; ctx.fillStyle = x.dir > 0 ? T.buy : T.sell; ctx.beginPath(); ctx.arc(X(x.i), PY(x.rsi), 3, 0, Math.PI*2); ctx.fill(); });
+  ctx.restore();
+  ctx.fillStyle = T.muted; ctx.font = '11px ' + T.mono; ctx.textBaseline = 'top';
+  ctx.fillText('RSI ' + params.rsiLen + ' (color) · ADX (dorado) · punto = RSI en el cruce · filtro BUY < ' + params.buyRsiMax + ' / SELL > ' + params.sellRsiMin, 8, hTop + 2);
+  ctx.textBaseline = 'middle'; ctx.fillText(String(params.buyRsiMax), plotW + 8, PY(params.buyRsiMax)); ctx.fillText(String(params.sellRsiMin), plotW + 8, PY(params.sellRsiMin));
+  if (hover >= s && hover < e){
+    const x = Math.round(X(hover)) + 0.5;
+    ctx.strokeStyle = T.muted; ctx.globalAlpha = 0.5; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - timeH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const n = res.n, e = Math.min(n, view.start + view.count);
+  const i = hover >= view.start && hover < e ? hover : e - 1;
+  const d = data;
+  $('readout').innerHTML = fmtDate(d.t[i]) + ' UTC  O <b>' + fmtP(d.o[i]) + '</b> H <b>' + fmtP(d.h[i]) + '</b> L <b>' + fmtP(d.l[i]) + '</b> C <b>' + fmtP(d.c[i]) + '</b>'
+    + '<br>RSI <b>' + nf(res.rsi[i], 1) + '</b> ADX <b>' + nf(res.adx[i], 1) + '</b> regime <b>' + res.regime[i] + '</b> confidence <b>' + nf(res.conf[i], 3) + '</b>';
+}
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const mx = ev.clientX - cv.getBoundingClientRect().left;
+  if (drag){ view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView(); }
+  hover = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  draw();
+});
+const endDrag = () => { drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const frac = Math.min(1, (ev.clientX - cv.getBoundingClientRect().left) / geo.plotW), anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) view.start += Math.round(ev.deltaX / geo.bw);
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = res.n; clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+
+// RSI-at-cross histogram
+const hcv = $('hist'), hctx = hcv.getContext('2d');
+function drawHist(){
+  if (!res || hcv.closest('[hidden]')) return;
+  const [W,H] = sizeCanvas(hcv), T = tok(), P = params;
+  hctx.clearRect(0,0,W,H);
+  const left = 110, right = 16, top = 10, bottom = 26, plotW = W - left - right, rowH = (H - top - bottom) / 2;
+  const bins = 20, X = v => left + v / 100 * plotW;
+  const rows = [['Cruces alcistas', 1, T.buy, 0, P.buyRsiMax], ['Cruces bajistas', -1, T.sell, P.sellRsiMin, 100]];
+  const counts = rows.map(([, dir]) => { const c = new Array(bins).fill(0); res.crosses.filter(x => x.dir === dir && isFinite(x.rsi)).forEach(x => c[Math.min(bins - 1, Math.floor(x.rsi / (100 / bins)))]++); return c; });
+  const mx = Math.max(1, ...counts.flat());
+  hctx.font = '11px ' + T.mono; hctx.textBaseline = 'middle';
+  rows.forEach(([label, dir, col, zLo, zHi], k) => {
+    const y0 = top + k * rowH, base = y0 + rowH - 8;
+    hctx.fillStyle = T.upbg; if (dir < 0) hctx.fillStyle = T.dnbg;
+    hctx.fillRect(X(zLo), y0 + 2, X(zHi) - X(zLo), rowH - 10);
+    hctx.fillStyle = col; hctx.globalAlpha = 0.85;
+    counts[k].forEach((cnt, b) => { if (!cnt) return; const h = cnt / mx * (rowH - 18); hctx.fillRect(X(b * 100 / bins) + 1, base - h, plotW / bins - 2, h); });
+    hctx.globalAlpha = 1;
+    hctx.strokeStyle = T.line; hctx.beginPath(); hctx.moveTo(left, base + 0.5); hctx.lineTo(left + plotW, base + 0.5); hctx.stroke();
+    hctx.fillStyle = T.ink; hctx.textAlign = 'right'; hctx.fillText(label, left - 10, y0 + rowH / 2 - 8);
+    const n = res.crosses.filter(x => x.dir === dir).length, pass = res.crosses.filter(x => x.dir === dir && x.pass).length;
+    hctx.fillStyle = T.muted; hctx.fillText(pass + ' de ' + n + ' pasan', left - 10, y0 + rowH / 2 + 8);
+    hctx.textAlign = 'left';
+    const gx = X(dir > 0 ? P.buyRsiMax : P.sellRsiMin);
+    hctx.strokeStyle = col; hctx.setLineDash([4,3]); hctx.beginPath(); hctx.moveTo(gx + 0.5, y0 + 2); hctx.lineTo(gx + 0.5, base); hctx.stroke(); hctx.setLineDash([]);
+    hctx.fillStyle = col; hctx.fillText(dir > 0 ? 'filtro: RSI < ' + P.buyRsiMax : 'filtro: RSI > ' + P.sellRsiMin, dir > 0 ? Math.max(left + 4, gx - 110) : gx + 6, y0 + 10);
+  });
+  hctx.fillStyle = T.muted; hctx.textAlign = 'center';
+  for (let v = 0; v <= 100; v += 10) hctx.fillText(String(v), X(v), H - 10);
+  hctx.textAlign = 'left';
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+  if (b.dataset.tab === 'hist') drawHist();
+}));
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+const escCode = x => x.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+function highlight(src){
+  return src.split('\n').map(line => {
+    let inStr = false, q = '', ci = -1;
+    for (let k = 0; k < line.length - 1; k++){ const ch = line[k]; if (!inStr && (ch === '"' || ch === "'")) { inStr = true; q = ch; } else if (inStr && ch === q) inStr = false; else if (!inStr && ch === '/' && line[k+1] === '/') { ci = k; break; } }
+    let code = ci >= 0 ? line.slice(0, ci) : line; const cm = ci >= 0 ? line.slice(ci) : '';
+    code = escCode(code).replace(/("[^"]*"|'[^']*')/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|and|or|not|true|false|na)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escCode(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+new ResizeObserver(() => { if (res) { clampView(); draw(); drawHist(); } }).observe($('chart-box'));
+const redraw = () => { draw(); drawHist(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+loadSample();
+runNow(true);
+})();
+</script>
+</body>
+</html>

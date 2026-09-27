@@ -1,0 +1,20 @@
+//@version=5
+indicator("Inyerneck UT Bot 9 EMA Filter", overlay=true)
+
+length = input.int(10, title="ATR Period")
+mult = input.float(1.0, title="ATR Multiplier", step=0.1)
+src = input.source(close, title="Source")
+
+atr = ta.atr(length )
+upperBand = src + mult * atr
+lowerBand = src - mult * atr
+
+ema9 = ta.ema(close, 9)
+
+buySignal =ta.crossover(src, lowerBand ) and close > ema9
+sellSignal = ta.crossunder(src, upperBand ) and close < ema9
+
+plotshape(buySignal , title="Buy", location=location.belowbar, color=color.green, style=shape.labelup, text="Buy")
+plotshape(sellSignal , title="Sell", location=location.abovebar, color=color.red, style=shape.labeldown, text="Sell")
+
+plot(na, title="Inyerneck UT Bot Is ACTIVE")

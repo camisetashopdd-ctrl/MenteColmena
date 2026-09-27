@@ -1,0 +1,20 @@
+{
+  "name": "tikitrade-telegram",
+  "version": "4.0.0",
+  "description": "TikiTrade en Telegram: liga de entrenadores con divisiones; cada usuario tiene su equipo (bot de trading autónomo) en modo demo con precios reales o en real con su exchange o wallet.",
+  "main": "src/index.js",
+  "private": true,
+  "license": "MPL-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/run.js"
+  },
+  "dependencies": {
+    "ccxt": "^4.5.84",
+    "dotenv": "^18.0.4",
+    "grammy": "^1.46.0"
+  }
+}

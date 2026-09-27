@@ -1,0 +1,407 @@
+//@version=6
+indicator("UT Bot + LinReg Candles + Longevity Zones + S/R + Dashboard", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=5000)
+
+// =========================
+// UT Bot Inputs
+// =========================
+groupUT="UT Bot"
+a_buy=input.float(2,"Buy Sensitivity (Multiplier)",group=groupUT,minval=0)
+c_buy=input.int(1,"Buy ATR Period (0 = disable)",group=groupUT,minval=0)
+a_sell=input.float(2,"Sell Sensitivity (Multiplier)",group=groupUT,minval=0)
+c_sell=input.int(1,"Sell ATR Period (0 = disable)",group=groupUT,minval=0)
+showTrailBuy=input.bool(false,"Show Buy Trailing Line",group=groupUT)
+showTrailSell=input.bool(false,"Show Sell Trailing Line",group=groupUT)
+
+// =========================
+// LinReg Inputs
+// =========================
+signal_length=input.int(7,"Signal Smoothing",minval=1,maxval=200,group="LinReg")
+sma_signal=input.bool(true,"Simple MA (Signal Line)",group="LinReg")
+lin_reg=input.bool(true,"Use LinReg",group="LinReg")
+linreg_length=input.int(11,"Linear Regression Length",minval=1,maxval=200,group="LinReg")
+
+// =========================
+//Longevity Zones Inputs //
+// =========================
+groupZones="Longevity Zones"
+showZones=input.bool(true,"Show Longevity Zones",group=groupZones)
+len_z=input.int(5,"Longevity Length",group=groupZones)
+col_upper=input.color(color.new(color.red,75),"Upper Zone Color",group=groupZones)
+col_lower=input.color(color.new(color.green,75),"Lower Zone Color",group=groupZones)
+lab_pos=input.string("LastBar","Labels Position",options=["Root","LastBar"],group=groupZones)
+labels_at_root=lab_pos=="LastBar"
+labelOffsetBars=input.int(10,"Label Offset (bars)",group=groupZones,minval=10,maxval=500)
+
+// =========================
+// Add-ons (Panel S/R)
+// =========================
+groupAdd="Add-ons (Panel & S/R)"
+srLines=input.bool(false,"Support & Resistance Lines",group=groupAdd)
+dashOn=input.bool(true,"Dashboard Panel",group=groupAdd)
+dashShiftBars=input.int(60,"Panel Right Shift (bars)",group=groupAdd,minval=40,maxval=200)
+dashColor=input.color(color.new(#8fd46d,80),"Panel Background",inline="dash",group=groupAdd)
+dashTextColor=input.color(color.white,"Text Color",inline="dash",group=groupAdd)
+volMaLen=input.int(20,"Volume MA Length",group=groupAdd,minval=1)
+panelAnchorBars=input.int(300,"Panel anchor bars (top-right)",group=groupAdd,minval=100,maxval=9000)
+panelPadPct=input.float(0.2,"Panel vertical padding",group=groupAdd,minval=0.0,maxval=0.40,step=0.005)
+panelPlacement=input.string("Top-Right","Dashboard Placement",options=["Top-Right","Top-Left","Bottom-Right","Bottom-Left","Bottom-Center"],group=groupAdd)
+
+// =========================
+// UT Bot Calculations
+// =========================
+buyEnabled=(c_buy>0) and (a_buy>0)
+sellEnabled=(c_sell>0) and (a_sell>0)
+
+// BUY side
+src_buy=close
+ema_buy=ta.ema(src_buy,1)
+atr_buy=buyEnabled?ta.atr(c_buy):na
+nLoss_buy=buyEnabled?a_buy*atr_buy:na
+var float trail_buy=na
+if buyEnabled
+    if na(trail_buy[1])
+        trail_buy:=src_buy-nLoss_buy
+    else
+        if src_buy>trail_buy[1] and src_buy[1]>trail_buy[1]
+            trail_buy:=math.max(trail_buy[1],src_buy-nLoss_buy)
+        else if src_buy<trail_buy[1] and src_buy[1]<trail_buy[1]
+            trail_buy:=math.min(trail_buy[1],src_buy+nLoss_buy)
+        else
+            trail_buy:=src_buy>trail_buy[1]?src_buy-nLoss_buy:src_buy+nLoss_buy
+else
+    trail_buy:=na
+
+// SELL side
+src_sell=close
+ema_sell=ta.ema(src_sell,1)
+atr_sell=sellEnabled?ta.atr(c_sell):na
+nLoss_sell=sellEnabled?a_sell*atr_sell:na
+var float trail_sell=na
+if sellEnabled
+    if na(trail_sell[1])
+        trail_sell:=src_sell+nLoss_sell
+    else
+        if src_sell>trail_sell[1] and src_sell[1]>trail_sell[1]
+            trail_sell:=math.max(trail_sell[1],src_sell-nLoss_sell)
+        else if src_sell<trail_sell[1] and src_sell[1]<trail_sell[1]
+            trail_sell:=math.min(trail_sell[1],src_sell+nLoss_sell)
+        else
+            trail_sell:=src_sell>trail_sell[1]?src_sell-nLoss_sell:src_sell+nLoss_sell
+else
+    trail_sell:=na
+
+// IMPORTANT: compute crossovers every bar, then gate by flags
+above_buy_cross=ta.crossover(ema_buy,trail_buy)
+below_sell_cross=ta.crossover(trail_sell,ema_sell)
+
+above_buy=buyEnabled and above_buy_cross
+buy_signal_raw=buyEnabled and (src_buy>trail_buy) and above_buy
+buy_signal=buy_signal_raw and barstate.isconfirmed
+
+below_sell=sellEnabled and below_sell_cross
+sell_signal_raw=sellEnabled and (src_sell<trail_sell) and below_sell
+sell_signal=sell_signal_raw and barstate.isconfirmed
+
+// One-signal state (renamed to avoid enum conflict with table.position)
+var int posState=0  // 0=flat, 1=long, -1=short
+buy_signal_confirmed=buyEnabled and buy_signal and posState<=0
+sell_signal_confirmed=sellEnabled and sell_signal and posState>=0
+if buy_signal_confirmed
+    posState:=1
+else if sell_signal_confirmed
+    posState:=-1
+
+// Visibility
+buy_sig_vis=buyEnabled and buy_signal_raw
+sell_sig_vis=sellEnabled and sell_signal_raw
+
+// Signal labels
+plotshape(buy_sig_vis,title="UT Buy",style=shape.labelup,location=location.belowbar,color=color.green,textcolor=color.white,size=size.tiny,text="Buy")
+plotshape(sell_sig_vis,title="UT Sell",style=shape.labeldown,location=location.abovebar,color=color.red,textcolor=color.white,size=size.tiny,text="Sell")
+
+// Single bar color
+utColor=buy_sig_vis?color.new(color.green,75):sell_sig_vis?color.new(color.red,75):na
+barcolor(utColor)
+
+// Trails
+plot(showTrailBuy and buyEnabled?trail_buy:na,title="UT Bot Buy Trail",color=color.new(color.green,0),linewidth=1)
+plot(showTrailSell and sellEnabled?trail_sell:na,title="UT Bot Sell Trail",color=color.new(color.red,0),linewidth=1)
+
+// Alerts
+alertcondition(buy_signal_confirmed,title="UT Long",message="UT Long")
+alertcondition(sell_signal_confirmed,title="UT Short",message="UT Short")
+
+// =========================
+// LinReg Candles + Signal
+// =========================
+_bopen=lin_reg?ta.linreg(open,linreg_length,0):open
+_bhigh=lin_reg?ta.linreg(high,linreg_length,0):high
+_blow=lin_reg?ta.linreg(low,linreg_length,0):low
+_bclose=lin_reg?ta.linreg(close,linreg_length,0):close
+signal=sma_signal?ta.sma(_bclose,signal_length):ta.ema(_bclose,signal_length)
+inLong=posState==1
+inShort=posState==-1
+isFlat=posState==0
+dirUp=_bclose>=_bopen
+plotcandle(open=inLong?_bopen:na,high=inLong?_bhigh:na,low=inLong?_blow:na,close=inLong?_bclose:na,title="LinReg Long (regime)",color=color.green,wickcolor=color.green,bordercolor=color.green)
+plotcandle(open=inShort?_bopen:na,high=inShort?_bhigh:na,low=inShort?_blow:na,close=inShort?_bclose:na,title="LinReg Short (regime)",color=color.red,wickcolor=color.red,bordercolor=color.red)
+plotcandle(open=isFlat and dirUp?_bopen:na,high=isFlat and dirUp?_bhigh:na,low=isFlat and dirUp?_blow:na,close=isFlat and dirUp?_bclose:na,title="LinReg Flat Green",color=color.green,wickcolor=color.green,bordercolor=color.green)
+plotcandle(open=isFlat and not dirUp?_bopen:na,high=isFlat and not dirUp?_bhigh:na,low=isFlat and not dirUp?_blow:na,close=isFlat and not dirUp?_bclose:na,title="LinReg Flat Red",color=color.red,wickcolor=color.red,bordercolor=color.red)
+plot(signal,color=color.blue,linewidth=2,title="LinReg Signal")
+
+// =========================
+// Longevity Zones
+// =========================
+type level
+    float top
+    float bot
+    int   start
+type drawing
+    line top
+    line bot
+    linefill fill
+    label lbl
+var upper=array.new<level>()
+var lower=array.new<level>()
+var upperDraw=array.new<drawing>()
+var lowerDraw=array.new<drawing>()
+h=ta.highest(len_z)
+l=ta.lowest(len_z)
+high_pivot=high[1]==h[1] and high<h
+low_pivot=low[1]==l[1] and low>l
+halfATR=ta.atr(20)*0.5
+if showZones
+    if high_pivot
+        array.push(upper,level.new(h,h-halfATR,bar_index-1))
+    if low_pivot
+        array.push(lower,level.new(l+halfATR,l,bar_index-1))
+    if array.size(upper)>10
+        array.shift(upper)
+    if array.size(lower)>10
+        array.shift(lower)
+    for i=array.size(upper)-1 to 0
+        if array.size(upper)==0
+            break
+        zUp=array.get(upper,i)
+        if high>zUp.top and bar_index>zUp.start
+            array.remove(upper,i)
+    for i=array.size(lower)-1 to 0
+        if array.size(lower)==0
+            break
+        zLo=array.get(lower,i)
+        if low<zLo.bot and bar_index>zLo.start
+            array.remove(lower,i)
+
+// =========================
+// Longevity Zones (drawing)
+// =========================
+upperFillColor=col_upper
+lowerFillColor=col_lower
+if barstate.islast and showZones
+    if array.size(upperDraw)>0
+        for i=0 to array.size(upperDraw)-1
+            d=array.get(upperDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(upperDraw)
+    if array.size(lowerDraw)>0
+        for i=0 to array.size(lowerDraw)-1
+            d=array.get(lowerDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(lowerDraw)
+    if array.size(upper)>0
+        for i=0 to array.size(upper)-1
+            z=array.get(upper,i)
+            l1=line.new(z.start,z.top,bar_index,z.top,color=col_upper,width=8)
+            l2=line.new(z.start,z.bot,bar_index,z.bot,color=col_upper,width=8)
+            f=linefill.new(l1,l2,color=upperFillColor)
+            dur=bar_index-z.start
+            daysTot=int(dur*(timeframe.in_seconds(timeframe.period)/86400))
+            txt=daysTot>=365?str.tostring(int(daysTot/365))+" Y ("+str.tostring(dur)+" bars)":daysTot>=30?str.tostring(int(daysTot/30))+" M ("+str.tostring(dur)+" bars)":str.tostring(daysTot)+" D ("+str.tostring(dur)+" bars)"
+            lx=labels_at_root?z.start:bar_index+labelOffsetBars
+            ly=(z.top+z.bot)/2
+            lbl=label.new(lx,ly,txt,style=label.style_label_center,textcolor=color.white,color=color.new(color.black,0))
+            array.push(upperDraw,drawing.new(l1,l2,f,lbl))
+    if array.size(lower)>0
+        for i=0 to array.size(lower)-1
+            z=array.get(lower,i)
+            l1=line.new(z.start,z.top,bar_index,z.top,color=col_lower,width=8)
+            l2=line.new(z.start,z.bot,bar_index,z.bot,color=col_lower,width=8)
+            f=linefill.new(l1,l2,color=lowerFillColor)
+            dur=bar_index-z.start
+            daysTot=int(dur*(timeframe.in_seconds(timeframe.period)/86400))
+            txt=daysTot>=365?str.tostring(int(daysTot/365))+" Y ("+str.tostring(dur)+" bars)":daysTot>=30?str.tostring(int(daysTot/30))+" M ("+str.tostring(dur)+" bars)":str.tostring(daysTot)+" D ("+str.tostring(dur)+" bars)"
+            lx=labels_at_root?z.start:bar_index+labelOffsetBars
+            ly=(z.top+z.bot)/2
+            lbl=label.new(lx,ly,txt,style=label.style_label_center,textcolor=color.white,color=color.new(color.black,0))
+            array.push(lowerDraw,drawing.new(l1,l2,f,lbl))
+else if barstate.islast
+    if array.size(upperDraw)>0
+        for i=0 to array.size(upperDraw)-1
+            d=array.get(upperDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(upperDraw)
+    if array.size(lowerDraw)>0
+        for i=0 to array.size(lowerDraw)-1
+            d=array.get(lowerDraw,i)
+            line.delete(d.top)
+            line.delete(d.bot)
+            if not na(d.fill)
+                linefill.delete(d.fill)
+            label.delete(d.lbl)
+        array.clear(lowerDraw)
+
+// =========================
+// S/R Lines calc
+// =========================
+showSR=input.bool(true,"Show Support & Resistance Lines",group="Support & Resistance")
+h1000=ta.highest(high,1000)
+h750=ta.highest(high,750)
+h500=ta.highest(high,500)
+h250=ta.highest(high,250)
+h100=ta.highest(high,100)
+h50=ta.highest(high,50)
+h10=ta.highest(high,10)
+l1000=ta.lowest(low,1000)
+l750=ta.lowest(low,750)
+l500=ta.lowest(low,500)
+l250=ta.lowest(low,250)
+l100=ta.lowest(low,100)
+l50=ta.lowest(low,50)
+l10=ta.lowest(low,10)
+plot(showSR?h1000:na,title="R1",color=close>h1000?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h750:na,title="R2",color=close>h750?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h500:na,title="R3",color=close>h500?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h250:na,title="R4",color=close>h250?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h100:na,title="R5",color=close>h100?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h50:na,title="R6",color=close>h50?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?h10:na,title="R7",color=close>h10?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l1000:na,title="S1",color=close>l1000?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l750:na,title="S2",color=close>l750?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l500:na,title="S3",color=close>l500?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l250:na,title="S4",color=close>l250?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l100:na,title="S5",color=close>l100?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l50:na,title="S6",color=close>l50?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+plot(showSR?l10:na,title="S7",color=close>l10?color.green:color.red,linewidth=1,offset=-9999,trackprice=true)
+
+// =========================
+// MACD & Stoch Inputs for panel
+// =========================
+groupOsc="Oscillator Settings"
+macdFastLen=input.int(12,"MACD Fast Length",group=groupOsc)
+macdSlowLen=input.int(26,"MACD Slow Length",group=groupOsc)
+macdSignalLen=input.int(9,"MACD Signal Length",group=groupOsc)
+stochLen=input.int(14,"Stochastic Length",group=groupOsc)
+stochK=input.int(3,"Stoch K Smoothing",group=groupOsc)
+stochD=input.int(3,"Stoch D Smoothing",group=groupOsc)
+
+// =========================
+// Dashboard & Calc
+// =========================
+emaTrend_tf(tf)=>
+    emaFast=request.security(syminfo.tickerid,tf,ta.ema(close,9),barmerge.gaps_off,barmerge.lookahead_off)
+    emaSlow=request.security(syminfo.tickerid,tf,ta.ema(close,21),barmerge.gaps_off,barmerge.lookahead_off)
+    emaFast>emaSlow?"🟢 BULL":emaFast<emaSlow?"🔴 BEAR":"— FLAT"
+trendStrHTF(tf)=>emaTrend_tf(tf)
+calcVol()=>
+    _atr=ta.atr(14)
+    _std2=2.0*ta.stdev(_atr,20)
+    _sma=ta.sma(_atr,20)
+    top=_sma+_std2
+    bot=_sma-_std2
+    nz(30.0+40.0*((_atr-bot)/math.max(1e-10,(top-bot))),50)
+volNow=volume
+volMA=ta.sma(volume,volMaLen)
+volBias=volNow>volMA?"🟢 Above Avg":volNow<volMA?"🔴 Below Avg":"— Avg"
+vwapVal=ta.vwap(close)
+vwapPos=close>vwapVal?"🟢 Price Above":"🔴 Price Below"
+[macdLine,signalLine,histLine]=ta.macd(close,macdFastLen,macdSlowLen,macdSignalLen)
+macdBias=macdLine>signalLine?"🟢 Bullish":"🔴 Bearish"
+k=ta.sma(ta.stoch(close,high,low,stochLen),stochK)
+d=ta.sma(k,stochD)
+stochPos=k>d?"🟢 Up":"🔴 Down"
+stochState=stochPos+" but "+(k>80?"Overbought":k<20?"Oversold":"Neutral")
+atrNow=ta.atr(14)
+atrSma20=ta.sma(atrNow,20)
+atrHiLo=atrNow>atrSma20*1.20?"🟢 High":atrNow<atrSma20*0.80?"🔴 Low":"— Mid"
+todayOpen=request.security(syminfo.tickerid,"D",open)
+todayClose=request.security(syminfo.tickerid,"D",close)
+todayHighD=request.security(syminfo.tickerid,"D",high)
+todayLowD=request.security(syminfo.tickerid,"D",low)
+todayDirection=todayClose>todayOpen?"🟢↑":todayClose<todayOpen?"🔴↓":"➖"
+todayRangePerc=((todayHighD-todayLowD)/math.max(todayLowD,syminfo.mintick))*100
+prevHigh=request.security(syminfo.tickerid,"D",high[1])
+prevLow=request.security(syminfo.tickerid,"D",low[1])
+prevOpen=request.security(syminfo.tickerid,"D",open[1])
+prevClose=request.security(syminfo.tickerid,"D",close[1])
+prevRangePerc=((prevHigh-prevLow)/math.max(prevLow,syminfo.mintick))*100
+prevDayDirection=prevClose>prevOpen?"🟢↑":prevClose<prevOpen?"🔴↓":"➖"
+atrTpStr=posState==1 and buyEnabled?str.tostring(trail_buy,"#.#####"):posState==-1 and sellEnabled?str.tostring(trail_sell,"#.#####"):"—"
+atrTpSide=posState==1?" (BUY)":posState==-1?" (SELL)":""
+
+// =========================
+// Dashboard Panel (TABLE — fixed to chart corners)
+// =========================
+var table dashTable=na
+var string prevPlace=""
+// Create or move table when placement changes
+if dashOn and (na(dashTable) or panelPlacement!=prevPlace)
+    // clear old (1x1) if exists
+    if not na(dashTable)
+        table.clear(dashTable,0,0,0,0)
+    dashTable:=switch panelPlacement
+        "Top-Right"     => table.new(position.top_right,1,1,border_width=1)
+        "Top-Left"      => table.new(position.top_left,1,1,border_width=1)
+        "Bottom-Right"  => table.new(position.bottom_right,1,1,border_width=1)
+        "Bottom-Left"   => table.new(position.bottom_left,1,1,border_width=1)
+        "Bottom-Center" => table.new(position.bottom_center,1,1,border_width=1)
+        => table.new(position.top_right,1,1,border_width=1)
+    prevPlace:=panelPlacement
+
+if dashOn and not na(dashTable)
+    panelText=
+         "📊 MARKET STATUS"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\nVolatility       | "+str.tostring(calcVol(),"##.##")+"%"+
+         "\nVolume           | "+str.tostring(volNow,"#.##")+" ("+volBias+")"+
+         "\nVWAP vs Price    | "+vwapPos+
+         "\nMACD Bias        | "+macdBias+
+         "\nStoch Bias       | "+stochState+
+         "\nRSI              | "+str.tostring(ta.rsi(close,14),"##.##")+
+         "\n"+
+         "\n📈 TREND Overall timeframes"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\n 1m  | "+trendStrHTF("1")+"    2h | "+trendStrHTF("120")+
+         "\n 5m  | "+trendStrHTF("5")+"    4h | "+trendStrHTF("240")+
+         "\n15m  | "+trendStrHTF("15")+"    1D | "+trendStrHTF("D")+
+         "\n30m  | "+trendStrHTF("30")+"    1W | "+trendStrHTF("W")+
+         "\n 1h  | "+trendStrHTF("60")+"    1M | "+trendStrHTF("M")+
+         "\n"+
+         "\n💰 PRICE POSITION"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\nToday’s Range %       | "+todayDirection+" "+str.tostring(todayRangePerc,"##.##")+
+         "\nYesterday’s Range %   | "+prevDayDirection+" "+str.tostring(prevRangePerc,"##.##")+
+         "\nYesterday’s High      | "+str.tostring(prevHigh,"#.#####")+
+         "\nYesterday’s Low       | "+str.tostring(prevLow,"#.#####")+
+         "\n"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\n📊 ACTUAL IN TRADE PROGRESSION"+
+         "\n━━━━━━━━━━━━━━━━━"+
+         "\nATR state            | "+atrHiLo+" ("+str.tostring(atrNow,"#.###")+")"+
+         "\nATR Trailing stop"+atrTpSide+" | "+atrTpStr
+    table.cell(dashTable,0,0,panelText,text_color=dashTextColor,text_size=size.small,text_halign=text.align_left,text_valign=text.align_top,bgcolor=dashColor)
+else if not dashOn and not na(dashTable)
+    table.clear(dashTable,0,0,0,0)
+    dashTable:=na
+    prevPlace:=""

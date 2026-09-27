@@ -1,0 +1,217 @@
+//@version=6
+// Dynamic Grid Engine v3.0 — AleksDU
+
+indicator("Dynamic Grid Engine",
+          shorttitle       = "DGE",
+          overlay          = true,
+          max_lines_count  = 500,
+          max_labels_count = 500,
+          max_boxes_count  = 10)
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+var string G_A = "Grid Settings"
+grid_levels  = input.int(15,    "Levels per side",       group=G_A, minval=1,   maxval=50)
+atr_len      = input.int(14,    "ATR Length",            group=G_A, minval=5,   maxval=50)
+atr_mult     = input.float(0.5, "Grid spacing (ATR x)",  group=G_A, minval=0.1, maxval=5.0, step=0.1)
+recenter     = input.bool(true, "Auto-recenter grid",    group=G_A)
+
+var string G_B = "Visual"
+buy_col     = input.color(color.new(#00e676, 0), "Buy color",  group=G_B)
+sell_col    = input.color(color.new(#ff5252, 0), "Sell color", group=G_B)
+mid_col     = input.color(color.new(#ffffff, 0), "Mid color",  group=G_B)
+extend_bars = input.int(20, "Extend lines (bars)", group=G_B, minval=5, maxval=100)
+
+var string G_N = "Neutral Zone (B1-S1)"
+show_zone = input.bool(true, "Show neutral zone", group=G_N)
+zone_col  = input.color(color.new(#ffffff, 90), "Zone color", group=G_N)
+
+var string G_P = "Profit Calculator"
+show_profit  = input.bool(true,   "Show profit per level", group=G_P)
+position_usd = input.float(100.0, "Position size ($)",     group=G_P, minval=1.0, step=10.0)
+
+var string G_M = "Nearest Level"
+show_nearest = input.bool(true, "Show nearest BUY/SELL arrow", group=G_M)
+
+var string G_D = "Dashboard"
+show_dash = input.bool(true, "Show Dashboard", group=G_D)
+
+// ── GRID CALC ─────────────────────────────────────────────────────────────────
+atr       = ta.atr(atr_len)
+grid_step = atr * atr_mult
+
+var float grid_center = close
+
+if recenter
+    if close > grid_center + grid_step * grid_levels or close < grid_center - grid_step * grid_levels
+        grid_center := close
+else
+    if barstate.isfirst
+        grid_center := close
+
+// ── DRAW ──────────────────────────────────────────────────────────────────────
+if barstate.islast
+    int ri = bar_index
+    int re = bar_index + extend_bars
+
+    // Neutral zone box
+    if show_zone
+        box.new(ri - 3, grid_center + grid_step, re, grid_center - grid_step,
+                bgcolor=zone_col,
+                border_color=color.new(#ffffff, 70),
+                border_width=1,
+                border_style=line.style_dashed)
+
+    // MID line
+    line.new(ri - 5, grid_center, re, grid_center, color=mid_col, width=2)
+    label.new(ri - 5, grid_center, "◆ MID",
+              color=color.new(#ffffff, 20), textcolor=color.black,
+              size=size.small, style=label.style_label_right)
+
+    // Find nearest levels
+    float nearest_sell = na
+    float nearest_buy  = na
+    for i = 1 to grid_levels
+        float sl = grid_center + grid_step * i
+        if sl > close and na(nearest_sell)
+            nearest_sell := sl
+        float bl = grid_center - grid_step * i
+        if bl < close and na(nearest_buy)
+            nearest_buy := bl
+
+    // SELL levels
+    for i = 1 to grid_levels
+        float lvl    = grid_center + grid_step * i
+        float pct    = (lvl - close) / close * 100
+        float profit = position_usd * (grid_step / lvl)
+        int   opc    = math.round(math.min(i * 5, 75))
+        bool  is_near = lvl == nearest_sell
+        int   lw     = is_near ? 2 : 1
+
+        line.new(ri - 3, lvl, re, lvl,
+                 color=color.new(sell_col, opc),
+                 width=lw, style=line.style_dashed)
+
+        string lbl = "S" + str.tostring(i) + "  +" + str.tostring(math.round(pct, 2)) + "%"
+        if show_profit
+            lbl := lbl + "  +$" + str.tostring(math.round(profit, 2))
+
+        label.new(re, lvl, lbl,
+                  color=color.new(sell_col, opc + 10),
+                  textcolor=color.white,
+                  size=size.tiny,
+                  style=label.style_label_left)
+
+        if show_nearest and is_near
+            label.new(ri, lvl + atr * 0.2, "▲ SELL here",
+                      color=color.new(#ff5252, 5),
+                      textcolor=color.white,
+                      size=size.small,
+                      style=label.style_label_down)
+
+    // BUY levels
+    for i = 1 to grid_levels
+        float lvl    = grid_center - grid_step * i
+        float pct    = (close - lvl) / close * 100
+        float profit = position_usd * (grid_step / lvl)
+        int   opc    = math.round(math.min(i * 5, 75))
+        bool  is_near = lvl == nearest_buy
+        int   lw     = is_near ? 2 : 1
+
+        line.new(ri - 3, lvl, re, lvl,
+                 color=color.new(buy_col, opc),
+                 width=lw, style=line.style_dashed)
+
+        string lbl = "B" + str.tostring(i) + "  -" + str.tostring(math.round(pct, 2)) + "%"
+        if show_profit
+            lbl := lbl + "  +$" + str.tostring(math.round(profit, 2))
+
+        label.new(re, lvl, lbl,
+                  color=color.new(buy_col, opc + 10),
+                  textcolor=color.white,
+                  size=size.tiny,
+                  style=label.style_label_left)
+
+        if show_nearest and is_near
+            label.new(ri, lvl - atr * 0.2, "▼ BUY here",
+                      color=color.new(#00e676, 5),
+                      textcolor=color.white,
+                      size=size.small,
+                      style=label.style_label_up)
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+upper_bound     = grid_center + grid_step * grid_levels
+lower_bound     = grid_center - grid_step * grid_levels
+price_in_grid   = close >= lower_bound and close <= upper_bound
+single_step_pct = grid_step / close * 100
+total_range_pct = grid_step * grid_levels / close * 100
+profit_per_grid = position_usd * (grid_step / close)
+total_profit    = profit_per_grid * grid_levels * 2
+
+crossed_level = math.abs(
+     math.round((close     - grid_center) / grid_step) -
+     math.round((close[1]  - grid_center) / grid_step)) >= 1
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+if show_dash and barstate.islast
+    var table dash = table.new(position.top_right, 2, 11,
+                               bgcolor=color.new(#0d1117, 5),
+                               border_color=color.new(#21262d, 35), border_width=1,
+                               frame_color=color.new(#58a6ff, 30), frame_width=1)
+
+    table.cell(dash, 0, 0, "Dynamic Grid Engine",
+               bgcolor=color.new(#161b22, 10), text_color=#58a6ff,
+               text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 1, 0, "AleksDU",
+               bgcolor=color.new(#161b22, 10),
+               text_color=color.new(#58a6ff, 50),
+               text_size=size.tiny, text_halign=text.align_center)
+
+    table.cell(dash, 0, 1, "Grid Step",     text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 1, str.tostring(math.round(grid_step, 4)) +
+               " (" + str.tostring(math.round(single_step_pct, 2)) + "%)",
+               text_color=color.white, text_size=size.small)
+
+    table.cell(dash, 0, 2, "Total Range",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 2, str.tostring(math.round(total_range_pct, 1)) + "% each side",
+               text_color=#ffeb3b, text_size=size.small)
+
+    table.cell(dash, 0, 3, "Upper Bound",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 3, str.tostring(math.round(upper_bound, 2)),
+               text_color=#ff5252, text_size=size.small)
+
+    table.cell(dash, 0, 4, "Lower Bound",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 4, str.tostring(math.round(lower_bound, 2)),
+               text_color=#00e676, text_size=size.small)
+
+    table.cell(dash, 0, 5, "Grid Center",   text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 5, str.tostring(math.round(grid_center, 2)),
+               text_color=color.white, text_size=size.small)
+
+    table.cell(dash, 0, 6, "Price in Grid", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 6, price_in_grid ? "Yes" : "Outside!",
+               text_color=price_in_grid ? #00e676 : #ff5252, text_size=size.small)
+
+    table.cell(dash, 0, 7, "Position Size", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 7, "$" + str.tostring(math.round(position_usd, 2)),
+               text_color=#ffeb3b, text_size=size.small)
+
+    table.cell(dash, 0, 8, "Profit / Grid", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 8, "+$" + str.tostring(math.round(profit_per_grid, 4)),
+               text_color=#00e676, text_size=size.small)
+
+    table.cell(dash, 0, 9, "Total if Full", text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 9, "+$" + str.tostring(math.round(total_profit, 2)),
+               text_color=#69f0ae, text_size=size.small)
+
+    table.cell(dash, 0, 10, "Levels",       text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 10, str.tostring(grid_levels) + " Buy + " + str.tostring(grid_levels) + " Sell",
+               text_color=color.white, text_size=size.small)
+
+// ── BARCOLOR ──────────────────────────────────────────────────────────────────
+barcolor(crossed_level ? color.new(#ffe57f, 40) : na)
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+alertcondition(crossed_level,       "DGE: Level Crossed", "Dynamic Grid: Price crossed a grid level!")
+alertcondition(not price_in_grid,   "DGE: Outside Grid",  "Dynamic Grid: Price outside grid range!")
+alertcondition(close > upper_bound, "DGE: Above Grid",    "Dynamic Grid: Price above upper bound!")
+alertcondition(close < lower_bound, "DGE: Below Grid",    "Dynamic Grid: Price below lower bound!")

@@ -1,0 +1,32 @@
+//@version=5
+// Versión corregida (propuesta) de "Inyerneck UT Bot 9 EMA Filter".
+// El original compara src con bandas calculadas a partir de sí mismo (src ± mult × ATR),
+// así que ta.crossover / ta.crossunder solo se cumplen si el ATR de la vela anterior es 0
+// y en la práctica no da ninguna señal. Aquí se usa el trailing stop clásico de UT Bot
+// (QuantNomad) con Key = mult y el mismo filtro de EMA 9.
+indicator("Inyerneck UT Bot 9 EMA Filter (corregido)", overlay=true)
+
+length = input.int(10, title="ATR Period")
+mult = input.float(1.0, title="ATR Multiplier", step=0.1)
+src = input.source(close, title="Source")
+
+atr = ta.atr(length)
+nLoss = mult * atr
+
+float trail = 0.0
+trail := src > nz(trail[1], 0) and src[1] > nz(trail[1], 0) ? math.max(nz(trail[1]), src - nLoss) :
+   src < nz(trail[1], 0) and src[1] < nz(trail[1], 0) ? math.min(nz(trail[1]), src + nLoss) :
+   src > nz(trail[1], 0) ? src - nLoss : src + nLoss
+
+ema9 = ta.ema(close, 9)
+
+buySignal = ta.crossover(src, trail) and close > ema9
+sellSignal = ta.crossunder(src, trail) and close < ema9
+
+plot(trail, title="UT Trailing Stop", color=color.orange, linewidth=2)
+plot(ema9, title="EMA 9", color=color.blue)
+plotshape(buySignal, title="Buy", location=location.belowbar, color=color.green, style=shape.labelup, text="Buy")
+plotshape(sellSignal, title="Sell", location=location.abovebar, color=color.red, style=shape.labeldown, text="Sell")
+
+alertcondition(buySignal, title="Buy", message="Inyerneck UT Bot: Buy {{ticker}} {{close}}")
+alertcondition(sellSignal, title="Sell", message="Inyerneck UT Bot: Sell {{ticker}} {{close}}")

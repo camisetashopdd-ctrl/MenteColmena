@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UT Bot + STC Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#ECEFEA; --surface:#F9FAF7; --surface-2:#E2E7E0; --ink:#152026; --muted:#5A676D; --line:#D0D7CE;
+  --accent:#1B5D75; --accent-ink:#F4F8F9; --long:#1C7D4F; --short:#BD3A32; --be:#C07613; --ut:#6B55C8;
+  --sess:rgba(27,93,117,.07); --brk:rgba(189,58,50,.10); --grid:rgba(21,32,38,.07);
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1417; --surface:#161C20; --surface-2:#1F272C; --ink:#E0E6E8; --muted:#8C989E; --line:#2A343A;
+    --accent:#5DB1CE; --accent-ink:#0B1A20; --long:#3DBA7E; --short:#E5665C; --be:#E8A33D; --ut:#A596F2;
+    --sess:rgba(93,177,206,.07); --brk:rgba(229,102,92,.13); --grid:rgba(224,230,232,.06);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1417; --surface:#161C20; --surface-2:#1F272C; --ink:#E0E6E8; --muted:#8C989E; --line:#2A343A;
+  --accent:#5DB1CE; --accent-ink:#0B1A20; --long:#3DBA7E; --short:#E5665C; --be:#E8A33D; --ut:#A596F2;
+  --sess:rgba(93,177,206,.07); --brk:rgba(229,102,92,.13); --grid:rgba(224,230,232,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.data-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.seed{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.seed input{width:72px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;font-family:var(--mono)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+.chip.warn{background:color-mix(in srgb,var(--be) 18%,transparent);color:var(--ink)}
+.msg{font-size:13px;color:var(--short)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:500;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.pos{color:var(--long)} .neg{color:var(--short)}
+@media (max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}.stat:nth-child(2n){border-right:0!important}.stat:nth-last-child(-n+2){border-bottom:0}}
+
+/* work area */
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:1000px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.chart-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.box{height:10px;border:0;width:12px;border-radius:2px}
+.zoom{display:flex;gap:6px}
+.chart-box{position:relative;height:540px}
+@media (max-width:600px){.chart-box{height:420px}}
+.chart-box canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.readout{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);padding:2px 6px;border-radius:4px;max-width:calc(100% - 90px)}
+.readout b{color:var(--ink);font-weight:500}
+.scroller{padding:8px 14px 12px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}
+.scroller input{flex:1;accent-color:var(--accent)}
+.scroller span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* settings */
+.settings{display:flex;flex-direction:column;max-height:calc(540px + 104px);}
+@media (max-width:1000px){.settings{max-height:none}}
+.settings-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.settings-head h2{font-size:14px;font-weight:600}
+.settings-body{overflow-y:auto;padding:4px 0}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details[open] summary::after{content:"−"}
+summary .ver{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:500;margin-right:auto}
+.fields{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.field label{color:var(--ink);flex:1;min-width:0}
+.field input[type=number],.field input[type=text],.field select{width:108px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px}
+.field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.field.changed label{color:var(--accent);font-weight:600}
+.field.bad input{border-color:var(--short)}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:14px}
+.table-scroll{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px}
+.pill.l{background:color-mix(in srgb,var(--long) 16%,transparent);color:var(--long)}
+.pill.s{background:color-mix(in srgb,var(--short) 16%,transparent);color:var(--short)}
+.reason{font-family:var(--sans);font-size:12px}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.eq-box{position:relative;height:280px}
+.eq-box canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* funnel */
+.funnel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:700px){.funnel{grid-template-columns:minmax(0,1fr)}}
+.funnel h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.funnel h3 span{color:var(--muted);font-weight:500;font-family:var(--mono);font-size:12px}
+.frow{display:grid;grid-template-columns:150px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.frow .bar{height:10px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--muted);opacity:.55}
+.frow.ok .bar i{background:var(--long);opacity:.9}
+.frow.go .bar i{background:var(--accent);opacity:1}
+.frow .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.frow.sep{border-top:1px solid var(--line);margin-top:6px;padding-top:9px}
+.note{color:var(--muted);font-size:12.5px;max-width:75ch;margin:12px 0 0}
+
+/* code */
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.code-head p{margin:0;color:var(--muted);font-size:12.5px}
+pre.code{margin:0;max-height:520px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;font:12px/1.55 var(--mono);tab-size:4}
+pre.code .cm{color:var(--muted)} pre.code .kw{color:var(--accent)} pre.code .st{color:var(--long)} pre.code .nu{color:var(--be)}
+.notes{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-width:80ch;font-size:13px;color:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>UT Bot <span>+</span> STC</h1>
+      <p>Probador de estrategia · v4.6 Lag Window · port del script Pine v6 a JavaScript</p>
+    </div>
+    <div class="data-bar">
+      <span class="seed"><label for="seed">Semilla</label><input id="seed" type="number" value="7" min="1" step="1"></span>
+      <button class="btn" id="reseed" type="button">Nuevos datos de ejemplo</button>
+      <label class="btn primary" for="csv">Cargar CSV…</label>
+      <input id="csv" type="file" accept=".csv,.txt,text/csv" hidden>
+    </div>
+  </header>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <span class="chip" id="src-chip"></span>
+    <span class="chip" id="range-chip"></span>
+    <span class="msg" id="msg" hidden></span>
+  </div>
+
+  <section class="stats" aria-label="Resumen">
+    <div class="stat"><span class="k">Beneficio neto</span><span class="v" id="s-net">–</span><span class="s" id="s-net2">–</span></div>
+    <div class="stat"><span class="k">Operaciones</span><span class="v" id="s-trades">–</span><span class="s" id="s-trades2">–</span></div>
+    <div class="stat"><span class="k">% acierto</span><span class="v" id="s-win">–</span><span class="s" id="s-win2">–</span></div>
+    <div class="stat"><span class="k">Factor de beneficio</span><span class="v" id="s-pf">–</span><span class="s">bruto ganado / perdido</span></div>
+    <div class="stat"><span class="k">Máx. drawdown</span><span class="v" id="s-dd">–</span><span class="s" id="s-dd2">–</span></div>
+    <div class="stat"><span class="k">R medio</span><span class="v" id="s-r">–</span><span class="s">por operación cerrada</span></div>
+  </section>
+
+  <main class="work">
+    <section class="panel">
+      <div class="chart-head">
+        <div class="legend">
+          <span><i style="border-color:var(--ut)"></i>UT trailing stop</span>
+          <span><i style="border-color:var(--short)"></i>Stop</span>
+          <span><i style="border-color:var(--be)"></i>Stop en BE</span>
+          <span><i style="border-color:var(--long)"></i>Take profit</span>
+          <span><i class="box" style="background:var(--sess)"></i>Sesión</span>
+          <span><i class="box" style="background:var(--brk)"></i>Cortacircuitos</span>
+        </div>
+        <div class="zoom">
+          <button class="btn sm" id="zout" type="button" aria-label="Alejar">−</button>
+          <button class="btn sm" id="zin" type="button" aria-label="Acercar">+</button>
+          <button class="btn sm" id="zend" type="button">Final</button>
+        </div>
+      </div>
+      <div class="chart-box" id="chart-box">
+        <canvas id="chart" aria-label="Gráfico de precio con operaciones y panel STC"></canvas>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="scroller">
+        <input id="scroll" type="range" min="0" max="0" value="0" aria-label="Desplazar gráfico">
+        <span id="scroll-lbl"></span>
+      </div>
+    </section>
+
+    <aside class="panel settings">
+      <div class="settings-head">
+        <h2>Parámetros</h2>
+        <button class="btn sm" id="reset" type="button">Restablecer</button>
+      </div>
+      <div class="settings-body" id="settings"></div>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="trades" type="button">Operaciones</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="equity" type="button">Curva de capital</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="funnel" type="button">Embudo de señales</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="code" type="button">Código Pine</button>
+    </div>
+    <div class="tabpanel" data-panel="trades">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>Tipo</th><th>Entrada</th><th>Precio</th><th>Stop</th><th>Objetivo</th><th>Régimen</th><th>Salida</th><th>Precio</th><th>Motivo</th><th>R</th><th>P&amp;L</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="tabpanel" data-panel="equity" hidden>
+      <div class="eq-box"><canvas id="eq"></canvas></div>
+    </div>
+    <div class="tabpanel" data-panel="funnel" hidden>
+      <div class="funnel" id="funnel"></div>
+      <p class="note">Cada señal de UT Bot se asigna al primer filtro que la bloquea, en el orden en que aparecen en <code>coreLongFiltersPassed</code> / <code>coreShortFiltersPassed</code>. Las que pasan todo quedan pendientes hasta que la STC cambia de color dentro de la ventana de retraso; los rechazos por distancia mínima de stop se cuentan por vela.</p>
+    </div>
+    <div class="tabpanel" data-panel="code" hidden>
+      <div class="code-head">
+        <p>Código original. Pégalo en el editor Pine de TradingView para compilarlo allí.</p>
+        <button class="btn sm" id="copy" type="button">Copiar código</button>
+      </div>
+      <pre class="code" id="code"></pre>
+      <ul class="notes">
+        <li><b>Cómo simula este probador.</b> El script se evalúa al cierre de cada vela. Las entradas a mercado se ejecutan en la apertura de la vela siguiente. Los stops y límites colocados al cierre se prueban en la vela siguiente siguiendo la regla de TradingView: apertura, extremo más cercano, extremo opuesto, cierre. Sin comisiones ni deslizamiento, como el script.</li>
+        <li><b>Vela de entrada sin stop.</b> <code>strategy.exit</code> solo se llama cuando ya hay posición, así que en la vela en que se llena la entrada no hay stop ni objetivo activos. El probador lo reproduce tal cual.</li>
+        <li><b>Offset de entrada.</b> <code>dynamicOffsetValue</code> solo cambia el cálculo del riesgo y del objetivo; la orden sigue siendo a mercado y el breakeven usa el <code>close</code> de la vela de señal, no el precio real de llenado.</li>
+        <li><b>Semana.</b> El cortacircuitos reinicia el lunes 00:00 UTC. En TradingView <code>time("W")</code> usa la zona horaria del mercado, por lo que puede diferir unas horas.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="pine-src">
+//@version=6
+strategy("UT Bot + STC Conjunction Strategy Tester (v4.6 Lag Window)", overlay=true, precision=5, initial_capital=10000, default_qty_type=strategy.cash, margin_long=0, margin_short=0)
+
+// ==========================================
+// --- MANDATORY BOILERPLATE INPUTS ---------
+// ==========================================
+useSession   = input.bool(true, "Enable Session Filter", group="Mandatory Core Settings")
+allowedSess  = input.session("0730-1900", "Allowed Trading Session", group="Mandatory Core Settings", tooltip="v4.5 optimized session window.")
+sessTimezone = input.string("UTC", "Session Timezone", group="Mandatory Core Settings")
+
+accountRisk  = input.float(1.0, "Account Risk % Per Trade", minval=0.1, maxval=10.0, step=0.5, group="Mandatory Core Settings")
+minStopDist  = input.float(0.00100, "Min Stop Distance (e.g. 0.00100 = 10 Pips)", minval=0.0, step=0.00010, group="Mandatory Core Settings")
+
+// ==========================================
+// --- v4.6 SIGNAL LAG WINDOW SETTINGS ------
+// ==========================================
+useLagWindow = input.bool(true, "Enable STC Lag Confirmation Window", group="v4.6 Signal Lag Settings")
+maxLagBars   = input.int(2, "Max Allowed STC Confirmation Lag (Bars)", minval=1, maxval=5, group="v4.6 Signal Lag Settings", tooltip="Number of bars to hold a UT Bot signal open while waiting for STC color confirmation.")
+
+// ==========================================
+// --- v4.3 WEEKLY CIRCUIT BREAKER ----------
+// ==========================================
+useCircuitBreaker = input.bool(true, "Enable Weekly Drawdown Circuit Breaker", group="v4.3 Circuit Breaker Settings")
+maxWeeklyLossPct  = input.float(3.0, "Max Allowed Weekly Equity Loss %", minval=0.5, maxval=20.0, step=0.5, group="v4.3 Circuit Breaker Settings")
+
+// ==========================================
+// --- v4.2 DYNAMIC OFFSET SETTINGS ---------
+// ==========================================
+useDynamicOffset = input.bool(true, "Enable Volatility-Scaled Entry Offset", group="v4.2 Dynamic Offset Settings")
+lowVolOffset     = input.float(0.0, "Low Vol Offset (Pippettes)", minval=0.0, step=0.5, group="v4.2 Dynamic Offset Settings")
+normalVolOffset  = input.float(2.0, "Normal Vol Offset (Pippettes)", minval=0.0, step=0.5, group="v4.2 Dynamic Offset Settings")
+highVolOffset    = input.float(6.0, "High Vol Breakout Filter (Pippettes)", minval=0.0, step=0.5, group="v4.2 Dynamic Offset Settings")
+
+// ==========================================
+// --- v3.9 DYNAMIC STOP LOSS SETTINGS ------
+// ==========================================
+normalSwingLookback = input.int(10, "Normal/Low Vol Swing Lookback", minval=1, group="v3.9 Dynamic Stop Loss Scaling")
+highVolSwingLookback = input.int(7, "High Vol Dynamic Swing Lookback", minval=1, group="v3.9 Dynamic Stop Loss Scaling")
+
+// ==========================================
+// --- v2.2 & v3.8 CANDLE RANGE FILTERS -----
+// ==========================================
+filterAtrLen    = input.int(50, "ATR Volatility Baseline Period", minval=5, group="Candle Range Filters (v2.2 & v3.8)")
+useRangeFilter  = input.bool(true, "Enable Floor Filter (Block Too Small)", group="Candle Range Filters (v2.2 & v3.8)")
+minRangePercent = input.float(40.0, "Min Candle Range (% of ATR)", minval=0.0, maxval=200.0, step=5.0, group="Candle Range Filters (v2.2 & v3.8)")
+
+useMaxCandleFilter = input.bool(true, "Enable Ceiling Filter (Block Too Large)", group="Candle Range Filters (v2.2 & v3.8)")
+maxRangePercent    = input.float(375.0, "Max Allowed Candle Range (% of ATR)", minval=50.0, maxval=1000.0, step=5.0, group="Candle Range Filters (v2.2 & v3.8)")
+
+// ==========================================
+// --- v2.4 VALUE ZONE BOUNDARIES -----------
+// ==========================================
+stcLowerZone = input.float(25.0, "Max STC for Longs (Oversold Floor)", minval=1.0, maxval=50.0, group="v2.4 Value Zone Settings")
+stcUpperZone = input.float(75.0, "Min STC for Shorts (Overbought Ceiling)", minval=50.0, maxval=99.0, group="v2.4 Value Zone Settings")
+
+// ==========================================
+// --- v2.7 VOLUME INTENSITY SETTINGS -------
+// ==========================================
+useVolumeFilter = input.bool(true, "Enable Volume Intensity Filter", group="v2.7 Volume Filter Settings")
+volFastLen      = input.int(5, "Volume Fast EMA Length", minval=1, group="v2.7 Volume Filter Settings")
+volSlowLen      = input.int(10, "Volume Slow EMA Length", minval=2, group="v2.7 Volume Filter Settings")
+
+// ==========================================
+// --- v2.8 BREAKEVEN PROTECTION SETTINGS ---
+// ==========================================
+useBreakeven    = input.bool(true, "Enable Breakeven Protection", group="v2.8 Breakeven Settings")
+beMilestoneR    = input.float(1.5, "Trigger Milestone R-Multiple", minval=0.1, step=0.1, group="v2.8 Breakeven Settings")
+
+// ==========================================
+// --- v3.0 CANDLE REJECTION SETTINGS -------
+// ==========================================
+useWickFilter   = input.bool(true, "Enable Rejection Wick Filter", group="v3.0 Candle Rejection Settings")
+maxWickPercent  = input.float(50.0, "Max Allowed Counter-Wick %", minval=1.0, maxval=100.0, step=2.5, group="v3.0 Candle Rejection Settings")
+
+// ==========================================
+// --- v3.1 LOCKED SWEET SPOT PARAMETERS ----
+// ==========================================
+useVelocityFilter = input.bool(true, "Enable Trend Velocity Blocker", group="v3.1 Velocity Settings")
+trendEmaLen       = input.int(25, "Velocity Baseline EMA Length", minval=5, group="v3.1 Velocity Settings")
+velocityLookback  = input.int(3, "Velocity Evaluation Window (Bars)", minval=1, group="v3.1 Velocity Settings")
+maxAllowedSlope   = input.float(0.0010, "Max Allowed EMA Change (Pips)", step=0.0001, group="v3.1 Velocity Settings")
+
+// ==========================================
+// --- v3.2: PARTIAL TAKE PROFIT ENGINE -----
+// ==========================================
+usePartialTP     = input.bool(false, "Enable 50% Partial Take Profit", group="v3.2 Partial Management")
+partialMilestone = input.float(1.5, "Partial TP Milestone R-Multiple", minval=0.1, step=0.1, group="v3.2 Partial Management")
+
+// ==========================================
+// --- v4.4 DYNAMIC R:R REGIME INPUTS -------
+// ==========================================
+regimeFastAtrLen  = input.int(14, "Fast Regime ATR Period", minval=3, group="v3.7 Dynamic R:R Regime Settings")
+regimeSlowAtrLen  = input.int(200, "Slow Baseline ATR Period", minval=50, group="v3.7 Dynamic R:R Regime Settings")
+highVolThreshold  = input.float(1.2, "High Volatility Threshold Ratio", minval=1.0, step=0.05, group="v3.7 Dynamic R:R Regime Settings")
+lowVolThreshold   = input.float(0.8, "Low Volatility Threshold Ratio", maxval=1.0, step=0.05, group="v3.7 Dynamic R:R Regime Settings")
+
+normalRrTarget    = input.float(3.0, "Normal Regime R-Multiple Target", minval=0.1, step=0.1, group="v3.7 Dynamic R:R Regime Settings")
+highVolRrTarget   = input.float(3.0, "High Volatility Expansion Target", minval=0.1, step=0.1, group="v3.7 Dynamic R:R Regime Settings", tooltip="v4.4 Adjustment: Tighter targets for high volatility regimes.")
+lowVolRrTarget    = input.float(4.0, "Low Volatility Compression Target", minval=0.1, step=0.1, group="v3.7 Dynamic R:R Regime Settings")
+
+// ==========================================
+// --- INDICATOR SPECIFIC INPUTS ------------
+// ==========================================
+utKeyV       = input.float(2.0, "UT Bot Key Value (Sensitivity)", step=0.1, group="UT Bot Alerts Settings")
+utAtrLen     = input.int(1, "UT Bot ATR Period", minval=1, group="UT Bot Alerts Settings")
+
+stcLength    = input.int(80, "STC Length", group="STC Settings")
+stcFastLen   = input.int(27, "STC Fast Length", group="STC Settings")
+stcSlowLen   = input.int(50, "STC Slow Length", group="STC Settings")
+stcAaa       = input.float(0.5, "STC AAA Factor", step=0.05, group="STC Settings")
+
+// ==========================================
+// --- CORE LOGIC: UT BOT ALERTS ------------
+// ==========================================
+utSrc = close
+utAtr = ta.atr(utAtrLen)
+utLoss = utKeyV * utAtr
+
+var float utTrailingStop = na
+if na(utTrailingStop)
+    utTrailingStop := utSrc - utLoss
+else
+    if utSrc > utTrailingStop[1] and utSrc[1] > utTrailingStop[1]
+        utTrailingStop := math.max(utTrailingStop[1], utSrc - utLoss)
+    else if utSrc < utTrailingStop[1] and utSrc[1] < utTrailingStop[1]
+        utTrailingStop := math.min(utTrailingStop[1], utSrc + utLoss)
+    else
+        utTrailingStop := utSrc > utTrailingStop[1] ? utSrc - utLoss : utSrc + utLoss
+
+var int utPos = 0
+if utSrc[1] < utTrailingStop[1] and utSrc > utTrailingStop
+    utPos := 1
+else if utSrc[1] > utTrailingStop[1] and utSrc < utTrailingStop
+    utPos := -1
+else
+    utPos := utPos[1]
+
+utEma = ta.ema(utSrc, 1)
+utAbove = ta.crossover(utEma, utTrailingStop)
+utBelow = ta.crossover(utTrailingStop, utEma)
+
+utBuySignal  = utSrc > utTrailingStop and utAbove
+utSellSignal = utSrc < utTrailingStop and utBelow
+
+// ==========================================
+// --- CORE LOGIC: SCHAFF TREND CYCLE (STC) -
+// ==========================================
+stcMacdCalc(src, fastLen, slowLen) =>
+    fastMA = ta.ema(src, fastLen)
+    slowMA = ta.ema(src, slowLen)
+    fastMA - slowMA
+
+stcFunction(length, fastLen, slowLen, factor) =>
+    var float cVal = 0.0
+    var float dVal = 0.0
+    var float dVal6 = 0.0
+    var float eVal = 0.0
+
+    macdVal = stcMacdCalc(close, fastLen, slowLen)
+    lowestMacd = ta.lowest(macdVal, length)
+    rangeMacd = ta.highest(macdVal, length) - lowestMacd
+
+    cVal := rangeMacd > 0 ? (macdVal - lowestMacd) / rangeMacd * 100 : nz(cVal[1])
+    dVal := na(dVal[1]) ? cVal : dVal[1] + factor * (cVal - dVal[1])
+
+    lowestD = ta.lowest(dVal, length)
+    rangeD = ta.highest(dVal, length) - lowestD
+
+    dVal6 := rangeD > 0 ? (dVal - lowestD) / rangeD * 100 : nz(dVal6[1])
+    eVal := na(eVal[1]) ? dVal6 : eVal[1] + factor * (dVal6 - eVal[1])
+    eVal
+
+mSTC = stcFunction(stcLength, stcFastLen, stcSlowLen, stcAaa)
+stcIsUp   = mSTC > mSTC[1]
+stcIsDown = mSTC < mSTC[1]
+
+// ==========================================
+// --- ENVIRONMENT FILTERS ------------------
+// ==========================================
+currentBarRange  = high - low
+baselineFilterAtr = ta.atr(filterAtrLen)
+
+rangeFloorPassed = not useRangeFilter or (currentBarRange >= (baselineFilterAtr * (minRangePercent / 100.0)))
+rangeCeilingPassed = not useMaxCandleFilter or (currentBarRange <= (baselineFilterAtr * (maxRangePercent / 100.0)))
+
+fastVolEma = ta.ema(volume, volFastLen)
+slowVolEma = ta.ema(volume, volSlowLen)
+volumeOscillator = slowVolEma != 0 ? ((fastVolEma - slowVolEma) / slowVolEma) * 100 : 0.0
+volumeFilterPassed = not useVolumeFilter or (volumeOscillator > 0.0)
+
+candleTotalRange = high - low
+longUpperRejectionWick = high - math.max(open, close)
+shortLowerRejectionWick = math.min(open, close) - low
+longWickPercent  = candleTotalRange > 0 ? (longUpperRejectionWick / candleTotalRange) * 100.0 : 0.0
+shortWickPercent = candleTotalRange > 0 ? (shortLowerRejectionWick / candleTotalRange) * 100.0 : 0.0
+longWickFilterPassed  = not useWickFilter or (longWickPercent <= maxWickPercent)
+shortWickFilterPassed = not useWickFilter or (shortWickPercent <= maxWickPercent)
+
+baselineEma = ta.ema(close, trendEmaLen)
+emaDelta = baselineEma - baselineEma[velocityLookback]
+longVelocityBlock = useVelocityFilter and (emaDelta < -maxAllowedSlope)
+shortVelocityBlock = useVelocityFilter and (emaDelta > maxAllowedSlope)
+
+// ==========================================
+// --- REGIME DETECTION & TARGET ASSIGNMENT --
+// ==========================================
+fastRegimeAtr = ta.atr(regimeFastAtrLen)
+slowRegimeAtr = ta.atr(regimeSlowAtrLen)
+volatilityRatio = slowRegimeAtr != 0 ? (fastRegimeAtr / slowRegimeAtr) : 1.0
+
+currentActiveRr = normalRrTarget
+if volatilityRatio >= highVolThreshold
+    currentActiveRr := highVolRrTarget
+else if volatilityRatio <= lowVolThreshold
+    currentActiveRr := lowVolRrTarget
+
+activeSwingLookback = volatilityRatio >= highVolThreshold ? highVolSwingLookback : normalSwingLookback
+
+var float activeOffsetPippettes = 0.0
+if useDynamicOffset
+    if volatilityRatio >= highVolThreshold
+        activeOffsetPippettes := highVolOffset
+    else if volatilityRatio <= lowVolThreshold
+        activeOffsetPippettes := lowVolOffset
+    else
+        activeOffsetPippettes := normalVolOffset
+else
+    activeOffsetPippettes := 0.0
+
+dynamicOffsetValue = activeOffsetPippettes * 0.00001
+
+// ==========================================
+// --- v4.3 RUNTIME CIRCUIT BREAKER ENGINE ---
+// ==========================================
+var float weeklyHighEquity = strategy.equity
+var bool circuitBreakerTripped = false
+
+isNewWeek = not na(ta.change(time("W"))) and ta.change(time("W")) != 0
+
+if isNewWeek
+    weeklyHighEquity := strategy.equity
+    circuitBreakerTripped := false
+else
+    weeklyHighEquity := math.max(weeklyHighEquity, strategy.equity)
+
+if useCircuitBreaker and not circuitBreakerTripped and strategy.position_size == 0
+    weeklyDrawdownPct = ((weeklyHighEquity - strategy.equity) / weeklyHighEquity) * 100.0
+    if weeklyDrawdownPct >= maxWeeklyLossPct
+        circuitBreakerTripped := true
+
+// ==========================================
+// --- STRATEGY CONDITIONS & EXECUTION ------
+// ==========================================
+inTradingWindow = not useSession or not na(time(timeframe.period, allowedSess, sessTimezone))
+
+globalLowestLow   = ta.lowest(low, activeSwingLookback)
+globalHighestHigh = ta.highest(high, activeSwingLookback)
+
+// Persistent Position Brackets
+var float slLevel = na
+var float tpLevel = na
+var float partialTpLevel = na
+var float entryPrice = na
+var float initialRisk = na
+var bool beTriggered = false
+var bool partialExecuted = false
+
+var float maxPriceSinceEntry = 0.0
+var float minPriceSinceEntry = 0.0
+
+// v4.6 Lag Tracker Registers
+var bool longAlertPending = false
+var int longAlertAge = 0
+var float pendingLongSl = na
+
+var bool shortAlertPending = false
+var int shortAlertAge = 0
+var float pendingShortSl = na
+
+riskCash = strategy.equity * (accountRisk / 100)
+
+// Evaluates every single structural rule EXCEPT the directional STC line color
+coreLongFiltersPassed = utBuySignal and (mSTC <= stcLowerZone) and inTradingWindow and rangeFloorPassed and rangeCeilingPassed and volumeFilterPassed and longWickFilterPassed and not longVelocityBlock and not circuitBreakerTripped
+coreShortFiltersPassed = utSellSignal and (mSTC >= stcUpperZone) and inTradingWindow and rangeFloorPassed and rangeCeilingPassed and volumeFilterPassed and shortWickFilterPassed and not shortVelocityBlock and not circuitBreakerTripped
+
+// --- LAG WINDOW STATE ENGINE ---
+if useLagWindow
+    // Long Trackers
+    if coreLongFiltersPassed and strategy.position_size == 0
+        longAlertPending := true
+        longAlertAge := 0
+        pendingLongSl := globalLowestLow
+        shortAlertPending := false // Cancel conflicting setup
+    else if longAlertPending
+        longAlertAge += 1
+
+    // Short Trackers
+    if coreShortFiltersPassed and strategy.position_size == 0
+        shortAlertPending := true
+        shortAlertAge := 0
+        pendingShortSl := globalHighestHigh
+        longAlertPending := false // Cancel conflicting setup
+    else if shortAlertPending
+        shortAlertAge += 1
+
+    // Expiration Gate
+    if longAlertAge > maxLagBars or not inTradingWindow or circuitBreakerTripped
+        longAlertPending := false
+    if shortAlertAge > maxLagBars or not inTradingWindow or circuitBreakerTripped
+        shortAlertPending := false
+else
+    // Fallback to traditional immediate conjunction
+    longAlertPending := coreLongFiltersPassed
+    shortAlertPending := coreShortFiltersPassed
+    pendingLongSl := globalLowestLow
+    pendingShortSl := globalHighestHigh
+
+// Clear states if active position exists
+if strategy.position_size != 0
+    longAlertPending := false
+    shortAlertPending := false
+
+// Final Signal Drivers
+finalBuySignal = longAlertPending and (useLagWindow ? stcIsUp : stcIsUp[0]) and strategy.position_size == 0
+finalSellSignal = shortAlertPending and (useLagWindow ? stcIsDown : stcIsDown[0]) and strategy.position_size == 0
+
+// Reset tracking states when fully flat
+if strategy.position_size == 0
+    slLevel := na
+    tpLevel := na
+    partialTpLevel := na
+    entryPrice := na
+    initialRisk := na
+    beTriggered := false
+    partialExecuted := false
+    maxPriceSinceEntry := 0.0
+    minPriceSinceEntry := 0.0
+
+if circuitBreakerTripped or not inTradingWindow
+    strategy.cancel_all()
+
+// LONG ORDER EXECUTION
+if finalBuySignal
+    calculatedEntry = close + dynamicOffsetValue
+    riskPrice = calculatedEntry - pendingLongSl
+
+    if riskPrice >= minStopDist
+        tradeQty = riskCash / riskPrice
+        strategy.entry("Long", strategy.long, qty=tradeQty, comment="Market Long")
+
+        slLevel := pendingLongSl
+        tpLevel := calculatedEntry + (riskPrice * currentActiveRr)
+        partialTpLevel := calculatedEntry + (riskPrice * partialMilestone)
+        entryPrice := close
+        initialRisk := riskPrice
+        beTriggered := false
+        partialExecuted := false
+        maxPriceSinceEntry := high
+        longAlertPending := false
+
+// SHORT ORDER EXECUTION
+if finalSellSignal
+    calculatedEntry = close - dynamicOffsetValue
+    riskPrice = pendingShortSl - calculatedEntry
+
+    if riskPrice >= minStopDist
+        tradeQty = riskCash / riskPrice
+        strategy.entry("Short", strategy.short, qty=tradeQty, comment="Market Short")
+
+        slLevel := pendingShortSl
+        tpLevel := calculatedEntry - (riskPrice * currentActiveRr)
+        partialTpLevel := calculatedEntry - (riskPrice * partialMilestone)
+        entryPrice := close
+        initialRisk := riskPrice
+        beTriggered := false
+        partialExecuted := false
+        minPriceSinceEntry := low
+        shortAlertPending := false
+
+// ==========================================
+// --- ACTIVE MANAGEMENT & EXITS ------------
+// ==========================================
+if strategy.position_size > 0
+    maxPriceSinceEntry := math.max(maxPriceSinceEntry, high)
+    if useBreakeven and not beTriggered
+        highestProfitPoints = maxPriceSinceEntry - entryPrice
+        beMilestonePoints = initialRisk * beMilestoneR
+        if highestProfitPoints >= beMilestonePoints
+            slLevel := entryPrice
+            beTriggered := true
+
+if strategy.position_size < 0
+    minPriceSinceEntry := math.min(minPriceSinceEntry, low)
+    if useBreakeven and not beTriggered
+        lowestProfitPoints = entryPrice - minPriceSinceEntry
+        beMilestonePoints = initialRisk * beMilestoneR
+        if lowestProfitPoints >= beMilestonePoints
+            slLevel := entryPrice
+            beTriggered := true
+
+if strategy.position_size > 0
+    if usePartialTP and not partialExecuted
+        strategy.exit("Part Long", "Long", qty_percent=50, limit=partialTpLevel, stop=slLevel, comment_profit="Partial TP Long", comment_loss="SL Long")
+    strategy.exit("Exit Long", "Long", stop=slLevel, limit=tpLevel, comment_profit="Full TP Long", comment_loss="SL Long")
+
+if strategy.position_size < 0
+    if usePartialTP and not partialExecuted
+        strategy.exit("Part Short", "Short", qty_percent=50, limit=partialTpLevel, stop=slLevel, comment_profit="Partial TP Short", comment_loss="SL Short")
+    strategy.exit("Exit Short", "Short", stop=slLevel, limit=tpLevel, comment_profit="Full TP Short", comment_loss="SL Short")
+
+if strategy.position_size != 0 and strategy.position_size[1] != 0 and math.abs(strategy.position_size) < math.abs(strategy.position_size[1])
+    partialExecuted := true
+
+// ==========================================
+// --- VISUAL PLOTS -------------------------
+// ==========================================
+bgcolor(circuitBreakerTripped ? color.new(color.red, 93) : (useSession and inTradingWindow ? color.new(color.blue, 97) : na), title="Breaker Active vs Session Active")
+plot(strategy.position_size != 0 ? slLevel : na, title="Dynamic Stop Loss Line", color=beTriggered ? color.orange : color.red, style=plot.style_linebr, linewidth=2)
+plot(strategy.position_size != 0 ? tpLevel : na, title="Active Take Profit", color=color.green, style=plot.style_linebr)
+</script>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E = window.Engine;
+const $ = id => document.getElementById(id);
+
+// ---------------- settings schema ----------------
+const TZ = ['UTC','Europe/London','Europe/Madrid','America/New_York','America/Mexico_City','America/Bogota','America/Argentina/Buenos_Aires','Asia/Tokyo'];
+const SCHEMA = [
+  {g:'Núcleo', v:'', open:true, f:[
+    ['initialCapital','Capital inicial ($)','num',{min:100,step:1000}],
+    ['useSession','Filtro de sesión','bool'],
+    ['allowedSess','Sesión permitida (HHMM-HHMM)','text'],
+    ['sessTimezone','Zona horaria de la sesión','select',{opts:TZ}],
+    ['accountRisk','Riesgo por operación (%)','num',{min:0.1,max:10,step:0.5}],
+    ['minStopDist','Distancia mínima de stop','num',{min:0,step:0.0001}]]},
+  {g:'Ventana de retraso STC', v:'v4.6', open:true, f:[
+    ['useLagWindow','Activar ventana de confirmación','bool'],
+    ['maxLagBars','Retraso máximo (velas)','num',{min:1,max:5,step:1,int:true}]]},
+  {g:'Cortacircuitos semanal', v:'v4.3', f:[
+    ['useCircuitBreaker','Activar cortacircuitos','bool'],
+    ['maxWeeklyLossPct','Pérdida semanal máx. (%)','num',{min:0.5,max:20,step:0.5}]]},
+  {g:'Offset dinámico de entrada', v:'v4.2', f:[
+    ['useDynamicOffset','Activar offset por volatilidad','bool'],
+    ['lowVolOffset','Vol. baja (pipetas)','num',{min:0,step:0.5}],
+    ['normalVolOffset','Vol. normal (pipetas)','num',{min:0,step:0.5}],
+    ['highVolOffset','Vol. alta (pipetas)','num',{min:0,step:0.5}]]},
+  {g:'Stop por swing', v:'v3.9', f:[
+    ['normalSwingLookback','Swing vol. normal/baja (velas)','num',{min:1,step:1,int:true}],
+    ['highVolSwingLookback','Swing vol. alta (velas)','num',{min:1,step:1,int:true}]]},
+  {g:'Filtros de rango de vela', v:'v2.2 · v3.8', f:[
+    ['filterAtrLen','Periodo ATR base','num',{min:5,step:1,int:true}],
+    ['useRangeFilter','Bloquear velas pequeñas','bool'],
+    ['minRangePercent','Rango mínimo (% ATR)','num',{min:0,max:200,step:5}],
+    ['useMaxCandleFilter','Bloquear velas grandes','bool'],
+    ['maxRangePercent','Rango máximo (% ATR)','num',{min:50,max:1000,step:5}]]},
+  {g:'Zonas de valor STC', v:'v2.4', f:[
+    ['stcLowerZone','STC máx. para largos','num',{min:1,max:50,step:1}],
+    ['stcUpperZone','STC mín. para cortos','num',{min:50,max:99,step:1}]]},
+  {g:'Intensidad de volumen', v:'v2.7', f:[
+    ['useVolumeFilter','Activar filtro de volumen','bool'],
+    ['volFastLen','EMA rápida de volumen','num',{min:1,step:1,int:true}],
+    ['volSlowLen','EMA lenta de volumen','num',{min:2,step:1,int:true}]]},
+  {g:'Breakeven', v:'v2.8', f:[
+    ['useBreakeven','Activar breakeven','bool'],
+    ['beMilestoneR','Disparo en múltiplo R','num',{min:0.1,step:0.1}]]},
+  {g:'Mecha de rechazo', v:'v3.0', f:[
+    ['useWickFilter','Activar filtro de mecha','bool'],
+    ['maxWickPercent','Mecha contraria máx. (%)','num',{min:1,max:100,step:2.5}]]},
+  {g:'Bloqueo por velocidad', v:'v3.1', f:[
+    ['useVelocityFilter','Activar bloqueo','bool'],
+    ['trendEmaLen','EMA base','num',{min:5,step:1,int:true}],
+    ['velocityLookback','Ventana (velas)','num',{min:1,step:1,int:true}],
+    ['maxAllowedSlope','Cambio máx. de la EMA','num',{step:0.0001}]]},
+  {g:'TP parcial 50 %', v:'v3.2', f:[
+    ['usePartialTP','Activar TP parcial','bool'],
+    ['partialMilestone','TP parcial en múltiplo R','num',{min:0.1,step:0.1}]]},
+  {g:'Régimen y R:R dinámico', v:'v4.4', f:[
+    ['regimeFastAtrLen','ATR rápido','num',{min:3,step:1,int:true}],
+    ['regimeSlowAtrLen','ATR lento','num',{min:50,step:1,int:true}],
+    ['highVolThreshold','Umbral vol. alta (ratio)','num',{min:1,step:0.05}],
+    ['lowVolThreshold','Umbral vol. baja (ratio)','num',{max:1,step:0.05}],
+    ['normalRrTarget','Objetivo R normal','num',{min:0.1,step:0.1}],
+    ['highVolRrTarget','Objetivo R vol. alta','num',{min:0.1,step:0.1}],
+    ['lowVolRrTarget','Objetivo R vol. baja','num',{min:0.1,step:0.1}]]},
+  {g:'UT Bot', v:'', f:[
+    ['utKeyV','Key value (sensibilidad)','num',{step:0.1}],
+    ['utAtrLen','Periodo ATR','num',{min:1,step:1,int:true}]]},
+  {g:'Schaff Trend Cycle', v:'', f:[
+    ['stcLength','Longitud','num',{min:2,step:1,int:true}],
+    ['stcFastLen','Longitud rápida','num',{min:1,step:1,int:true}],
+    ['stcSlowLen','Longitud lenta','num',{min:2,step:1,int:true}],
+    ['stcAaa','Factor AAA','num',{min:0.01,max:1,step:0.05}]]}
+];
+
+let params = Object.assign({}, E.DEFAULTS);
+try { const saved = JSON.parse(localStorage.getItem('utstc-params') || 'null'); if (saved) params = Object.assign(params, saved); } catch (e) {}
+
+function buildSettings(){
+  const host = $('settings'); host.innerHTML = '';
+  for (const grp of SCHEMA){
+    const d = document.createElement('details'); if (grp.open) d.open = true;
+    d.innerHTML = '<summary>' + grp.g + ' <span class="ver">' + grp.v + '</span></summary>';
+    const box = document.createElement('div'); box.className = 'fields';
+    for (const [key,label,type,opt={}] of grp.f){
+      const row = document.createElement('div'); row.className = 'field'; row.dataset.key = key;
+      const id = 'p-' + key;
+      let input;
+      if (type === 'bool'){ input = '<input type="checkbox" id="'+id+'">'; }
+      else if (type === 'select'){ input = '<select id="'+id+'">' + opt.opts.map(o=>'<option>'+o+'</option>').join('') + '</select>'; }
+      else if (type === 'text'){ input = '<input type="text" id="'+id+'" spellcheck="false">'; }
+      else input = '<input type="number" id="'+id+'"' + (opt.min!=null?' min="'+opt.min+'"':'') + (opt.max!=null?' max="'+opt.max+'"':'') + ' step="'+(opt.step||'any')+'">';
+      row.innerHTML = '<label for="'+id+'">'+label+'</label>' + input;
+      box.appendChild(row);
+      const el = row.querySelector('#'+id);
+      if (type === 'bool') el.checked = !!params[key]; else el.value = params[key];
+      el.addEventListener(type==='bool'||type==='select' ? 'change' : 'input', () => {
+        let val;
+        if (type === 'bool') val = el.checked;
+        else if (type === 'num'){ val = parseFloat(el.value); if (!isFinite(val)) { row.classList.add('bad'); return; } if (opt.int) val = Math.round(val); }
+        else val = el.value;
+        row.classList.remove('bad');
+        params[key] = val; markChanged(); schedule();
+      });
+    }
+    d.appendChild(box); host.appendChild(d);
+  }
+  markChanged();
+}
+function markChanged(){
+  document.querySelectorAll('.field').forEach(r => r.classList.toggle('changed', params[r.dataset.key] !== E.DEFAULTS[r.dataset.key]));
+  try { localStorage.setItem('utstc-params', JSON.stringify(params)); } catch (e) {}
+}
+$('reset').addEventListener('click', () => { params = Object.assign({}, E.DEFAULTS); buildSettings(); schedule(); });
+
+// ---------------- data ----------------
+let data = null, dataLabel = '', res = null;
+function loadSample(){
+  const seed = Math.max(1, parseInt($('seed').value, 10) || 7);
+  data = E.makeSample(seed, 10); data.hasVolume = true;
+  dataLabel = '<b>Datos de ejemplo sintéticos</b> · tipo EURUSD 15 m · semilla ' + seed + ' · no son precios reales';
+  setMsg('');
+}
+$('reseed').addEventListener('click', () => { $('seed').value = 1 + Math.floor(Math.random()*9999); loadSample(); runNow(true); });
+$('seed').addEventListener('change', () => { loadSample(); runNow(true); });
+$('csv').addEventListener('change', ev => {
+  const file = ev.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const d = E.parseCSV(String(rd.result));
+      data = d; dataLabel = '<b>' + escapeHtml(file.name) + '</b> · ' + d.t.length.toLocaleString('es-ES') + ' velas' + (d.hasVolume ? '' : ' · sin columna de volumen');
+      setMsg(d.hasVolume ? '' : 'El archivo no tiene volumen: el filtro de volumen bloqueará todas las señales. Desactívalo en Parámetros.');
+      runNow(true);
+    } catch (e) { setMsg('No se pudo leer el CSV: ' + e.message); }
+    ev.target.value = '';
+  };
+  rd.readAsText(file);
+});
+function setMsg(s){ $('msg').textContent = s; $('msg').hidden = !s; }
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+// ---------------- formatting ----------------
+const money = new Intl.NumberFormat('es-ES',{style:'currency',currency:'USD',maximumFractionDigits:2});
+const fmtMoney = x => (x>0?'+':'') + money.format(x);
+const fmtP = x => isFinite(x) ? x.toFixed(5) : '–';
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const pad = x => String(x).padStart(2,'0');
+const fmtDate = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()] + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const fmtDay = t => { const d = new Date(t); return pad(d.getUTCDate()) + ' ' + MES[d.getUTCMonth()]; };
+const fmtHM = t => { const d = new Date(t); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+
+// ---------------- run ----------------
+let timer = null;
+function schedule(){ clearTimeout(timer); timer = setTimeout(() => runNow(false), 180); }
+function runNow(resetView){
+  res = E.run(data, params);
+  $('src-chip').innerHTML = dataLabel;
+  $('range-chip').innerHTML = data.t.length ? fmtDay(data.t[0]) + ' → ' + fmtDay(data.t[data.t.length-1]) + ' · UTC' : '';
+  if (!res.sessionValid) setMsg('La sesión "' + params.allowedSess + '" no tiene el formato HHMM-HHMM; se ignora el filtro.');
+  renderStats(); renderTrades(); renderFunnel();
+  if (resetView || !view.count) {
+    view.count = Math.min(data.t.length, defaultCount());
+    const last = res.trades.length ? res.trades[res.trades.length - 1] : null;
+    const focus = last ? (last.closed ? last.exitIdx : last.entryIdx) + Math.floor(view.count * 0.2) : data.t.length;
+    view.start = focus - view.count;
+  }
+  clampView(); draw(); drawEquity();
+}
+
+function renderStats(){
+  const s = res.stats;
+  const net = $('s-net'); net.textContent = fmtMoney(s.netProfit); net.className = 'v ' + (s.netProfit>=0?'pos':'neg');
+  $('s-net2').textContent = (s.netProfitPct>=0?'+':'') + s.netProfitPct.toFixed(2) + ' %' + (Math.abs(s.openPnl)>0.005 ? ' · abierta ' + fmtMoney(s.openPnl) : '');
+  $('s-trades').textContent = s.trades;
+  $('s-trades2').textContent = s.longs + ' largos · ' + s.shorts + ' cortos';
+  $('s-win').textContent = isFinite(s.winRate) ? s.winRate.toFixed(1) + ' %' : '–';
+  $('s-win2').textContent = s.wins + ' ganadoras';
+  $('s-pf').textContent = isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : (s.profitFactor === Infinity ? '∞' : '–');
+  $('s-dd').textContent = s.maxDdPct.toFixed(2) + ' %'; $('s-dd').className = 'v' + (s.maxDdPct>0?' neg':'');
+  $('s-dd2').textContent = money.format(-s.maxDd);
+  const r = $('s-r'); r.textContent = isFinite(s.avgR) ? (s.avgR>=0?'+':'') + s.avgR.toFixed(2) + ' R' : '–'; r.className = 'v ' + (s.avgR>=0?'pos':'neg');
+}
+
+let selTrade = -1;
+function renderTrades(){
+  const tb = $('tbody');
+  if (!res.trades.length){ tb.innerHTML = '<tr><td colspan="12" class="empty">Ninguna operación con estos parámetros. Mira el embudo de señales para ver qué filtro las bloquea.</td></tr>'; return; }
+  const t = data.t;
+  tb.innerHTML = res.trades.map((tr,k) => {
+    const cls = tr.pnl>0?'pos':tr.pnl<0?'neg':'';
+    return '<tr data-k="'+k+'"'+(k===selTrade?' class="sel"':'')+'><td>'+(k+1)+'</td>'
+      + '<td><span class="pill '+(tr.dir>0?'l':'s')+'">'+(tr.dir>0?'Largo':'Corto')+'</span></td>'
+      + '<td>'+fmtDate(t[tr.entryIdx])+'</td><td>'+fmtP(tr.entryPrice)+'</td><td>'+fmtP(tr.sl0)+'</td><td>'+fmtP(tr.tp0)+'</td>'
+      + '<td class="reason">'+tr.regime+'</td>'
+      + '<td>'+(tr.closed?fmtDate(t[tr.exitIdx]):'abierta')+'</td><td>'+(tr.closed?fmtP(tr.exitPrice):'–')+'</td>'
+      + '<td class="reason">'+(tr.closed?tr.reason:'–')+'</td>'
+      + '<td class="'+cls+'">'+(tr.closed?(tr.r>=0?'+':'')+tr.r.toFixed(2):'–')+'</td>'
+      + '<td class="'+cls+'">'+(tr.closed?fmtMoney(tr.pnl):'–')+'</td></tr>';
+  }).join('');
+}
+$('tbody').addEventListener('click', ev => {
+  const row = ev.target.closest('tr[data-k]'); if (!row) return;
+  selTrade = +row.dataset.k;
+  document.querySelectorAll('#tbody tr').forEach(r => r.classList.toggle('sel', r === row));
+  const tr = res.trades[selTrade];
+  const mid = Math.round((tr.signalIdx + (tr.closed ? tr.exitIdx : tr.entryIdx)) / 2);
+  view.count = Math.max(60, Math.min(view.count, 240));
+  view.start = mid - Math.floor(view.count/2); clampView(); draw();
+  $('chart-box').scrollIntoView({block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+});
+
+const FUNNEL_LABELS = [['zone','Fuera de zona STC'],['session','Fuera de sesión'],['floor','Vela demasiado pequeña'],['ceiling','Vela demasiado grande'],['volume','Volumen flojo'],['wick','Mecha de rechazo'],['velocity','Velocidad contraria'],['breaker','Cortacircuitos'],['inPosition','Ya en posición']];
+function renderFunnel(){
+  const col = (name, f) => {
+    const max = Math.max(1, f.total);
+    const row = (label, n, cls) => '<div class="frow '+(cls||'')+'"><span>'+label+'</span><span class="bar"><i style="width:'+(n/max*100).toFixed(1)+'%"></i></span><span class="n">'+n+'</span></div>';
+    return '<div><h3>'+name+' <span>'+f.total+' señales UT</span></h3>'
+      + FUNNEL_LABELS.map(([k,lbl]) => row(lbl, f[k])).join('')
+      + row('Pasan todos los filtros', f.passed, 'ok sep')
+      + row('Entradas tras confirmar STC', f.entries, 'go')
+      + '<div class="frow"><span>Rechazos por stop mínimo</span><span></span><span class="n">'+f.minStopRejects+'</span></div></div>';
+  };
+  $('funnel').innerHTML = col('Compras', res.funnel.long) + col('Ventas', res.funnel.short);
+}
+
+// ---------------- chart ----------------
+const view = {start:0, count:0};
+let hover = -1;
+const cv = $('chart'), ctx = cv.getContext('2d');
+const defaultCount = () => Math.max(60, Math.min(260, Math.floor(cv.clientWidth / 5)));
+function clampView(){
+  const n = data.t.length;
+  view.count = Math.max(30, Math.min(n, view.count));
+  view.start = Math.max(0, Math.min(n - view.count, view.start));
+  const sc = $('scroll'); sc.max = Math.max(0, n - view.count); sc.value = view.start;
+  $('scroll-lbl').textContent = view.count + ' velas';
+}
+function tok(){
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),grid:g('--grid'),long:g('--long'),short:g('--short'),be:g('--be'),ut:g('--ut'),sess:g('--sess'),brk:g('--brk'),surface:g('--surface'),accent:g('--accent'),mono:g('--mono')};
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function sizeCanvas(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  const x = c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); return [w,h];
+}
+let geo = null;
+function draw(){
+  if (!res) return;
+  const [W,H] = sizeCanvas(cv), T = tok(), d = data, n = d.t.length;
+  ctx.clearRect(0,0,W,H);
+  const axisW = 66, timeH = 22, gap = 12, plotW = W - axisW;
+  const priceH = Math.round((H - timeH - gap) * 0.72), stcTop = priceH + gap, stcH = H - timeH - stcTop;
+  const s = view.start, e = Math.min(n, s + view.count), bw = plotW / view.count;
+  const X = i => (i - s + 0.5) * bw;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = s; i < e; i++){
+    lo = Math.min(lo, d.l[i]); hi = Math.max(hi, d.h[i]);
+    for (const v of [res.slPlot[i], res.tpPlot[i]]) if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  }
+  const padY = (hi - lo) * 0.06 || 0.0005; lo -= padY; hi += padY;
+  const Y = p => 6 + (hi - p) / (hi - lo) * (priceH - 12);
+  const SY = v => stcTop + 4 + (100 - v) / 100 * (stcH - 8);
+  geo = {s, e, bw, plotW, priceH, stcTop, stcH, X, Y, SY, lo, hi};
+
+  // session + breaker bands
+  const band = (arr, color) => {
+    ctx.fillStyle = color; let st = -1;
+    for (let i = s; i <= e; i++){
+      const on = i < e && arr[i];
+      if (on && st < 0) st = i;
+      if (!on && st >= 0) { ctx.fillRect(X(st) - bw/2, 0, (i - st) * bw, H - timeH); st = -1; }
+    }
+  };
+  if (params.useSession) band(res.inWin, T.sess);
+  band(res.breaker, T.brk);
+
+  // grid + axis
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const step = niceStep((hi - lo) / 6);
+  ctx.strokeStyle = T.grid; ctx.fillStyle = T.muted;
+  for (let p = Math.ceil(lo / step) * step; p <= hi; p += step){
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.fillText(p.toFixed(5), plotW + 8, y);
+  }
+  ctx.strokeStyle = T.line;
+  ctx.beginPath(); ctx.moveTo(plotW + 0.5, 0); ctx.lineTo(plotW + 0.5, H - timeH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, stcTop - gap/2 + 0.5); ctx.lineTo(W, stcTop - gap/2 + 0.5); ctx.stroke();
+
+  // time axis
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(90 / bw));
+  let lastDay = -1;
+  for (let i = s; i < e; i++){
+    if ((i - s) % every) continue;
+    const dt = new Date(d.t[i]), day = dt.getUTCDate();
+    const lbl = day !== lastDay ? fmtDay(d.t[i]) : fmtHM(d.t[i]);
+    lastDay = day;
+    ctx.fillStyle = T.muted; ctx.fillText(lbl, Math.min(Math.max(X(i), 24), plotW - 24), H - 6);
+    ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(Math.round(X(i)) + 0.5, 0); ctx.lineTo(Math.round(X(i)) + 0.5, H - timeH); ctx.stroke();
+  }
+  ctx.textAlign = 'left';
+
+  // candles
+  const bodyW = Math.max(1, Math.min(12, bw * 0.66));
+  for (let i = s; i < e; i++){
+    const up = d.c[i] >= d.o[i], x = X(i);
+    ctx.strokeStyle = ctx.fillStyle = up ? T.long : T.short;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, Y(d.h[i])); ctx.lineTo(Math.round(x) + 0.5, Y(d.l[i])); ctx.stroke();
+    const y1 = Y(Math.max(d.o[i], d.c[i])), y2 = Y(Math.min(d.o[i], d.c[i]));
+    ctx.fillRect(x - bodyW/2, y1, bodyW, Math.max(1, y2 - y1));
+  }
+
+  // UT trailing stop
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, priceH); ctx.clip();
+  ctx.strokeStyle = T.ut; ctx.globalAlpha = 0.75; ctx.lineWidth = 1.25; ctx.beginPath();
+  let pen = false;
+  for (let i = s; i < e; i++){ const v = res.ts[i]; if (!isFinite(v)) { pen = false; continue; } const y = Y(v); if (!pen) { ctx.moveTo(X(i), y); pen = true; } else ctx.lineTo(X(i), y); }
+  ctx.stroke(); ctx.globalAlpha = 1;
+
+  // stop / target lines
+  const seg = (arr, colorFn, width) => {
+    ctx.lineWidth = width;
+    for (let i = s; i < e; i++){
+      const v = arr[i]; if (!isFinite(v)) continue;
+      ctx.strokeStyle = colorFn(i);
+      ctx.beginPath(); ctx.moveTo(X(i) - bw/2, Y(v)); ctx.lineTo(X(i) + bw/2, Y(v)); ctx.stroke();
+    }
+  };
+  seg(res.tpPlot, () => T.long, 1.5);
+  seg(res.slPlot, i => res.bePlot[i] ? T.be : T.short, 2);
+
+  // trades
+  res.trades.forEach((tr, k) => {
+    const endIdx = tr.closed ? tr.exitIdx : e - 1;
+    if (endIdx < s || tr.entryIdx >= e) return;
+    const col = tr.dir > 0 ? T.long : T.short;
+    const xe = X(tr.entryIdx), ye = Y(tr.entryPrice);
+    if (tr.closed){
+      const xx = X(tr.exitIdx), yx = Y(tr.exitPrice);
+      ctx.setLineDash([3,3]); ctx.lineWidth = 1; ctx.strokeStyle = tr.pnl > 0 ? T.long : T.short;
+      ctx.beginPath(); ctx.moveTo(xe, ye); ctx.lineTo(xx, yx); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = T.surface; ctx.strokeStyle = tr.pnl > 0 ? T.long : T.short; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(xx, yx, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    // entry triangle placed beyond the signal candle's wick
+    const sz = 6, yb = tr.dir > 0 ? Y(d.l[tr.entryIdx]) + 9 : Y(d.h[tr.entryIdx]) - 9;
+    ctx.fillStyle = col; ctx.beginPath();
+    if (tr.dir > 0){ ctx.moveTo(xe, yb - sz); ctx.lineTo(xe - sz, yb + sz); ctx.lineTo(xe + sz, yb + sz); }
+    else { ctx.moveTo(xe, yb + sz); ctx.lineTo(xe - sz, yb - sz); ctx.lineTo(xe + sz, yb - sz); }
+    ctx.closePath(); ctx.fill();
+    if (k === selTrade){ ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.fillStyle = T.ink; ctx.beginPath(); ctx.arc(xe, ye, 2.5, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.restore();
+
+  // STC pane
+  ctx.font = '11px ' + T.mono; ctx.textBaseline = 'middle';
+  for (const [v, dash] of [[params.stcUpperZone, true], [params.stcLowerZone, true], [0, false], [100, false]]){
+    const y = Math.round(SY(v)) + 0.5;
+    ctx.strokeStyle = dash ? T.muted : T.grid; ctx.globalAlpha = dash ? 0.6 : 1; ctx.setLineDash(dash ? [4,4] : []);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.fillStyle = T.muted; ctx.fillText(String(Math.round(v)), plotW + 8, y);
+  }
+  ctx.fillStyle = T.muted; ctx.textBaseline = 'top'; ctx.fillText('STC ' + params.stcLength + '/' + params.stcFastLen + '/' + params.stcSlowLen, 8, stcTop + 2);
+  ctx.lineWidth = 1.75;
+  for (let i = Math.max(1, s); i < e; i++){
+    ctx.strokeStyle = res.stcUp[i] ? T.long : T.short;
+    ctx.beginPath(); ctx.moveTo(X(i-1), SY(res.stc[i-1])); ctx.lineTo(X(i), SY(res.stc[i])); ctx.stroke();
+  }
+
+  // crosshair
+  if (hover >= s && hover < e){
+    const x = Math.round(X(hover)) + 0.5;
+    ctx.strokeStyle = T.muted; ctx.globalAlpha = 0.5; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - timeH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const i = hover >= view.start && hover < Math.min(data.t.length, view.start + view.count) ? hover : Math.min(data.t.length, view.start + view.count) - 1;
+  if (i < 0) { $('readout').innerHTML = ''; return; }
+  const d = data, r = res.ratio[i];
+  const reg = r >= params.highVolThreshold ? 'alta' : r <= params.lowVolThreshold ? 'baja' : 'normal';
+  $('readout').innerHTML = fmtDate(d.t[i]) + '  O <b>' + fmtP(d.o[i]) + '</b> H <b>' + fmtP(d.h[i]) + '</b> L <b>' + fmtP(d.l[i]) + '</b> C <b>' + fmtP(d.c[i]) + '</b><br>STC <b>' + res.stc[i].toFixed(1) + '</b> · vol. ' + reg + ' (' + r.toFixed(2) + ')' + (res.breaker[i] ? ' · <b>cortacircuitos</b>' : '');
+}
+
+// interaction
+let drag = null;
+cv.addEventListener('pointerdown', ev => { drag = {x: ev.clientX, start: view.start, id: ev.pointerId}; cv.setPointerCapture(ev.pointerId); });
+cv.addEventListener('pointermove', ev => {
+  if (!geo) return;
+  const rect = cv.getBoundingClientRect(), mx = ev.clientX - rect.left;
+  if (drag){
+    view.start = drag.start - Math.round((ev.clientX - drag.x) / geo.bw); clampView();
+  }
+  hover = mx < geo.plotW ? view.start + Math.floor(mx / geo.bw) : -1;
+  draw();
+});
+const endDrag = () => { drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = -1; draw(); } });
+cv.addEventListener('wheel', ev => {
+  if (!geo) return; ev.preventDefault();
+  const rect = cv.getBoundingClientRect(), frac = Math.min(1, (ev.clientX - rect.left) / geo.plotW);
+  const anchor = view.start + frac * view.count;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) { view.start += Math.round(ev.deltaX / geo.bw); }
+  else { view.count = Math.round(view.count * (ev.deltaY > 0 ? 1.15 : 1/1.15)); clampView(); view.start = Math.round(anchor - frac * view.count); }
+  clampView(); draw();
+}, {passive:false});
+const zoom = f => { const mid = view.start + view.count/2; view.count = Math.round(view.count * f); clampView(); view.start = Math.round(mid - view.count/2); clampView(); draw(); };
+$('zin').addEventListener('click', () => zoom(1/1.4));
+$('zout').addEventListener('click', () => zoom(1.4));
+$('zend').addEventListener('click', () => { view.start = data.t.length; clampView(); draw(); });
+$('scroll').addEventListener('input', ev => { view.start = +ev.target.value; clampView(); draw(); });
+
+// ---------------- equity ----------------
+const ecv = $('eq'), ectx = ecv.getContext('2d');
+function drawEquity(){
+  if (!res || $('eq').closest('[hidden]')) return;
+  const [W,H] = sizeCanvas(ecv), T = tok(), eq = res.equity, n = eq.length;
+  ectx.clearRect(0,0,W,H);
+  if (!n) return;
+  const axisW = 84, bottom = 22, plotW = W - axisW, plotH = H - bottom - 8;
+  const cap = params.initialCapital;
+  let lo = Math.min(cap, ...eq), hi = Math.max(cap, ...eq);
+  const pd = (hi - lo) * 0.08 || 50; lo -= pd; hi += pd;
+  const X = i => i / Math.max(1, n - 1) * plotW, Y = v => 8 + (hi - v) / (hi - lo) * plotH;
+  ectx.font = '11px ' + T.mono; ectx.textBaseline = 'middle'; ectx.lineWidth = 1;
+  const step = niceStep((hi - lo) / 5);
+  for (let v = Math.ceil(lo/step)*step; v <= hi; v += step){
+    const y = Math.round(Y(v)) + 0.5;
+    ectx.strokeStyle = T.grid; ectx.beginPath(); ectx.moveTo(0,y); ectx.lineTo(plotW,y); ectx.stroke();
+    ectx.fillStyle = T.muted; ectx.fillText(money.format(v).replace(/,\d+/, ''), plotW + 8, y);
+  }
+  // drawdown shading
+  let peak = -Infinity; ectx.fillStyle = T.brk; ectx.beginPath(); ectx.moveTo(0, Y(eq[0]));
+  const peaks = eq.map(v => (peak = Math.max(peak, v)));
+  for (let i = 0; i < n; i++) ectx.lineTo(X(i), Y(peaks[i]));
+  for (let i = n - 1; i >= 0; i--) ectx.lineTo(X(i), Y(eq[i]));
+  ectx.closePath(); ectx.fill();
+  // baseline
+  ectx.setLineDash([4,4]); ectx.strokeStyle = T.muted; ectx.beginPath(); ectx.moveTo(0, Math.round(Y(cap))+0.5); ectx.lineTo(plotW, Math.round(Y(cap))+0.5); ectx.stroke(); ectx.setLineDash([]);
+  // line
+  ectx.strokeStyle = T.accent; ectx.lineWidth = 2; ectx.beginPath();
+  for (let i = 0; i < n; i++) i ? ectx.lineTo(X(i), Y(eq[i])) : ectx.moveTo(X(i), Y(eq[i]));
+  ectx.stroke();
+  ectx.fillStyle = T.accent; ectx.beginPath(); ectx.arc(X(n-1), Y(eq[n-1]), 3.5, 0, Math.PI*2); ectx.fill();
+  // time labels
+  ectx.fillStyle = T.muted; ectx.textBaseline = 'alphabetic';
+  ectx.textAlign = 'left'; ectx.fillText(fmtDay(data.t[0]), 0, H - 6);
+  ectx.textAlign = 'right'; ectx.fillText(fmtDay(data.t[n-1]), plotW, H - 6);
+  ectx.textAlign = 'left';
+}
+
+// ---------------- tabs ----------------
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+  if (b.dataset.tab === 'equity') drawEquity();
+}));
+
+// ---------------- pine source ----------------
+const pine = $('pine-src').textContent.replace(/^\n/, '');
+function highlight(src){
+  return src.split('\n').map(line => {
+    const ci = line.indexOf('//');
+    let code = ci >= 0 ? line.slice(0, ci) : line, cm = ci >= 0 ? line.slice(ci) : '';
+    code = code.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]))
+      .replace(/("[^"]*")/g, '<span class="st">$1</span>')
+      .replace(/\b(if|else|var|and|or|not|true|false|na)\b(?![^<]*<\/span>)/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+\.?\d*)\b(?![^<]*<\/span>)/g, '<span class="nu">$1</span>');
+    return code + (cm ? '<span class="cm">' + escapeHtml(cm) + '</span>' : '');
+  }).join('\n');
+}
+$('code').innerHTML = highlight(pine);
+$('copy').addEventListener('click', () => {
+  const done = () => { $('copy').textContent = 'Copiado'; setTimeout(() => $('copy').textContent = 'Copiar código', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Seleccionado: pulsa Ctrl+C'; };
+  try { navigator.clipboard.writeText(pine).then(done, fallback); } catch (e) { fallback(); }
+});
+
+// ---------------- boot ----------------
+new ResizeObserver(() => { if (res) { clampView(); draw(); drawEquity(); } }).observe($('chart-box'));
+const redraw = () => { draw(); drawEquity(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+buildSettings();
+loadSample();
+runNow(true);
+})();
+</script>
+</body>
+</html>
